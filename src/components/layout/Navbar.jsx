@@ -40,15 +40,21 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
               </button>
             )}
 
-            {/* Logo - Updated with animation and calendar icon */}
+            {/* Logo - Updated with initial rotation animation and margin */}
             <Link 
               to={user ? "/dashboard" : "/"} 
-              className="flex items-center gap-2 group"
+              className="flex items-center gap-2 group ml-2 md:ml-4"
             >
               <motion.div
-                initial={{ rotate: -5 }}
+                initial={{ rotate: -180, scale: 0.5, opacity: 0 }}
+                animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 260, 
+                  damping: 20, 
+                  duration: 0.8 
+                }}
                 whileHover={{ rotate: 5, scale: 1.1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 10 }}
                 className="flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-600 
                   h-8 w-8 rounded-lg shadow-lg shadow-orange-500/20"
               >
@@ -57,9 +63,10 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
               <motion.span 
                 className="text-2xl font-extrabold font-sans text-transparent bg-clip-text bg-gradient-to-r 
                   from-orange-400 to-amber-500 tracking-tight"
-                initial={{ opacity: 0.8 }}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
                 whileHover={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
               >
                 Effisense
               </motion.span>
