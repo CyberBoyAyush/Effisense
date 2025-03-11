@@ -72,16 +72,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     >
       {/* Centered Modal Container - Max height limited to prevent scrolling */}
       <div className="w-[95%] sm:w-[90%] max-w-md mx-auto my-auto bg-gray-800 rounded-2xl shadow-xl
-        max-h-[80vh] flex flex-col border border-gray-700/50 transform-gpu">
+        max-h-[80vh] flex flex-col border border-orange-700/30 transform-gpu">
         
         {/* Header */}
-        <div className="p-4 border-b border-gray-700/50 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold text-white">
+        <div className="p-4 bg-gradient-to-r from-gray-800/80 to-orange-950/20 border-b border-orange-700/30 flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-semibold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
             {taskToEdit ? "Edit Task" : "Add New Task"}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full bg-gray-700/50 text-gray-400 hover:text-white"
+            className="p-2 rounded-full bg-gray-700/50 text-gray-400 hover:text-orange-300 transition-colors"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,7 +103,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 placeholder="Enter task title"
                 className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
                   text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-                  focus:ring-blue-500 focus:border-transparent"
+                  focus:ring-orange-500 focus:border-transparent"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -120,7 +120,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 placeholder="Enter task details"
                 className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
                   text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-                  focus:ring-blue-500 focus:border-transparent min-h-[60px]"
+                  focus:ring-orange-500 focus:border-transparent min-h-[60px]"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -135,7 +135,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   id="deadline"
                   type="date"
                   className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
-                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
                 />
@@ -149,7 +149,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   id="time"
                   type="time"
                   className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
-                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
@@ -159,21 +159,22 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-700 p-4 shrink-0">
+        <div className="border-t border-orange-700/30 p-4 bg-gray-800/90 shrink-0">
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2.5 bg-gray-700 text-gray-300 rounded-lg 
-                active:bg-gray-600 transition-colors"
+                hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="taskForm"
-              className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg 
-                active:bg-blue-700 transition-colors font-medium"
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
+                hover:from-orange-500 hover:to-amber-500 transition-colors font-medium
+                shadow-[0_0_10px_rgba(251,146,60,0.3)] hover:shadow-[0_0_15px_rgba(251,146,60,0.4)]"
             >
               {taskToEdit ? "Update" : "Add"}
             </button>
