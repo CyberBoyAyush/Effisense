@@ -76,33 +76,33 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-6 text-gray-200">
+    <div className="p-2 sm:p-4 md:p-6 text-gray-200">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50">
+      <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 p-3 sm:p-4 md:p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50">
         <div className="max-w-4xl">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             Welcome back, {user?.name}! 👋
           </h1>
-          <p className="text-gray-400 mt-2 text-lg">Let's make your day more productive.</p>
+          <p className="text-sm md:text-lg text-gray-400 mt-2">Let's make your day more productive.</p>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-4 sm:mt-6 md:mt-8">
         <StatCard title="Total Tasks" value={tasks.length} icon="📋" />
         <StatCard title="Completed" value={tasks.filter(t => t.completed).length} icon="✅" />
         <StatCard title="Pending" value={tasks.filter(t => !t.completed).length} icon="⏳" />
       </div>
 
       {/* Tasks Section */}
-      <div className="mt-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-white">Your Tasks</h2>
+      <div className="mt-4 sm:mt-6 md:mt-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
+          <h2 className="text-xl md:text-2xl font-semibold text-white">Your Tasks</h2>
           <button 
             onClick={handleAddTask}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
               transform hover:scale-105 transition-all duration-200 
-              shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center gap-2"
+              shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center sm:justify-start gap-2"
           >
             <span>Add Task</span>
             <span className="text-xl">+</span>
@@ -113,8 +113,8 @@ const Dashboard = () => {
       </div>
 
       {/* Calendar Preview */}
-      <div className="mt-8 p-6 bg-gradient-to-r from-gray-800/30 to-gray-900/30 rounded-2xl backdrop-blur-sm border border-gray-700/50">
-        <div className="flex justify-between items-center">
+      <div className="mt-4 sm:mt-6 md:mt-8 p-3 sm:p-4 md:p-6 bg-gradient-to-r from-gray-800/30 to-gray-900/30 rounded-2xl backdrop-blur-sm border border-gray-700/50">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-semibold text-white flex items-center gap-3">
             <span>📅</span>
             <span>Upcoming Events</span>
@@ -132,10 +132,10 @@ const Dashboard = () => {
 };
 
 const StatCard = ({ title, value, icon }) => (
-  <div className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:border-blue-500/50 transition-all duration-300">
-    <div className="text-3xl mb-4">{icon}</div>
-    <h3 className="text-gray-400 font-medium">{title}</h3>
-    <p className="text-2xl font-bold text-white mt-2">{value}</p>
+  <div className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 sm:p-4 md:p-6 hover:border-blue-500/50 transition-all duration-300">
+    <div className="text-xl sm:text-2xl md:text-3xl mb-2 sm:mb-3 md:mb-4">{icon}</div>
+    <h3 className="text-xs sm:text-sm md:text-base text-gray-400 font-medium">{title}</h3>
+    <p className="text-lg sm:text-xl md:text-2xl font-bold text-white mt-1 md:mt-2">{value}</p>
   </div>
 );
 

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-const Navbar = () => {
+const Navbar = ({ onMenuClick, showMenuButton }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -22,7 +22,19 @@ const Navbar = () => {
   return (
     <nav className="bg-gray-900/80 backdrop-blur-md border-b border-gray-800/50 fixed w-full z-30">
       <div className="max-w-full mx-auto px-4">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex items-center h-16">
+          {/* Mobile Menu Button */}
+          {showMenuButton && (
+            <button
+              onClick={onMenuClick}
+              className="p-2 mr-2 text-gray-400 hover:text-white md:hidden"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+
           {/* Logo */}
           <Link to={user ? "/dashboard" : "/"} className="flex items-center space-x-2">
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
@@ -30,16 +42,16 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Auth Section */}
-          <div className="flex items-center space-x-4">
+          {/* Auth Section - Updated for mobile */}
+          <div className="flex items-center ml-auto">
             {user ? (
               <div className="relative">
                 <button 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white 
-                    transition-colors duration-200 rounded-lg hover:bg-gray-800"
+                  className="flex items-center space-x-2 px-3 py-2 text-sm md:text-base"
                 >
-                  <span className="font-medium">{user.name}</span>
+                  <span className="font-medium hidden sm:block">{user.name}</span>
+                  <span className="sm:hidden">Menu</span>
                   <svg 
                     className={`w-5 h-5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
                     fill="none" 
@@ -80,7 +92,7 @@ const Navbar = () => {
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2 md:gap-4">
                 <Link 
                   to="/login" 
                   className="px-4 py-2 text-gray-300 hover:text-white transition-colors duration-200"
