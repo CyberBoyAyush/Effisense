@@ -100,16 +100,16 @@ const Tasks = () => {
 
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">
-      {/* Header section - Made more compact for mobile */}
-      <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 p-4 sm:p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50">
+      {/* Header section - Updated with orange theme */}
+      <div className="bg-gradient-to-r from-gray-800/50 to-orange-900/30 p-4 sm:p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-orange-800/30">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Task Management</h1>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Task Management</h1>
             <p className="text-sm md:text-base text-gray-400 mt-1 md:mt-2">Organize and track your tasks efficiently</p>
           </div>
           <button
             onClick={handleAddTask}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+            className="w-full sm:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-500 
               transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
           >
             <span>Add Task</span>
@@ -117,7 +117,7 @@ const Tasks = () => {
           </button>
         </div>
         
-        {/* Filter tabs - Reorganized */}
+        {/* Filter tabs - Updated with orange theme */}
         <div className="mt-4 sm:mt-6">
           {/* Status filters */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -139,7 +139,7 @@ const Tasks = () => {
             <FilterButton current={filter} value="today" onClick={setFilter} special>
               <span className="flex items-center gap-1">
                 <span>Today</span>
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
               </span>
               <span className="ml-1">
                 ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
@@ -167,13 +167,13 @@ const Tasks = () => {
             handleToggleComplete={handleToggleComplete} />
         )}
         
-        {/* For filtered views */}
+        {/* For filtered views - Updated with orange theme */}
         {filter !== 'all' && (
           <>
             {filteredTasks.length === 0 ? (
               <EmptyTasksMessage filter={filter} />
             ) : (
-              <div className="bg-gray-800/30 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 sm:p-6">
+              <div className="bg-gray-800/30 backdrop-blur-sm border border-orange-800/30 rounded-xl p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <TasksIcon filter={filter} />
                   <span>
@@ -202,15 +202,15 @@ const Tasks = () => {
   );
 };
 
-// Updated FilterButton component with special status option
+// Updated FilterButton component with orange theme
 const FilterButton = ({ current, value, onClick, children, special }) => (
   <button
     onClick={() => onClick(value)}
     className={`px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-all duration-200 
       ${current === value
-        ? 'bg-blue-600 text-white'
+        ? 'bg-orange-600 text-white'
         : special 
-          ? 'bg-blue-600/20 border border-blue-500/30 text-blue-300 hover:bg-blue-600/30' 
+          ? 'bg-orange-600/20 border border-orange-500/30 text-orange-300 hover:bg-orange-600/30' 
           : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
       }`}
   >
@@ -218,7 +218,7 @@ const FilterButton = ({ current, value, onClick, children, special }) => (
   </button>
 );
 
-// New component for empty state
+// New component for empty state - Updated with orange theme border
 const EmptyTasksMessage = ({ filter }) => {
   let message, emoji;
   
@@ -249,7 +249,7 @@ const EmptyTasksMessage = ({ filter }) => {
   }
   
   return (
-    <div className="text-center py-12 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50">
+    <div className="text-center py-12 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-orange-800/30">
       <div className="text-4xl mb-3">{emoji}</div>
       <h3 className="text-xl font-semibold text-gray-300">{message}</h3>
       <p className="text-gray-400 mt-2">Tasks you add will appear here</p>
@@ -269,7 +269,7 @@ const TasksIcon = ({ filter }) => {
   }
 };
 
-// New component to display sections on the all tasks view
+// Updated TaskSections component with orange theme
 const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend, handleEditTask, handleDeleteTask, handleToggleComplete }) => {
   const todayTasks = tasks.filter(t => isDateEqual(t.deadline, today) && !t.completed);
   const tomorrowTasks = tasks.filter(t => isDateEqual(t.deadline, tomorrow) && !t.completed);
@@ -290,7 +290,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           title="Today" 
           tasks={todayTasks} 
           icon="📅" 
-          accentColor="blue"
+          accentColor="orange"
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
@@ -303,7 +303,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           title="Tomorrow" 
           tasks={tomorrowTasks} 
           icon="🔮" 
-          accentColor="purple"
+          accentColor="amber"
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
@@ -316,7 +316,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           title="Weekend" 
           tasks={weekendTasks} 
           icon="🏝️" 
-          accentColor="amber"
+          accentColor="orange"
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
@@ -354,18 +354,17 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
   );
 };
 
-// New component for task section
-const TaskSection = ({ title, tasks, icon, accentColor = "blue", onEdit, onDelete, onToggleComplete, completed = false, collapsible = false }) => {
+// Updated TaskSection component with orange theme
+const TaskSection = ({ title, tasks, icon, accentColor = "orange", onEdit, onDelete, onToggleComplete, completed = false, collapsible = false }) => {
   const [collapsed, setCollapsed] = useState(collapsible);
   
-  // Set border and accent colors based on the provided color
+  // Set border and accent colors based on the provided color - Updated with orange
   const accentColorClass = {
-    blue: 'border-blue-500/30',
-    purple: 'border-purple-500/30',
+    orange: 'border-orange-500/30',
     amber: 'border-amber-500/30',
     green: 'border-green-500/30',
     gray: 'border-gray-500/30'
-  }[accentColor] || 'border-gray-700/50';
+  }[accentColor] || 'border-orange-700/50';
   
   return (
     <div className={`bg-gray-800/30 backdrop-blur-sm border ${accentColorClass} rounded-xl overflow-hidden`}>
@@ -379,7 +378,7 @@ const TaskSection = ({ title, tasks, icon, accentColor = "blue", onEdit, onDelet
         {collapsible && (
           <button 
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-orange-300 hover:bg-gray-700/50 rounded-lg transition-colors"
           >
             <svg className={`w-5 h-5 transition-transform ${collapsed ? '' : 'transform rotate-180'}`} 
               viewBox="0 0 20 20" fill="currentColor">

@@ -4,12 +4,12 @@ import { motion } from "framer-motion";
 
 const Home = () => {
   return (
-    <div className="relative mt-16 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900 overflow-hidden">
-      {/* Background Effects */}
+    <div className="relative mt-16 min-h-[calc(100vh-4rem)] bg-[#0A0A0A] bg-gradient-to-br from-black via-gray-900 to-[#0F0F0F] overflow-hidden">
+      {/* Background Effects - Updated with darker colors */}
       <div className="absolute inset-0">
-        <div className="absolute w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[100px] 
+        <div className="absolute w-[500px] h-[500px] bg-orange-600/5 rounded-full blur-[120px] 
           -top-20 -left-20 animate-pulse"></div>
-        <div className="absolute w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[100px] 
+        <div className="absolute w-[500px] h-[500px] bg-amber-600/5 rounded-full blur-[120px] 
           -bottom-20 -right-20 animate-pulse delay-1000"></div>
         <motion.div
           className="absolute inset-0 opacity-10"
@@ -22,7 +22,7 @@ const Home = () => {
             {Array.from({ length: 96 }).map((_, i) => (
               <motion.div
                 key={i}
-                className="aspect-square border border-gray-500/20 rounded-lg backdrop-blur-sm"
+                className="aspect-square border border-orange-500/10 rounded-lg backdrop-blur-sm"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: i * 0.01 }}
@@ -41,21 +41,21 @@ const Home = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            {/* AI Badge */}
+            {/* AI Badge - Updated with orange theme */}
             <motion.div
               className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r 
-                from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-blue-400 
+                from-orange-500/10 to-amber-500/10 border border-orange-500/20 text-orange-400 
                 text-sm gap-2 backdrop-blur-sm"
               whileHover={{ scale: 1.05 }}
             >
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
               </span>
               <span className="font-medium">AI-Powered Productivity</span>
             </motion.div>
 
-            {/* Fixed Heading */}
+            {/* Heading - Updated with orange gradient */}
             <motion.h1
               className="text-5xl md:text-7xl font-bold tracking-tight max-w-4xl mx-auto"
               variants={{
@@ -67,7 +67,7 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <span className="block text-transparent bg-clip-text bg-gradient-to-r 
-                from-blue-400 via-purple-400 to-blue-400">
+                from-orange-400 via-amber-400 to-orange-500">
                 Smart Task Management
               </span>
               <span className="block text-white mt-4">
@@ -86,7 +86,7 @@ const Home = () => {
               smart prioritization, and intelligent workload balancing.
             </motion.p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons - Updated with orange theme */}
             <motion.div
               className="flex flex-col sm:flex-row justify-center gap-4 mt-10"
               initial={{ opacity: 0, y: 20 }}
@@ -95,9 +95,9 @@ const Home = () => {
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link to="/signup"
-                  className="group px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl 
-                    hover:bg-blue-700 transition-all duration-200 
-                    shadow-[0_0_30px_rgba(59,130,246,0.5)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6)]
+                  className="group px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold rounded-xl 
+                    hover:from-orange-500 hover:to-amber-500 transition-all duration-200 
+                    shadow-[0_0_30px_rgba(251,146,60,0.4)] hover:shadow-[0_0_40px_rgba(251,146,60,0.5)]
                     flex items-center justify-center gap-2"
                 >
                   Get Started Free
@@ -109,7 +109,7 @@ const Home = () => {
                 <Link to="/about"
                   className="px-8 py-4 bg-gray-800/50 text-white font-semibold rounded-xl 
                     backdrop-blur-sm hover:bg-gray-800/70 transition-all duration-200 
-                    border border-gray-700/50 flex items-center justify-center gap-2"
+                    border border-orange-500/20 flex items-center justify-center gap-2"
                 >
                   Learn More
                   <span className="group-hover:translate-x-1 transition-transform">→</span>
@@ -120,7 +120,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Features Grid */}
+      {/* Features Grid - Updated with orange theme */}
       <motion.div
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20"
         initial={{ opacity: 0, y: 20 }}
@@ -134,18 +134,21 @@ const Home = () => {
             title="Smart Prioritization"
             description="AI analyzes your tasks and suggests the optimal order based on deadlines and importance."
             delay={0}
+            color="orange"
           />
           <AIFeatureCard
             icon="⚡"
             title="Intelligent Scheduling"
             description="Let AI find the perfect time slots for your tasks based on your productivity patterns."
             delay={0.2}
+            color="amber"
           />
           <AIFeatureCard
             icon="📊"
             title="Predictive Analytics"
             description="Get insights about your productivity trends with AI-powered analytics."
             delay={0.4}
+            color="orange"
           />
         </div>
       </motion.div>
@@ -153,34 +156,42 @@ const Home = () => {
   );
 };
 
-const AIFeatureCard = ({ icon, title, description, delay }) => (
-  <motion.div
-    className="group p-6 rounded-2xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 
-      hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5, delay }}
-    viewport={{ once: true }}
-    whileHover={{ y: -5 }}
-  >
+// Updated AIFeatureCard with orange theme
+const AIFeatureCard = ({ icon, title, description, delay, color = "orange" }) => {
+  const gradientClass = 
+    color === "amber" 
+      ? "from-amber-500/10 to-orange-500/10 hover:border-amber-500/50" 
+      : "from-orange-500/10 to-amber-500/10 hover:border-orange-500/50";
+
+  return (
     <motion.div
-      className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10"
-      initial={{ x: "-100%" }}
-      whileHover={{ x: 0 }}
-      transition={{ duration: 0.5 }}
-    />
-    <div className="relative">
+      className={`group p-6 rounded-2xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 
+        transition-all duration-300 relative overflow-hidden`}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay }}
+      viewport={{ once: true }}
+      whileHover={{ y: -5 }}
+    >
       <motion.div
-        className="text-4xl mb-4"
-        whileHover={{ scale: 1.2 }}
-        transition={{ type: "spring", stiffness: 300 }}
-      >
-        {icon}
-      </motion.div>
-      <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
-      <p className="text-gray-400">{description}</p>
-    </div>
-  </motion.div>
-);
+        className={`absolute inset-0 bg-gradient-to-r ${gradientClass}`}
+        initial={{ x: "-100%" }}
+        whileHover={{ x: 0 }}
+        transition={{ duration: 0.5 }}
+      />
+      <div className="relative">
+        <motion.div
+          className="text-4xl mb-4"
+          whileHover={{ scale: 1.2 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          {icon}
+        </motion.div>
+        <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
+        <p className="text-gray-400">{description}</p>
+      </div>
+    </motion.div>
+  );
+};
 
 export default Home;
