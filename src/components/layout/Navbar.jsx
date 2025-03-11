@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { FaCalendarAlt } from "react-icons/fa";
 
 const Navbar = ({ onMenuClick, showMenuButton }) => {
   const location = useLocation();
@@ -20,15 +22,15 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
   };
 
   return (
-    <nav className="bg-gray-900/80 backdrop-blur-md border-b border-gray-800/50 fixed w-full z-30">
+    <nav className="bg-gradient-to-r from-gray-900/95 via-gray-900/90 to-orange-950/20 backdrop-blur-md border-b border-orange-800/30 fixed w-full z-30">
       <div className="max-w-full mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
-            {/* Mobile Menu Button - Updated */}
+            {/* Mobile Menu Button */}
             {showMenuButton && (
               <button
                 onClick={onMenuClick}
-                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 
+                className="p-2 rounded-lg text-gray-400 hover:text-orange-300 hover:bg-gray-800/50 
                   transition-colors duration-200 md:hidden"
                 aria-label="Menu"
               >
@@ -38,19 +40,40 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
               </button>
             )}
 
-            {/* Logo - Enhanced */}
+            {/* Logo - Updated with initial rotation animation and margin */}
             <Link 
               to={user ? "/dashboard" : "/"} 
-              className="flex items-center gap-2 group"
+              className="flex items-center gap-2 group ml-2 md:ml-4"
             >
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 
-                bg-clip-text text-transparent group-hover:to-purple-400 transition-all duration-300">
+              <motion.div
+                initial={{ rotate: -180, scale: 0.5, opacity: 0 }}
+                animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 260, 
+                  damping: 20, 
+                  duration: 0.8 
+                }}
+                whileHover={{ rotate: 5, scale: 1.1 }}
+                className="flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-600 
+                  h-8 w-8 rounded-lg shadow-lg shadow-orange-500/20"
+              >
+                <FaCalendarAlt className="text-white text-lg" />
+              </motion.div>
+              <motion.span 
+                className="text-2xl font-extrabold font-sans text-transparent bg-clip-text bg-gradient-to-r 
+                  from-orange-400 to-amber-500 tracking-tight"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                whileHover={{ opacity: 1 }}
+              >
                 Effisense
-              </span>
+              </motion.span>
             </Link>
           </div>
 
-          {/* Auth Section - Redesigned */}
+          {/* Auth Section */}
           <div className="flex items-center gap-4">
             {user ? (
               <div className="relative group">
@@ -59,8 +82,8 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                   className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-800/50 
                     transition-all duration-200"
                 >
-                  {/* Profile Avatar */}
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 
+                  {/* Profile Avatar - Updated with orange gradient */}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-600 
                     flex items-center justify-center text-white font-medium">
                     {user.name[0].toUpperCase()}
                   </div>
@@ -79,12 +102,16 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                   </svg>
                 </button>
 
-                <div 
-                  className={`absolute right-0 mt-1 w-56 rounded-xl bg-gray-800 border border-gray-700
-                    shadow-lg transform transition-all duration-200 origin-top-right
-                    ${isDropdownOpen 
-                      ? 'opacity-100 scale-100 translate-y-0' 
-                      : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}
+                <motion.div 
+                  className="absolute right-0 mt-1 w-56 rounded-xl bg-gray-800 border border-orange-700/30
+                    shadow-lg overflow-hidden"
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ 
+                    opacity: isDropdownOpen ? 1 : 0, 
+                    y: isDropdownOpen ? 0 : -10,
+                    height: isDropdownOpen ? 'auto' : 0
+                  }}
+                  transition={{ duration: 0.2 }}
                 >
                   <div className="py-2">
                     <NavLink to="/dashboard" icon="🏠" label="Dashboard" />
@@ -93,32 +120,37 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                     <hr className="my-2 border-gray-700" />
                     <button 
                       onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-red-400 hover:text-red-300 
+                      className="w-full px-4 py-2 text-left text-orange-400 hover:text-orange-300 
                         hover:bg-gray-700/50 transition-colors duration-200 flex items-center gap-3"
                     >
                       <span>🚪</span>
                       <span>Logout</span>
                     </button>
                   </div>
-                </div>
+                </motion.div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Link 
                   to="/login" 
-                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors duration-200"
+                  className="px-4 py-2 text-gray-300 hover:text-orange-300 transition-colors duration-200 font-medium"
                 >
                   Login
                 </Link>
-                <Link 
-                  to="/signup" 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
-                    transform hover:scale-105 transition-all duration-200 
-                    shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]
-                    text-sm font-medium"
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  Sign Up
-                </Link>
+                  <Link 
+                    to="/signup" 
+                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
+                      hover:from-orange-500 hover:to-amber-500 transition-all duration-200 
+                      shadow-[0_0_15px_rgba(251,146,60,0.3)] hover:shadow-[0_0_20px_rgba(251,146,60,0.4)]
+                      text-sm font-semibold"
+                  >
+                    Sign Up
+                  </Link>
+                </motion.div>
               </div>
             )}
           </div>
@@ -128,12 +160,12 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
   );
 };
 
-// New NavLink component for dropdown menu
+// NavLink component
 const NavLink = ({ to, icon, label }) => (
   <Link 
     to={to} 
-    className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white 
-      hover:bg-gray-700/50 transition-colors duration-200"
+    className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-orange-300 
+      hover:bg-gray-700/50 transition-colors duration-200 font-medium"
   >
     <span>{icon}</span>
     <span>{label}</span>

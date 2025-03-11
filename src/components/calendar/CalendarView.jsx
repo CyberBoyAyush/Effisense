@@ -111,17 +111,17 @@ const CalendarView = () => {
   };
 
   return (
-    <div className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden">
+    <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
-      <div className="bg-gradient-to-r from-gray-800/80 to-gray-800/60 px-3 py-3 sm:px-4 sm:py-4 border-b border-gray-700/50">
+      <div className="bg-gradient-to-r from-gray-800/80 to-orange-950/30 px-3 py-3 sm:px-4 sm:py-4 border-b border-orange-800/30">
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           {/* Date Navigation - Improved for mobile */}
           <div className="flex items-center gap-2 w-full justify-between sm:justify-start sm:w-auto sm:gap-3">
             {/* Navigation Buttons - More compact on mobile */}
-            <div className="flex items-center gap-1 rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-gray-700/50">
+            <div className="flex items-center gap-1 rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-orange-700/30">
               <button
                 onClick={() => navigateCalendar(-1)}
-                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
+                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-orange-400 hover:bg-gray-700/70 transition-colors"
                 aria-label="Previous"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -130,13 +130,13 @@ const CalendarView = () => {
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm text-gray-300 hover:text-white transition-colors rounded-md hover:bg-gray-700/70"
+                className="px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm text-gray-300 hover:text-orange-300 transition-colors rounded-md hover:bg-gray-700/70"
               >
                 Today
               </button>
               <button
                 onClick={() => navigateCalendar(1)}
-                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
+                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-orange-400 hover:bg-gray-700/70 transition-colors"
                 aria-label="Next"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,21 +160,21 @@ const CalendarView = () => {
             <button
               onClick={() => setIs24Hour(!is24Hour)}
               className="px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg transition-colors
-                bg-gray-800/70 border border-gray-700/50 text-gray-300 
-                hover:text-white hover:bg-gray-700/70 hover:border-gray-600/60"
+                bg-gray-800/70 border border-orange-700/30 text-gray-300 
+                hover:text-orange-300 hover:bg-gray-700/70 hover:border-orange-600/60"
             >
               {is24Hour ? '24h' : '12h'}
             </button>
 
             {/* View Toggle - Enhanced */}
-            <div className="flex rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-gray-700/50">
+            <div className="flex rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-orange-700/30">
               {viewOptions.map(option => (
                 <button
                   key={option.id}
                   onClick={() => setView(option.id)}
                   className={`px-2 py-1 sm:px-3 sm:py-1.5 text-xs font-medium rounded-md transition-all duration-200
                     ${view === option.id 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/10' 
+                      ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
                       : 'text-gray-400 hover:text-gray-200'
                     }`}
                 >
@@ -339,14 +339,14 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                   : 'bg-gray-800/30'  
                 : 'bg-gray-800/5 text-gray-600'} 
               ${isToday 
-                ? 'ring-1 sm:ring-2 ring-blue-500/50 bg-blue-900/10' 
+                ? 'ring-1 sm:ring-2 ring-orange-500/50 bg-orange-900/10' 
                 : 'hover:bg-gray-700/30 border border-gray-700/30'}`}
           >
             {/* Date Number - Smaller on mobile */}
             <div className="flex justify-between items-center">
               <span className={`inline-block w-5 h-5 sm:w-7 sm:h-7 rounded-full text-center text-[10px] sm:text-sm leading-5 sm:leading-7
                 ${isToday 
-                  ? 'bg-blue-600 text-white font-medium' 
+                  ? 'bg-orange-600 text-white font-medium' 
                   : isCurrentMonth
                     ? 'text-gray-300'
                     : 'text-gray-600'
@@ -358,7 +358,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
               {(dayTasks.length > 0) && (
                 <div className="hidden sm:flex items-center gap-1 text-[10px]">
                   {pending > 0 && (
-                    <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full">
+                    <span className="bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded-full">
                       {pending}
                     </span>
                   )}
@@ -380,12 +380,12 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                   className={`p-1 sm:p-1.5 rounded text-[8px] sm:text-xs truncate 
                     ${task.completed 
                       ? 'bg-green-500/10 text-green-300 border-l-2 border-green-500/50' 
-                      : 'bg-blue-500/10 text-blue-300 border-l-2 border-blue-500/50'
+                      : 'bg-orange-500/10 text-orange-300 border-l-2 border-orange-500/50'
                     } hover:bg-opacity-30 transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center gap-1">
                     <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0 
-                      ${task.completed ? 'bg-green-400' : 'bg-blue-400'}`}></div>
+                      ${task.completed ? 'bg-green-400' : 'bg-orange-400'}`}></div>
                     <span className="truncate">{task.title}</span>
                   </div>
                 </div>
@@ -404,7 +404,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                   e.stopPropagation();
                   onDateClick(date);
                 }}
-                className="p-1 bg-gray-800/80 rounded-full text-blue-400 hover:bg-gray-700"
+                className="p-1 bg-gray-800/80 rounded-full text-orange-400 hover:bg-gray-700"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -452,9 +452,9 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                 className={`flex flex-col items-center p-3 rounded-xl min-w-[80px]
                   transition-all duration-200 ${
                     isSelected
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-orange-600 text-white'
                       : isToday
-                      ? 'bg-blue-500/20 text-blue-300'
+                      ? 'bg-orange-500/20 text-orange-300'
                       : 'text-gray-400 hover:bg-gray-700/30'
                   }`}
               >
@@ -473,7 +473,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
             <h3 className="text-sm font-medium text-gray-300">Hours</h3>
             <button 
               onClick={() => setHourRange({ start: 0, end: 23 })}
-              className="text-xs text-blue-400 px-2 py-1 rounded hover:bg-gray-700/50"
+              className="text-xs text-orange-400 px-2 py-1 rounded hover:bg-gray-700/50"
             >
               Show All
             </button>
@@ -536,7 +536,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   <span className="text-sm font-medium text-gray-300">{formatTime(hour)}</span>
                   <button
                     onClick={() => onTimeSlotClick(selectedDate, hour)}
-                    className="ml-auto text-xs text-blue-400 p-1"
+                    className="ml-auto text-xs text-orange-400 p-1"
                   >
                     +
                   </button>
@@ -548,11 +548,11 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                     <div
                       key={task.id}
                       onClick={(e) => handleTaskClick(e, task)}
-                      className={`p-2 rounded-lg bg-blue-500/20 border border-blue-500/20
-                        hover:border-blue-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+                      className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
                     >
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm text-blue-300 font-medium truncate flex-1">
+                        <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
                           {task.title}
                           {task.completed && <span className="ml-1">✓</span>}
                         </h4>
@@ -585,7 +585,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
               <div
                 key={date.toISOString()}
                 className={`p-2 text-center border-b border-gray-700/30 
-                  ${isToday ? 'bg-blue-500/20 text-blue-300' : ''}`}
+                  ${isToday ? 'bg-orange-500/20 text-orange-300' : ''}`}
               >
                 <div className="text-sm font-medium text-gray-400">
                   {date.toLocaleDateString('default', { weekday: 'short' })}
@@ -627,8 +627,8 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                       <div
                         key={task.id}
                         onClick={(e) => handleTaskClick(e, task)}
-                        className={`text-xs p-1 rounded bg-blue-500/20 text-blue-300 truncate mb-1 
-                          hover:bg-blue-500/30 cursor-pointer flex items-center gap-1
+                        className={`text-xs p-1 rounded bg-orange-500/20 text-orange-300 truncate mb-1 
+                          hover:bg-orange-500/30 cursor-pointer flex items-center gap-1
                           ${task.completed ? 'opacity-50' : ''}`}
                         title={task.title}
                       >
@@ -655,7 +655,7 @@ const HourRangeButton = ({ label, range, setRange, current }) => {
       onClick={() => setRange(range)}
       className={`px-3 py-1.5 text-xs rounded-lg whitespace-nowrap
         ${isActive 
-          ? 'bg-blue-600 text-white' 
+          ? 'bg-orange-600 text-white' 
           : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
         }`}
     >
@@ -686,7 +686,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
           <h3 className="text-sm font-medium text-gray-300">Hours</h3>
           <button 
             onClick={() => setHourRange({ start: 0, end: 23 })}
-            className="text-xs text-blue-400 px-2 py-1 rounded hover:bg-gray-700/50"
+            className="text-xs text-orange-400 px-2 py-1 rounded hover:bg-gray-700/50"
           >
             Show All
           </button>
@@ -747,7 +747,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 <span className="text-sm font-medium text-gray-300">{formatTime(hour)}</span>
                 <button
                   onClick={() => onTimeSlotClick(currentDate, hour)}
-                  className="ml-auto text-xs text-blue-400 p-1"
+                  className="ml-auto text-xs text-orange-400 p-1"
                 >
                   +
                 </button>
@@ -758,11 +758,11 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                   <div
                     key={task.id}
                     onClick={(e) => handleTaskClick(e, task)}
-                    className={`p-2 rounded-lg bg-blue-500/20 border border-blue-500/20
-                      hover:border-blue-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+                    className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                      hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm text-blue-300 font-medium truncate flex-1">
+                      <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
                         {task.title}
                         {task.completed && <span className="ml-1">✓</span>}
                       </h4>
@@ -805,14 +805,14 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                   <div
                     key={task.id}
                     onClick={(e) => handleTaskClick(e, task)}
-                    className={`p-2 mb-2 rounded-lg bg-blue-500/20 border border-blue-500/20
-                      hover:border-blue-500/40 transition-colors cursor-pointer
+                    className={`p-2 mb-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                      hover:border-orange-500/40 transition-colors cursor-pointer
                       ${task.completed ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="text-blue-300 font-medium">
+                      <h4 className="text-orange-300 font-medium">
                         {task.title}
-                        {task.completed && <span className="ml-2 text-blue-300">✓</span>}
+                        {task.completed && <span className="ml-2 text-orange-300">✓</span>}
                       </h4>
                       <span className="text-sm text-gray-400">
                         {new Date(task.deadline).toLocaleTimeString([], { 

@@ -11,7 +11,7 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
         to={to} 
         className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200
           ${isActive 
-            ? 'bg-blue-600/20 text-blue-400 border border-blue-500/20' 
+            ? 'bg-orange-600/20 text-orange-400 border border-orange-500/20' 
             : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
           }`}
       >
@@ -21,13 +21,13 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
   };
 
   return (
-    <aside className="h-full bg-gray-900/95 backdrop-blur-sm border-r border-gray-800/50 flex flex-col">
+    <aside className="h-full bg-gradient-to-b from-gray-900/95 via-gray-900/90 to-orange-950/20 backdrop-blur-sm border-r border-orange-800/30 flex flex-col">
       {/* Mobile Header */}
-      <div className="flex items-center justify-between p-4 md:hidden border-b border-gray-800/50">
-        <h2 className="text-lg font-semibold text-white">Menu</h2>
+      <div className="flex items-center justify-between p-4 md:hidden border-b border-orange-800/20">
+        <h2 className="text-lg font-semibold text-orange-300">Menu</h2>
         <button
           onClick={onClose}
-          className="p-2 text-gray-400 hover:text-white rounded-lg"
+          className="p-2 text-gray-400 hover:text-orange-300 rounded-lg transition-colors"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
