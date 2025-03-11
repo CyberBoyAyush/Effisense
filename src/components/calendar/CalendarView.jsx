@@ -113,40 +113,40 @@ const CalendarView = () => {
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
-      <div className="bg-gradient-to-r from-gray-800/80 to-gray-800/60 px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-700/50">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          {/* Date Navigation - Improved */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Navigation Buttons */}
-            <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/70 p-1 border border-gray-700/50">
+      <div className="bg-gradient-to-r from-gray-800/80 to-gray-800/60 px-3 py-3 sm:px-4 sm:py-4 border-b border-gray-700/50">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          {/* Date Navigation - Improved for mobile */}
+          <div className="flex items-center gap-2 w-full justify-between sm:justify-start sm:w-auto sm:gap-3">
+            {/* Navigation Buttons - More compact on mobile */}
+            <div className="flex items-center gap-1 rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-gray-700/50">
               <button
                 onClick={() => navigateCalendar(-1)}
-                className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
+                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
                 aria-label="Previous"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm text-gray-300 hover:text-white transition-colors rounded-md hover:bg-gray-700/70"
+                className="px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm text-gray-300 hover:text-white transition-colors rounded-md hover:bg-gray-700/70"
               >
                 Today
               </button>
               <button
                 onClick={() => navigateCalendar(1)}
-                className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
+                className="p-1 sm:p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-700/70 transition-colors"
                 aria-label="Next"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
             </div>
             
             {/* Current Date Display */}
-            <h2 className="text-lg sm:text-xl font-medium text-white tracking-tight">
+            <h2 className="text-base sm:text-lg font-medium text-white tracking-tight">
               {currentDate.toLocaleString('default', { 
                 month: 'long', 
                 year: 'numeric',
@@ -155,11 +155,11 @@ const CalendarView = () => {
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
             {/* Time Format Toggle */}
             <button
               onClick={() => setIs24Hour(!is24Hour)}
-              className="px-3 py-1.5 text-sm rounded-lg transition-colors
+              className="px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg transition-colors
                 bg-gray-800/70 border border-gray-700/50 text-gray-300 
                 hover:text-white hover:bg-gray-700/70 hover:border-gray-600/60"
             >
@@ -167,12 +167,12 @@ const CalendarView = () => {
             </button>
 
             {/* View Toggle - Enhanced */}
-            <div className="flex rounded-lg bg-gray-800/70 p-1 border border-gray-700/50">
+            <div className="flex rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-gray-700/50">
               {viewOptions.map(option => (
                 <button
                   key={option.id}
                   onClick={() => setView(option.id)}
-                  className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200
+                  className={`px-2 py-1 sm:px-3 sm:py-1.5 text-xs font-medium rounded-md transition-all duration-200
                     ${view === option.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/10' 
                       : 'text-gray-400 hover:text-gray-200'
@@ -187,14 +187,16 @@ const CalendarView = () => {
       </div>
 
       {/* Calendar Views Container */}
-      <div className="p-2 sm:p-4">
+      <div className="p-1 sm:p-2 md:p-4">
         {view === 'month' && (
-          <MonthView 
-            currentDate={currentDate} 
-            tasks={tasks} 
-            onDateClick={handleDateClick}
-            handleTaskClick={handleTaskClick}
-          />
+          <div className="overflow-x-auto pb-3">
+            <MonthView 
+              currentDate={currentDate} 
+              tasks={tasks} 
+              onDateClick={handleDateClick}
+              handleTaskClick={handleTaskClick}
+            />
+          </div>
         )}
         {view === 'week' && (
           <WeekView 
@@ -264,7 +266,7 @@ const CalendarView = () => {
                   className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-colors"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
+                    <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" />
                   </svg>
                 </button>
               </div>
@@ -299,15 +301,15 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
   const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   
   return (
-    <div className="grid grid-cols-7 gap-1.5 min-w-[768px] sm:min-w-0">
-      {/* Weekday headers - Enhanced */}
-      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-        <div key={day} className="p-2 text-center text-xs font-medium tracking-wider uppercase text-gray-400">
+    <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5 min-w-[640px]">
+      {/* Weekday headers - More compact on mobile */}
+      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+        <div key={i} className="p-1 sm:p-2 text-center text-[10px] sm:text-xs font-medium tracking-wider uppercase text-gray-400">
           {day}
         </div>
       ))}
       
-      {/* Calendar days - Enhanced */}
+      {/* Calendar days - More compact on mobile */}
       {Array.from({ length: 42 }).map((_, index) => {
         const date = new Date(firstDay);
         date.setDate(date.getDate() + index - firstDay.getDay());
@@ -329,20 +331,20 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
           <div
             key={date.toISOString()}
             onClick={() => onDateClick(date)}
-            className={`min-h-[80px] sm:min-h-[100px] p-2 rounded-lg 
-              transition-all duration-150 cursor-pointer 
+            className={`min-h-[50px] sm:min-h-[80px] md:min-h-[100px] min-w-[90px] p-1 sm:p-2 rounded-lg 
+              transition-all duration-150 cursor-pointer relative group
               ${isCurrentMonth 
                 ? isWeekend 
                   ? 'bg-gray-800/20' 
                   : 'bg-gray-800/30'  
                 : 'bg-gray-800/5 text-gray-600'} 
               ${isToday 
-                ? 'ring-2 ring-blue-500/50 bg-blue-900/10' 
+                ? 'ring-1 sm:ring-2 ring-blue-500/50 bg-blue-900/10' 
                 : 'hover:bg-gray-700/30 border border-gray-700/30'}`}
           >
-            {/* Date Number with Better Styling */}
+            {/* Date Number - Smaller on mobile */}
             <div className="flex justify-between items-center">
-              <span className={`inline-block w-7 h-7 rounded-full text-center leading-7 text-sm
+              <span className={`inline-block w-5 h-5 sm:w-7 sm:h-7 rounded-full text-center text-[10px] sm:text-sm leading-5 sm:leading-7
                 ${isToday 
                   ? 'bg-blue-600 text-white font-medium' 
                   : isCurrentMonth
@@ -354,7 +356,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
               
               {/* Task Count Indicator */}
               {(dayTasks.length > 0) && (
-                <div className="flex items-center gap-1 text-[10px]">
+                <div className="hidden sm:flex items-center gap-1 text-[10px]">
                   {pending > 0 && (
                     <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full">
                       {pending}
@@ -369,25 +371,30 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
               )}
             </div>
 
-            {/* Tasks List - Better Visualization */}
-            <div className="mt-1 space-y-1 max-h-[120px] overflow-y-auto">
-              {dayTasks.map(task => (
+            {/* Tasks List - Simplified for mobile */}
+            <div className="mt-1 space-y-0.5 sm:space-y-1 max-h-[60px] sm:max-h-[120px] overflow-y-auto scrollbar-hide">
+              {dayTasks.slice(0, 3).map(task => (
                 <div
                   key={task.id}
                   onClick={(e) => handleTaskClick(e, task)}
-                  className={`p-1.5 rounded text-xs truncate 
+                  className={`p-1 sm:p-1.5 rounded text-[8px] sm:text-xs truncate 
                     ${task.completed 
                       ? 'bg-green-500/10 text-green-300 border-l-2 border-green-500/50' 
                       : 'bg-blue-500/10 text-blue-300 border-l-2 border-blue-500/50'
                     } hover:bg-opacity-30 transition-colors cursor-pointer`}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 
+                  <div className="flex items-center gap-1">
+                    <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0 
                       ${task.completed ? 'bg-green-400' : 'bg-blue-400'}`}></div>
                     <span className="truncate">{task.title}</span>
                   </div>
                 </div>
               ))}
+              {dayTasks.length > 3 && (
+                <div className="text-[8px] sm:text-xs text-gray-400 text-center">
+                  +{dayTasks.length - 3} more
+                </div>
+              )}
             </div>
 
             {/* Add Button on Hover */}

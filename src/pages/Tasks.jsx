@@ -49,10 +49,53 @@ const Tasks = () => {
     setTasks(updatedTasks);
   };
 
+  // Get date objects for filters
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  // Calculate weekend dates (next Saturday and Sunday)
+  const getWeekendDates = () => {
+    const saturday = new Date(today);
+    const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
+    saturday.setDate(today.getDate() + daysUntilSaturday);
+    
+    const sunday = new Date(saturday);
+    sunday.setDate(saturday.getDate() + 1);
+    
+    return [saturday, sunday];
+  };
+  
+  const [weekendStart, weekendEnd] = getWeekendDates();
+  
+  // Filter functions for date-based filtering
+  const isDateEqual = (dateStr, targetDate) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    return date.getDate() === targetDate.getDate() && 
+           date.getMonth() === targetDate.getMonth() && 
+           date.getFullYear() === targetDate.getFullYear();
+  };
+  
+  const isWeekend = (dateStr) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    return isDateEqual(dateStr, weekendStart) || isDateEqual(dateStr, weekendEnd);
+  };
+
   const filteredTasks = {
     all: tasks,
     active: tasks.filter(t => !t.completed),
-    completed: tasks.filter(t => t.completed)
+    completed: tasks.filter(t => t.completed),
+    today: tasks.filter(t => isDateEqual(t.deadline, today)),
+    yesterday: tasks.filter(t => isDateEqual(t.deadline, yesterday)),
+    tomorrow: tasks.filter(t => isDateEqual(t.deadline, tomorrow)),
+    weekend: tasks.filter(t => isWeekend(t.deadline))
   }[filter];
 
   return (
@@ -84,6 +127,22 @@ const Tasks = () => {
           </FilterButton>
           <FilterButton current={filter} value="completed" onClick={setFilter}>
             Completed ({tasks.filter(t => t.completed).length})
+          </FilterButton>
+          <FilterButton current={filter} value="yesterday" onClick={setFilter}>
+            Yesterday ({tasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
+          </FilterButton>
+          <FilterButton current={filter} value="today" onClick={setFilter}>
+            <span className="flex items-center gap-1">
+              <span>Today</span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+            </span>
+            ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
+          </FilterButton>
+          <FilterButton current={filter} value="tomorrow" onClick={setFilter}>
+            Tomorrow ({tasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
+          </FilterButton>
+          <FilterButton current={filter} value="weekend" onClick={setFilter}>
+            Weekend ({tasks.filter(t => isWeekend(t.deadline)).length})
           </FilterButton>
         </div>
       </div>
