@@ -117,43 +117,79 @@ const Tasks = () => {
           </button>
         </div>
         
-        {/* Filter buttons - Made scrollable on mobile */}
-        <div className="mt-4 sm:mt-6 flex gap-2 md:gap-4 overflow-x-auto pb-2 -mx-1 px-1">
-          <FilterButton current={filter} value="all" onClick={setFilter}>
-            All ({tasks.length})
-          </FilterButton>
-          <FilterButton current={filter} value="active" onClick={setFilter}>
-            Active ({tasks.filter(t => !t.completed).length})
-          </FilterButton>
-          <FilterButton current={filter} value="completed" onClick={setFilter}>
-            Completed ({tasks.filter(t => t.completed).length})
-          </FilterButton>
-          <FilterButton current={filter} value="yesterday" onClick={setFilter}>
-            Yesterday ({tasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
-          </FilterButton>
-          <FilterButton current={filter} value="today" onClick={setFilter}>
-            <span className="flex items-center gap-1">
-              <span>Today</span>
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-            </span>
-            ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
-          </FilterButton>
-          <FilterButton current={filter} value="tomorrow" onClick={setFilter}>
-            Tomorrow ({tasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
-          </FilterButton>
-          <FilterButton current={filter} value="weekend" onClick={setFilter}>
-            Weekend ({tasks.filter(t => isWeekend(t.deadline)).length})
-          </FilterButton>
+        {/* Filter tabs - Reorganized */}
+        <div className="mt-4 sm:mt-6">
+          {/* Status filters */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-sm text-gray-400">Status:</span>
+            <FilterButton current={filter} value="all" onClick={setFilter}>
+              All ({tasks.length})
+            </FilterButton>
+            <FilterButton current={filter} value="active" onClick={setFilter}>
+              Active ({tasks.filter(t => !t.completed).length})
+            </FilterButton>
+            <FilterButton current={filter} value="completed" onClick={setFilter}>
+              Completed ({tasks.filter(t => t.completed).length})
+            </FilterButton>
+          </div>
+          
+          {/* Date filters */}
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto py-1 -mx-1 px-1">
+            <span className="text-sm text-gray-400">Date:</span>
+            <FilterButton current={filter} value="today" onClick={setFilter} special>
+              <span className="flex items-center gap-1">
+                <span>Today</span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+              </span>
+              <span className="ml-1">
+                ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
+              </span>
+            </FilterButton>
+            <FilterButton current={filter} value="tomorrow" onClick={setFilter}>
+              Tomorrow ({tasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
+            </FilterButton>
+            <FilterButton current={filter} value="weekend" onClick={setFilter}>
+              Weekend ({tasks.filter(t => isWeekend(t.deadline)).length})
+            </FilterButton>
+            <FilterButton current={filter} value="yesterday" onClick={setFilter}>
+              Yesterday ({tasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
+            </FilterButton>
+          </div>
         </div>
       </div>
 
       <div className="mt-8">
-        <TaskList 
-          tasks={filteredTasks} 
-          onEdit={handleEditTask} 
-          onDelete={handleDeleteTask}
-          onToggleComplete={handleToggleComplete}
-        />
+        {/* If today, tomorrow, or weekend is selected, show relevant sections */}
+        {filter === 'all' && (
+          <TaskSections tasks={tasks} today={today} tomorrow={tomorrow} 
+            weekend={[weekendStart, weekendEnd]} isDateEqual={isDateEqual} isWeekend={isWeekend} 
+            handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask}
+            handleToggleComplete={handleToggleComplete} />
+        )}
+        
+        {/* For filtered views */}
+        {filter !== 'all' && (
+          <>
+            {filteredTasks.length === 0 ? (
+              <EmptyTasksMessage filter={filter} />
+            ) : (
+              <div className="bg-gray-800/30 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 sm:p-6">
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <TasksIcon filter={filter} />
+                  <span>
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)} Tasks ({filteredTasks.length})
+                  </span>
+                </h2>
+                <TaskList 
+                  tasks={filteredTasks} 
+                  onEdit={handleEditTask} 
+                  onDelete={handleDeleteTask}
+                  onToggleComplete={handleToggleComplete}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <TaskFormModal 
@@ -166,18 +202,206 @@ const Tasks = () => {
   );
 };
 
-// Update FilterButton to be more compact on mobile
-const FilterButton = ({ current, value, onClick, children }) => (
+// Updated FilterButton component with special status option
+const FilterButton = ({ current, value, onClick, children, special }) => (
   <button
     onClick={() => onClick(value)}
-    className={`px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-all duration-200 ${
-      current === value
+    className={`px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-all duration-200 
+      ${current === value
         ? 'bg-blue-600 text-white'
-        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-    }`}
+        : special 
+          ? 'bg-blue-600/20 border border-blue-500/30 text-blue-300 hover:bg-blue-600/30' 
+          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+      }`}
   >
     {children}
   </button>
 );
+
+// New component for empty state
+const EmptyTasksMessage = ({ filter }) => {
+  let message, emoji;
+  
+  switch(filter) {
+    case 'today':
+      emoji = '📅';
+      message = 'No tasks scheduled for today';
+      break;
+    case 'tomorrow':
+      emoji = '🔮';
+      message = 'No tasks planned for tomorrow';
+      break;
+    case 'weekend':
+      emoji = '🏝️';
+      message = 'Your weekend looks clear';
+      break;
+    case 'active':
+      emoji = '✓';
+      message = 'No active tasks';
+      break;
+    case 'completed':
+      emoji = '🎉';
+      message = 'No completed tasks';
+      break;
+    default:
+      emoji = '📝';
+      message = 'No tasks found';
+  }
+  
+  return (
+    <div className="text-center py-12 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50">
+      <div className="text-4xl mb-3">{emoji}</div>
+      <h3 className="text-xl font-semibold text-gray-300">{message}</h3>
+      <p className="text-gray-400 mt-2">Tasks you add will appear here</p>
+    </div>
+  );
+};
+
+// New component to display section icon
+const TasksIcon = ({ filter }) => {
+  switch(filter) {
+    case 'today': return <span>📅</span>;
+    case 'tomorrow': return <span>🔮</span>;
+    case 'weekend': return <span>🏝️</span>;
+    case 'completed': return <span>✅</span>;
+    case 'active': return <span>⚡</span>;
+    default: return <span>📋</span>;
+  }
+};
+
+// New component to display sections on the all tasks view
+const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend, handleEditTask, handleDeleteTask, handleToggleComplete }) => {
+  const todayTasks = tasks.filter(t => isDateEqual(t.deadline, today) && !t.completed);
+  const tomorrowTasks = tasks.filter(t => isDateEqual(t.deadline, tomorrow) && !t.completed);
+  const weekendTasks = tasks.filter(t => isWeekend(t.deadline) && !t.completed);
+  const otherActiveTasks = tasks.filter(t => 
+    !isDateEqual(t.deadline, today) && 
+    !isDateEqual(t.deadline, tomorrow) && 
+    !isWeekend(t.deadline) && 
+    !t.completed
+  );
+  const completedTasks = tasks.filter(t => t.completed);
+
+  return (
+    <div className="space-y-8">
+      {/* Today's Tasks */}
+      {todayTasks.length > 0 && (
+        <TaskSection 
+          title="Today" 
+          tasks={todayTasks} 
+          icon="📅" 
+          accentColor="blue"
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onToggleComplete={handleToggleComplete}
+        />
+      )}
+      
+      {/* Tomorrow's Tasks */}
+      {tomorrowTasks.length > 0 && (
+        <TaskSection 
+          title="Tomorrow" 
+          tasks={tomorrowTasks} 
+          icon="🔮" 
+          accentColor="purple"
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onToggleComplete={handleToggleComplete}
+        />
+      )}
+      
+      {/* Weekend Tasks */}
+      {weekendTasks.length > 0 && (
+        <TaskSection 
+          title="Weekend" 
+          tasks={weekendTasks} 
+          icon="🏝️" 
+          accentColor="amber"
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onToggleComplete={handleToggleComplete}
+        />
+      )}
+      
+      {/* Other Active Tasks */}
+      {otherActiveTasks.length > 0 && (
+        <TaskSection 
+          title="Other Tasks" 
+          tasks={otherActiveTasks} 
+          icon="📌" 
+          accentColor="gray"
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onToggleComplete={handleToggleComplete}
+        />
+      )}
+      
+      {/* Completed Tasks */}
+      {completedTasks.length > 0 && (
+        <TaskSection 
+          title="Completed" 
+          tasks={completedTasks} 
+          icon="✅" 
+          accentColor="green"
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onToggleComplete={handleToggleComplete}
+          completed
+          collapsible
+        />
+      )}
+    </div>
+  );
+};
+
+// New component for task section
+const TaskSection = ({ title, tasks, icon, accentColor = "blue", onEdit, onDelete, onToggleComplete, completed = false, collapsible = false }) => {
+  const [collapsed, setCollapsed] = useState(collapsible);
+  
+  // Set border and accent colors based on the provided color
+  const accentColorClass = {
+    blue: 'border-blue-500/30',
+    purple: 'border-purple-500/30',
+    amber: 'border-amber-500/30',
+    green: 'border-green-500/30',
+    gray: 'border-gray-500/30'
+  }[accentColor] || 'border-gray-700/50';
+  
+  return (
+    <div className={`bg-gray-800/30 backdrop-blur-sm border ${accentColorClass} rounded-xl overflow-hidden`}>
+      {/* Section Header */}
+      <div className="p-4 sm:p-6 border-b border-gray-700/30 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{icon}</span>
+          <h2 className="text-xl font-semibold text-white">{title} ({tasks.length})</h2>
+        </div>
+        
+        {collapsible && (
+          <button 
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
+          >
+            <svg className={`w-5 h-5 transition-transform ${collapsed ? '' : 'transform rotate-180'}`} 
+              viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+      </div>
+      
+      {/* Tasks List - Collapsible */}
+      <div className={`${collapsed ? 'hidden' : 'block'}`}>
+        <div className="p-4 sm:p-6">
+          <TaskList 
+            tasks={tasks} 
+            onEdit={onEdit} 
+            onDelete={onDelete}
+            onToggleComplete={onToggleComplete}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Tasks;
