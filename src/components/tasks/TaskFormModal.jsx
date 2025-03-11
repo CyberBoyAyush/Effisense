@@ -61,123 +61,127 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     onClose();
   };
 
-  return isOpen ? (
-    <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex sm:items-center justify-center z-50">
-      <div className="w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-md mx-auto">
-        <div className="flex flex-col h-full sm:h-auto bg-gray-800/90 sm:rounded-2xl shadow-lg 
-          border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-          
-          {/* Sticky Header */}
-          <div className="sticky top-0 z-20 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700/50 p-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">
-                {taskToEdit ? "Edit Task" : "Add New Task"}
-              </h2>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
-                </svg>
-              </button>
-            </div>
-          </div>
+  if (!isOpen) return null;
+  
+  return (
+    <div 
+      className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-sm flex items-center justify-center touch-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/* Centered Modal Container - Max height limited to prevent scrolling */}
+      <div className="w-[95%] sm:w-[90%] max-w-md mx-auto my-auto bg-gray-800 rounded-2xl shadow-xl
+        max-h-[80vh] flex flex-col border border-gray-700/50 transform-gpu">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-gray-700/50 flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-semibold text-white">
+            {taskToEdit ? "Edit Task" : "Add New Task"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full bg-gray-700/50 text-gray-400 hover:text-white"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          {/* Scrollable Form Content */}
-          <div className="flex-1 overflow-y-auto">
-            <form id="taskForm" onSubmit={handleSubmit} className="p-4 space-y-4">
+        {/* Scrollable Form - Takes remaining space with scrolling if needed */}
+        <div className="overflow-y-auto flex-grow px-4 py-3">
+          <form id="taskForm" onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="title" className="text-gray-300 text-sm font-medium block mb-1">
+                Task Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                placeholder="Enter task title"
+                className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
+                  text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
+                  focus:ring-blue-500 focus:border-transparent"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                autoComplete="off"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="description" className="text-gray-300 text-sm font-medium block mb-1">
+                Description
+              </label>
+              <textarea
+                id="description"
+                placeholder="Enter task details"
+                className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
+                  text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
+                  focus:ring-blue-500 focus:border-transparent min-h-[60px]"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="title" className="text-gray-300 text-sm font-medium block mb-1">
-                  Task Title
+                <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
+                  Date
                 </label>
                 <input
-                  id="title"
-                  type="text"
-                  placeholder="Enter task title"
-                  className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
-                    text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2
-                    focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
+                  id="deadline"
+                  type="date"
+                  className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
+                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
                 />
               </div>
 
               <div>
-                <label htmlFor="description" className="text-gray-300 text-sm font-medium block mb-1">
-                  Description
+                <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
+                  Time
                 </label>
-                <textarea
-                  id="description"
-                  placeholder="Enter task description"
-                  className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
-                    text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2
-                    focus:ring-blue-500 focus:border-transparent transition-all duration-200
-                    min-h-[100px]"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                <input
+                  id="time"
+                  type="time"
+                  className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
+                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                 />
               </div>
+            </div>
+          </form>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
-                    Date
-                  </label>
-                  <input
-                    id="deadline"
-                    type="date"
-                    className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
-                      text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500
-                      focus:border-transparent transition-all duration-200"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
-                    Time
-                  </label>
-                  <input
-                    id="time"
-                    type="time"
-                    className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
-                      text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500
-                      focus:border-transparent transition-all duration-200"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            </form>
-          </div>
-
-          {/* Sticky Footer */}
-          <div className="sticky bottom-0 z-20 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700/50 
-            p-4 flex justify-end gap-3">
+        {/* Footer */}
+        <div className="border-t border-gray-700 p-4 shrink-0">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600
-                transition-all duration-200 flex-1 sm:flex-initial"
+              className="flex-1 px-4 py-2.5 bg-gray-700 text-gray-300 rounded-lg 
+                active:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="taskForm"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700
-                transition-all duration-200 flex-1 sm:flex-initial"
+              className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg 
+                active:bg-blue-700 transition-colors font-medium"
             >
-              {taskToEdit ? "Update Task" : "Add Task"}
+              {taskToEdit ? "Update" : "Add"}
             </button>
           </div>
         </div>
       </div>
     </div>
-  ) : null;
+  );
 };
 
 export default TaskFormModal;
