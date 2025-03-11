@@ -21,8 +21,8 @@ const Sidebar = ({ hidelogo = false }) => {
   };
 
   return (
-    <aside className="h-[calc(100vh-4rem)] bg-gray-900/95 backdrop-blur-sm p-6 border-r border-gray-800/50 overflow-y-auto">
-      <nav className="space-y-2">
+    <aside className="h-full bg-gray-900/95 backdrop-blur-sm border-r border-gray-800/50 overflow-y-auto">
+      <nav className="p-6 space-y-2">
         <NavLink to="/dashboard">
           <span className="text-xl">🏠</span>
           <span>Dashboard</span>
