@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { FaCalendarAlt } from "react-icons/fa";
 
 const Navbar = ({ onMenuClick, showMenuButton }) => {
   const location = useLocation();
@@ -38,15 +40,29 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
               </button>
             )}
 
-            {/* Logo - Updated to remove glow effect */}
+            {/* Logo - Updated with animation and calendar icon */}
             <Link 
               to={user ? "/dashboard" : "/"} 
               className="flex items-center gap-2 group"
             >
-              <span className="text-2xl font-bold text-orange-400 
-                group-hover:text-orange-300 transition-colors duration-300">
+              <motion.div
+                initial={{ rotate: -5 }}
+                whileHover={{ rotate: 5, scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                className="flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-600 
+                  h-8 w-8 rounded-lg shadow-lg shadow-orange-500/20"
+              >
+                <FaCalendarAlt className="text-white text-lg" />
+              </motion.div>
+              <motion.span 
+                className="text-2xl font-extrabold font-sans text-transparent bg-clip-text bg-gradient-to-r 
+                  from-orange-400 to-amber-500 tracking-tight"
+                initial={{ opacity: 0.8 }}
+                whileHover={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
                 Effisense
-              </span>
+              </motion.span>
             </Link>
           </div>
 
@@ -79,12 +95,16 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                   </svg>
                 </button>
 
-                <div 
-                  className={`absolute right-0 mt-1 w-56 rounded-xl bg-gray-800 border border-orange-700/30
-                    shadow-lg transform transition-all duration-200 origin-top-right
-                    ${isDropdownOpen 
-                      ? 'opacity-100 scale-100 translate-y-0' 
-                      : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}
+                <motion.div 
+                  className="absolute right-0 mt-1 w-56 rounded-xl bg-gray-800 border border-orange-700/30
+                    shadow-lg overflow-hidden"
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ 
+                    opacity: isDropdownOpen ? 1 : 0, 
+                    y: isDropdownOpen ? 0 : -10,
+                    height: isDropdownOpen ? 'auto' : 0
+                  }}
+                  transition={{ duration: 0.2 }}
                 >
                   <div className="py-2">
                     <NavLink to="/dashboard" icon="🏠" label="Dashboard" />
@@ -100,25 +120,30 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                       <span>Logout</span>
                     </button>
                   </div>
-                </div>
+                </motion.div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Link 
                   to="/login" 
-                  className="px-4 py-2 text-gray-300 hover:text-orange-300 transition-colors duration-200"
+                  className="px-4 py-2 text-gray-300 hover:text-orange-300 transition-colors duration-200 font-medium"
                 >
                   Login
                 </Link>
-                <Link 
-                  to="/signup" 
-                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
-                    hover:from-orange-500 hover:to-amber-500 transform hover:scale-105 transition-all duration-200 
-                    shadow-[0_0_15px_rgba(251,146,60,0.3)] hover:shadow-[0_0_20px_rgba(251,146,60,0.4)]
-                    text-sm font-medium"
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  Sign Up
-                </Link>
+                  <Link 
+                    to="/signup" 
+                    className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
+                      hover:from-orange-500 hover:to-amber-500 transition-all duration-200 
+                      shadow-[0_0_15px_rgba(251,146,60,0.3)] hover:shadow-[0_0_20px_rgba(251,146,60,0.4)]
+                      text-sm font-semibold"
+                  >
+                    Sign Up
+                  </Link>
+                </motion.div>
               </div>
             )}
           </div>
@@ -133,7 +158,7 @@ const NavLink = ({ to, icon, label }) => (
   <Link 
     to={to} 
     className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-orange-300 
-      hover:bg-gray-700/50 transition-colors duration-200"
+      hover:bg-gray-700/50 transition-colors duration-200 font-medium"
   >
     <span>{icon}</span>
     <span>{label}</span>
