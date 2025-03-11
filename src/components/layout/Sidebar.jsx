@@ -1,14 +1,40 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
-const Sidebar = () => {
+const Sidebar = ({ hidelogo = false }) => {
+  const location = useLocation();
+
+  const NavLink = ({ to, children }) => {
+    const isActive = location.pathname === to;
+    return (
+      <Link 
+        to={to} 
+        className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200
+          ${isActive 
+            ? 'bg-blue-600/20 text-blue-400 border border-blue-500/20' 
+            : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+          }`}
+      >
+        {children}
+      </Link>
+    );
+  };
+
   return (
-    <aside className="w-64 bg-gray-900 text-white h-screen p-4">
-      <h2 className="text-xl font-bold">Effisense</h2>
-      <nav className="mt-6">
-        <Link to="/dashboard" className="block py-2 px-4 hover:bg-gray-700 rounded">Dashboard</Link>
-        <Link to="/dashboard/tasks" className="block py-2 px-4 hover:bg-gray-700 rounded">Tasks</Link>
-        <Link to="/dashboard/calendar" className="block py-2 px-4 hover:bg-gray-700 rounded">Calendar</Link>
+    <aside className="h-[calc(100vh-4rem)] bg-gray-900/95 backdrop-blur-sm p-6 border-r border-gray-800/50 overflow-y-auto">
+      <nav className="space-y-2">
+        <NavLink to="/dashboard">
+          <span className="text-xl">🏠</span>
+          <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/tasks">
+          <span className="text-xl">✓</span>
+          <span>Tasks</span>
+        </NavLink>
+        <NavLink to="/calendar">
+          <span className="text-xl">📅</span>
+          <span>Calendar</span>
+        </NavLink>
       </nav>
     </aside>
   );
