@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
+import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -11,23 +12,18 @@ const Dashboard = () => {
   const [taskToEdit, setTaskToEdit] = useState(null);
 
   useEffect(() => {
-    // Check if user is logged in
+    // Load tasks when component mounts
+    const savedTasks = getTasks();
+    setTasks(savedTasks);
+
+    // Check authentication
     const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
     if (!loggedInUser) {
       navigate("/login");
     } else {
       setUser(loggedInUser);
     }
-
-    // Load tasks from localStorage
-    const savedTasks = JSON.parse(localStorage.getItem("tasks")) || [];
-    setTasks(savedTasks);
   }, [navigate]);
-
-  // Save tasks to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
 
   // Add new task
   const handleAddTask = () => {
@@ -36,27 +32,41 @@ const Dashboard = () => {
   };
 
   // Save or update a task
-  const handleSaveTask = (newTask) => {
-    if (taskToEdit !== null) {
-      const updatedTasks = [...tasks];
-      updatedTasks[taskToEdit.index] = newTask;
+  const handleSaveTask = (taskData) => {
+    if (taskToEdit) {
+      const updatedTasks = updateTask(taskToEdit.id, taskData);
       setTasks(updatedTasks);
     } else {
-      setTasks([...tasks, newTask]);
+      const updatedTasks = addTask(taskData);
+      setTasks(updatedTasks);
     }
     setIsModalOpen(false);
   };
 
   // Edit task
   const handleEditTask = (index) => {
-    setTaskToEdit({ ...tasks[index], index });
+    const taskToEdit = tasks[index];
+    setTaskToEdit({ ...taskToEdit, index });
     setIsModalOpen(true);
   };
 
   // Delete task
   const handleDeleteTask = (index) => {
-    const updatedTasks = tasks.filter((_, i) => i !== index);
+    const taskId = tasks[index].id;
+    const updatedTasks = deleteTask(taskId);
     setTasks(updatedTasks);
+  };
+
+  // Add task toggle functionality
+  const handleToggleComplete = (index) => {
+    const task = tasks[index];
+    if (task?.id) {
+      const updatedTasks = updateTask(task.id, { 
+        ...task, 
+        completed: !task.completed 
+      });
+      setTasks(updatedTasks);
+    }
   };
 
   // Logout function
@@ -99,7 +109,7 @@ const Dashboard = () => {
           </button>
         </div>
         
-        <TaskList tasks={tasks} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+        <TaskList tasks={tasks} onEdit={handleEditTask} onDelete={handleDeleteTask} onToggleComplete={handleToggleComplete} />
       </div>
 
       {/* Calendar Preview */}

@@ -1,7 +1,7 @@
 import React from "react";
 import TaskCard from "./TaskCard";
 
-const TaskList = ({ tasks, onEdit, onDelete }) => {
+const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
   return (
     <div className="space-y-4">
       {tasks.length === 0 ? (
@@ -13,10 +13,11 @@ const TaskList = ({ tasks, onEdit, onDelete }) => {
       ) : (
         tasks.map((task, index) => (
           <TaskCard
-            key={index}
+            key={task.id || index}
             task={task}
             onEdit={() => onEdit(index)}
             onDelete={() => onDelete(index)}
+            onToggleComplete={() => onToggleComplete(index)}
           />
         ))
       )}
