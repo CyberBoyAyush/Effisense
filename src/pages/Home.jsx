@@ -1,8 +1,16 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const Home = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    // Check if user is logged in
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
+    setIsLoggedIn(!!user);
+  }, []);
+
   return (
     <div className="relative mt-16 min-h-[calc(100vh-4rem)] bg-[#0A0A0A] bg-gradient-to-br from-black via-gray-900 to-[#0F0F0F] overflow-hidden">
       {/* Background Effects - Updated with darker colors */}
@@ -94,13 +102,13 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.6 }}
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link to="/signup"
+                <Link to={isLoggedIn ? "/dashboard" : "/signup"}
                   className="group px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold rounded-xl 
                     hover:from-orange-500 hover:to-amber-500 transition-all duration-200 
                     shadow-[0_0_30px_rgba(251,146,60,0.4)] hover:shadow-[0_0_40px_rgba(251,146,60,0.5)]
                     flex items-center justify-center gap-2"
                 >
-                  Get Started Free
+                  {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
                   <span className="group-hover:translate-x-1 transition-transform">→</span>
                 </Link>
               </motion.div>
@@ -210,13 +218,13 @@ const Home = () => {
             className="inline-block"
           >
             <Link 
-              to="/signup" 
+              to={isLoggedIn ? "/dashboard" : "/signup"}
               className="px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold rounded-xl 
                 hover:from-orange-500 hover:to-amber-500 transition-all duration-200 
                 shadow-[0_0_30px_rgba(251,146,60,0.4)] hover:shadow-[0_0_40px_rgba(251,146,60,0.5)]
                 flex items-center justify-center gap-2 group"
             >
-              Get Started With All Features
+              {isLoggedIn ? "Go to Dashboard" : "Get Started With All Features"}
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </Link>
           </motion.div>
