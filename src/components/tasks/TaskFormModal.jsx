@@ -1,27 +1,62 @@
 import React, { useState, useEffect } from "react";
 
-const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit }) => {
+const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [time, setTime] = useState("12:00");
 
   useEffect(() => {
     if (taskToEdit) {
       setTitle(taskToEdit.title);
       setDescription(taskToEdit.description);
-      setDeadline(taskToEdit.deadline);
+      if (taskToEdit.deadline) {
+        const taskDate = new Date(taskToEdit.deadline);
+        setDeadline(taskDate.toISOString().split('T')[0]);
+        setTime(taskDate.toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit',
+          timeZone: 'Asia/Kolkata'
+        }));
+      }
+    } else if (defaultDateTime) {
+      const date = new Date(defaultDateTime);
+      const localDate = date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+      const localTime = date.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      setDeadline(localDate);
+      setTime(localTime);
     } else {
-      setTitle("");
-      setDescription("");
-      setDeadline("");
+      const now = new Date();
+      setDeadline(now.toLocaleDateString('en-CA'));
+      setTime(now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
     }
-  }, [taskToEdit]);
+  }, [taskToEdit, defaultDateTime]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title) return;
+
+    // Create a new Date object with the input values
+    const [year, month, day] = deadline.split('-').map(Number);
+    const [hours, minutes] = time.split(':').map(Number);
+    const dateTime = new Date(year, month - 1, day, hours, minutes);
+
+    const newTask = {
+      title,
+      description,
+      deadline: dateTime.toISOString()
+    };
     
-    const newTask = { title, description, deadline };
     onSave(newTask);
     onClose();
   };
@@ -67,19 +102,36 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit }) => {
             />
           </div>
 
-          <div>
-            <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
-              Deadline
-            </label>
-            <input
-              id="deadline"
-              type="date"
-              className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
-                text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500
-                focus:border-transparent transition-all duration-200"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
+                Date
+              </label>
+              <input
+                id="deadline"
+                type="date"
+                className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
+                  text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500
+                  focus:border-transparent transition-all duration-200"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
+                Time
+              </label>
+              <input
+                id="time"
+                type="time"
+                className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg
+                  text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500
+                  focus:border-transparent transition-all duration-200"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
