@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
+import { createPortal } from "react-dom";
 import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
+import { 
+  FaTasks, FaPlus, FaCheck, FaRegClock, 
+  FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
+  FaUmbrellaBeach, FaHistory
+} from "react-icons/fa";
 
 const Tasks = () => {
   const [filter, setFilter] = useState('all');
@@ -100,12 +106,18 @@ const Tasks = () => {
 
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">
-      {/* Header section - Updated with orange theme */}
+      {/* Header section - Updated with orange theme and better icons */}
       <div className="bg-gradient-to-r from-gray-800/50 to-orange-900/30 p-4 sm:p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-orange-800/30">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Task Management</h1>
-            <p className="text-sm md:text-base text-gray-400 mt-1 md:mt-2">Organize and track your tasks efficiently</p>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent flex items-center gap-3">
+              <FaTasks className="text-orange-400" />
+              <span>Task Management</span>
+            </h1>
+            <p className="text-sm md:text-base text-gray-400 mt-1 md:mt-2 flex items-center gap-2">
+              <FaRegClock className="text-orange-400/70" />
+              <span>Organize and track your tasks efficiently</span>
+            </p>
           </div>
           <button
             onClick={handleAddTask}
@@ -113,15 +125,18 @@ const Tasks = () => {
               transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
           >
             <span>Add Task</span>
-            <span className="text-xl">+</span>
+            <FaPlus />
           </button>
         </div>
         
-        {/* Filter tabs - Updated with orange theme */}
+        {/* Filter tabs - Updated with icons */}
         <div className="mt-4 sm:mt-6">
           {/* Status filters */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="text-sm text-gray-400">Status:</span>
+            <span className="text-sm text-gray-400 flex items-center gap-1">
+              <FaCheck className="text-orange-400/70" /> 
+              Status:
+            </span>
             <FilterButton current={filter} value="all" onClick={setFilter}>
               All ({tasks.length})
             </FilterButton>
@@ -133,25 +148,22 @@ const Tasks = () => {
             </FilterButton>
           </div>
           
-          {/* Date filters */}
+          {/* Date filters with icons */}
           <div className="flex flex-wrap items-center gap-2 overflow-x-auto py-1 -mx-1 px-1">
-            <span className="text-sm text-gray-400">Date:</span>
-            <FilterButton current={filter} value="today" onClick={setFilter} special>
-              <span className="flex items-center gap-1">
-                <span>Today</span>
-                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-              </span>
-              <span className="ml-1">
-                ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
-              </span>
+            <span className="text-sm text-gray-400 flex items-center gap-1">
+              <FaCalendarDay className="text-orange-400/70" />
+              Date:
+            </span>
+            <FilterButton current={filter} value="today" onClick={setFilter} special IconComponent={FaCalendarDay}>
+              Today ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
             </FilterButton>
-            <FilterButton current={filter} value="tomorrow" onClick={setFilter}>
+            <FilterButton current={filter} value="tomorrow" onClick={setFilter} IconComponent={FaCalendarPlus}>
               Tomorrow ({tasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
             </FilterButton>
-            <FilterButton current={filter} value="weekend" onClick={setFilter}>
+            <FilterButton current={filter} value="weekend" onClick={setFilter} IconComponent={FaUmbrellaBeach}>
               Weekend ({tasks.filter(t => isWeekend(t.deadline)).length})
             </FilterButton>
-            <FilterButton current={filter} value="yesterday" onClick={setFilter}>
+            <FilterButton current={filter} value="yesterday" onClick={setFilter} IconComponent={FaHistory}>
               Yesterday ({tasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
             </FilterButton>
           </div>
@@ -192,21 +204,26 @@ const Tasks = () => {
         )}
       </div>
 
-      <TaskFormModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveTask} 
-        taskToEdit={taskToEdit} 
-      />
+      {/* Use React portal to render modals outside of parent containers */}
+      {isModalOpen && createPortal(
+        <TaskFormModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleSaveTask} 
+          taskToEdit={taskToEdit} 
+        />,
+        document.body
+      )}
     </div>
   );
 };
 
-// Updated FilterButton component with orange theme
-const FilterButton = ({ current, value, onClick, children, special }) => (
+// Updated FilterButton component with icon support
+const FilterButton = ({ current, value, onClick, children, special, IconComponent }) => (
   <button
     onClick={() => onClick(value)}
     className={`px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-all duration-200 
+      flex items-center gap-2
       ${current === value
         ? 'bg-orange-600 text-white'
         : special 
@@ -214,6 +231,7 @@ const FilterButton = ({ current, value, onClick, children, special }) => (
           : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
       }`}
   >
+    {IconComponent && <IconComponent className={current === value ? 'text-white' : 'text-orange-400'} />}
     {children}
   </button>
 );
@@ -260,12 +278,12 @@ const EmptyTasksMessage = ({ filter }) => {
 // New component to display section icon
 const TasksIcon = ({ filter }) => {
   switch(filter) {
-    case 'today': return <span>📅</span>;
-    case 'tomorrow': return <span>🔮</span>;
-    case 'weekend': return <span>🏝️</span>;
-    case 'completed': return <span>✅</span>;
-    case 'active': return <span>⚡</span>;
-    default: return <span>📋</span>;
+    case 'today': return <FaCalendarDay className="text-orange-400" />;
+    case 'tomorrow': return <FaCalendarPlus className="text-orange-400" />;
+    case 'weekend': return <FaUmbrellaBeach className="text-orange-400" />;
+    case 'completed': return <FaCheck className="text-orange-400" />;
+    case 'active': return <FaRegClock className="text-orange-400" />;
+    default: return <FaTasks className="text-orange-400" />;
   }
 };
 

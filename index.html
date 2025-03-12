@@ -5,7 +5,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
     <meta name="theme-color" content="#1f2937" />
     <title>Effisense - AI-Powered Task Management</title>
     <meta name="description" content="Smart task management enhanced by AI. Organize your productivity with intelligent scheduling and task prioritization." />
@@ -31,6 +31,19 @@
     <meta name="apple-mobile-web-app-title" content="Effisense" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <!-- Add this style tag inline to ensure it loads immediately -->
+    <style>
+      html, body {
+        background-color: #0f172a;
+        height: 100%;
+      }
+      body {
+        overscroll-behavior: none;
+        overflow-x: hidden;
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

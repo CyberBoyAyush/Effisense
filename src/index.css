@@ -1,1 +1,277 @@
 @import "tailwindcss";
+
+/* Add these styles to your global CSS file */
+
+/* Date picker dark theme styles */
+.dark-calendar {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+  border-radius: 0.5rem !important;
+  font-family: inherit !important;
+  border-width: 1px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-calendar .react-datepicker__header {
+  background-color: #111827 !important;
+  border-bottom-color: #374151 !important;
+}
+
+.dark-calendar .react-datepicker__current-month,
+.dark-calendar .react-datepicker__day-name,
+.dark-calendar .react-datepicker-time__header {
+  color: #e5e7eb !important;
+}
+
+.dark-calendar .react-datepicker__day {
+  color: #d1d5db !important;
+}
+
+.dark-calendar .react-datepicker__day:hover {
+  background-color: #4b5563 !important;
+  border-radius: 0.3rem !important;
+}
+
+.dark-calendar .react-datepicker__day--selected,
+.dark-calendar .react-datepicker__day--keyboard-selected,
+.dark-calendar .react-datepicker__time-list-item--selected {
+  background-color: #f97316 !important;
+  color: white !important;
+  border-radius: 0.3rem !important;
+}
+
+.dark-calendar .react-datepicker__day--outside-month {
+  color: #6b7280 !important;
+}
+
+.dark-calendar .react-datepicker__time-container {
+  border-left-color: #374151 !important;
+}
+
+.dark-calendar .react-datepicker__time-list-item {
+  color: #d1d5db !important;
+  background-color: #1f2937 !important;
+}
+
+.dark-calendar .react-datepicker__time-list-item:hover {
+  background-color: #4b5563 !important;
+}
+
+.react-datepicker-wrapper {
+  display: block;
+  width: 100%;
+}
+
+/* Mobile optimization */
+@media (max-width: 640px) {
+  .react-datepicker__time-container {
+    width: 6rem !important;
+  }
+  
+  .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
+    width: 100% !important;
+  }
+}
+
+/* Adjusted DatePicker size for desktop */
+@media (min-width: 640px) {
+  .dark-calendar {
+    font-size: 1rem !important;
+  }
+  
+  .dark-calendar .react-datepicker__time-container {
+    width: 100px !important;
+  }
+  
+  .dark-calendar .react-datepicker__header--time {
+    padding: 8px !important;
+  }
+  
+  .dark-calendar .react-datepicker__time-list-item {
+    padding: 8px 10px !important;
+    font-size: 0.95rem !important;
+    height: auto !important;
+  }
+  
+  .dark-calendar .react-datepicker__day {
+    width: 2rem !important;
+    line-height: 2rem !important;
+    margin: 0.2rem !important;
+  }
+  
+  .dark-calendar .react-datepicker__day-name {
+    width: 2rem !important;
+    line-height: 1.5rem !important;
+    margin: 0.2rem !important;
+  }
+}
+
+/* Ensure modal always sits on top of everything else */
+.fixed.z-\[100\] {
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+/* Fix for Safari */
+@supports (-webkit-overflow-scrolling: touch) {
+  .fixed.z-\[100\] {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Fix for any modal flickering */
+.transform-gpu {
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Smaller DatePicker for compact UI */
+.dark-calendar.react-datepicker--time-only {
+  width: 8rem !important;
+  font-size: 0.875rem !important;
+}
+
+@media (min-width: 640px) {
+  .dark-calendar.react-datepicker--time-only {
+    width: 10rem !important;
+  }
+}
+
+/* Hide scrollbar but maintain functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Ensure single-line inputs don't get too tall */
+input.text-sm {
+  min-height: 0;
+  height: 2rem;
+}
+
+/* More compact details element */
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Beautiful Custom Scrollbar */
+/* For Chrome, Edge, and Safari */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #f97316, #f59e0b);
+  border-radius: 10px;
+  border: 2px solid #1f2937;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #ea580c, #d97706);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 #1f2937;
+}
+
+/* Custom scrollbar class for components */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 #1f2937;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1f293770;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #f97316aa, #f59e0baa);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #f97316, #f59e0b);
+}
+
+/* Combine with scrollbar-hide for specific cases */
+.scrollbar-thin-orange {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 #1f2937;
+}
+
+.scrollbar-thin-orange::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin-orange::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin-orange::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #f9731680, #f59e0b80);
+  border-radius: 4px;
+}
+
+.scrollbar-thin-orange::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #f97316, #f59e0b);
+}
+
+/* Fix overscroll behavior to prevent white areas at edges */
+html {
+  height: 100%;
+  background-color: #0f172a; /* Match your dark background color */
+}
+
+body {
+  min-height: 100%;
+  background-color: #0f172a; /* Match your dark background color */
+  overscroll-behavior: none; /* Prevent bouncing on iOS and some browsers */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
+/* Create container that takes at least full viewport height */
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: #0f172a; /* Match your dark background color */
+}
+
+/* For mobile Safari specifically */
+@supports (-webkit-touch-callout: none) {
+  body {
+    /* Mobile Safari needs this instead */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fill any potential gap at the bottom of the page */
+  #root:after {
+    content: "";
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -100px; /* Extend beyond the bottom */
+    height: 100px;
+    background-color: #0f172a; /* Match your dark background color */
+    z-index: -1;
+  }
+}

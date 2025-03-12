@@ -1,55 +1,184 @@
+// Import uuid - if this causes an error, you may need to install it using:
+// npm install uuid
+import { v4 as uuidv4 } from 'uuid';
+
 const TASKS_KEY = 'effisense_tasks';
 
+// Get tasks from localStorage
 export const getTasks = () => {
-  try {
-    const tasks = localStorage.getItem(TASKS_KEY);
-    return tasks ? JSON.parse(tasks) : [];
-  } catch (error) {
-    console.error('Error loading tasks:', error);
-    return [];
-  }
+  const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+  
+  // Generate instances for recurring tasks
+  const expandedTasks = [...tasks];
+  
+  // Find and expand recurring tasks
+  tasks.forEach(task => {
+    if (task.isRecurring && task.recurringType) {
+      const instances = generateRecurringInstances(task);
+      expandedTasks.push(...instances);
+    }
+  });
+  
+  return expandedTasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
 };
 
-export const addTask = (task) => {
-  try {
-    const tasks = getTasks();
-    const newTask = {
+// Generate instances for recurring tasks
+const generateRecurringInstances = (task) => {
+  const instances = [];
+  
+  if (!task.isRecurring || !task.deadline) {
+    return instances;
+  }
+  
+  const startDate = new Date(task.deadline);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // For performance, limit how far into the future we generate instances
+  const futureLimit = new Date();
+  futureLimit.setDate(today.getDate() + 60); // Generate 60 days into the future
+  
+  let currentDate = new Date(startDate);
+  
+  // Generate up to 10 instances or until we hit the future limit
+  for (let i = 0; i < 10 && currentDate < futureLimit; i++) {
+    // Skip the original task instance
+    if (i === 0) {
+      currentDate = getNextDate(currentDate, task.recurringType);
+      continue;
+    }
+    
+    // Create a new instance
+    const instance = {
       ...task,
-      id: Date.now().toString(),
-      completed: false,
-      createdAt: new Date().toISOString()
+      id: `${task.id}-instance-${i}`,
+      parentTaskId: task.id,
+      isRecurringInstance: true,
+      deadline: currentDate.toISOString(),
+      status: 'pending', // Reset status for future instances
+      completed: false, // Reset completion status
     };
-    const updatedTasks = [...tasks, newTask];
-    localStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-    return updatedTasks;
-  } catch (error) {
-    console.error('Error adding task:', error);
-    return getTasks();
+    
+    instances.push(instance);
+    
+    // Get next date based on recurrence pattern
+    currentDate = getNextDate(currentDate, task.recurringType);
   }
+  
+  return instances;
 };
 
-export const updateTask = (taskId, updatedFields) => {
-  try {
-    const tasks = getTasks();
-    const updatedTasks = tasks.map(task => 
-      task.id === taskId ? { ...task, ...updatedFields } : task
-    );
-    localStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-    return updatedTasks;
-  } catch (error) {
-    console.error('Error updating task:', error);
-    return getTasks();
+// Calculate next date based on recurrence type
+const getNextDate = (date, recurringType) => {
+  const nextDate = new Date(date);
+  
+  switch (recurringType) {
+    case 'daily':
+      nextDate.setDate(nextDate.getDate() + 1);
+      break;
+    case 'weekly':
+      nextDate.setDate(nextDate.getDate() + 7);
+      break;
+    case 'monthly':
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    default:
+      nextDate.setDate(nextDate.getDate() + 1);
   }
+  
+  return nextDate;
 };
 
+// Add a task
+export const addTask = (taskData) => {
+  const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+  
+  const newTask = {
+    ...taskData,
+    id: uuidv4(), // Generate unique ID
+    createdAt: new Date().toISOString()
+  };
+  
+  tasks.push(newTask);
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+  
+  // Return expanded tasks including recurring instances
+  return getTasks();
+};
+
+// Update a task
+export const updateTask = (taskId, updatedData) => {
+  const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+  const taskIndex = tasks.findIndex(task => task.id === taskId);
+  
+  if (taskIndex !== -1) {
+    // Handle recurring instance updates
+    if (updatedData.isRecurringInstance) {
+      const instanceId = taskId;
+      const parentId = updatedData.parentTaskId;
+      
+      // If completing a recurring instance
+      if (updatedData.completed) {
+        // Store completed instance separately
+        const completedInstance = {
+          ...updatedData,
+          id: instanceId,
+          completed: true,
+          parentTaskId: parentId
+        };
+        
+        // Add completed instance to tasks array
+        tasks.push(completedInstance);
+      }
+    } 
+    // Regular task update
+    else {
+      tasks[taskIndex] = {
+        ...tasks[taskIndex],
+        ...updatedData
+      };
+    }
+    
+    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+  }
+  
+  return getTasks();
+};
+
+// Delete a task
 export const deleteTask = (taskId) => {
-  try {
-    const tasks = getTasks();
-    const updatedTasks = tasks.filter(task => task.id !== taskId);
-    localStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-    return updatedTasks;
-  } catch (error) {
-    console.error('Error deleting task:', error);
-    return getTasks();
-  }
+  const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+  const filteredTasks = tasks.filter(task => task.id !== taskId);
+  
+  localStorage.setItem(TASKS_KEY, JSON.stringify(filteredTasks));
+  
+  return getTasks();
+};
+
+// Reschedule a task instance
+export const rescheduleTaskInstance = (instanceId, newDate) => {
+  const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+  
+  // Extract the parent ID from the instance ID
+  const [parentId] = instanceId.split('-instance-');
+  
+  // Create a new task based on the parent, with the new date
+  const parentTask = tasks.find(task => task.id === parentId);
+  
+  if (!parentTask) return getTasks();
+  
+  const rescheduledTask = {
+    ...parentTask,
+    id: uuidv4(),
+    deadline: newDate.toISOString(),
+    isRescheduled: true,
+    originalDate: parentTask.deadline,
+    status: 'pending',
+    completed: false
+  };
+  
+  tasks.push(rescheduledTask);
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+  
+  return getTasks();
 };
