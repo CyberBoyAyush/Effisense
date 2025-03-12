@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaCalendarAlt } from "react-icons/fa";
+import { 
+  FaCalendarAlt, FaSignOutAlt, FaUserCircle, FaChevronDown,
+  FaTachometerAlt, FaListUl, FaCalendarCheck, FaUserCog,
+  FaBell, FaCog, FaQuestionCircle
+} from "react-icons/fa";
 
 const Navbar = ({ onMenuClick, showMenuButton }) => {
   const location = useLocation();
@@ -76,35 +80,34 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
           {/* Auth Section */}
           <div className="flex items-center gap-4">
             {user ? (
-              <div className="relative group">
+              <div className="relative">
                 <button 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-800/50 
-                    transition-all duration-200"
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-gray-800/50 
+                    transition-all duration-200 group"
+                  aria-expanded={isDropdownOpen}
+                  aria-haspopup="true"
                 >
                   {/* Profile Avatar - Updated with orange gradient */}
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-600 
-                    flex items-center justify-center text-white font-medium">
-                    {user.name[0].toUpperCase()}
+                    flex items-center justify-center text-white font-medium shadow-md shadow-orange-600/10
+                    group-hover:shadow-orange-600/20 transition-all">
+                    <FaUserCircle className="w-6 h-6 text-white/90" />
                   </div>
                   <div className="hidden sm:block text-left">
                     <p className="text-sm font-medium text-white">{user.name}</p>
-                    <p className="text-xs text-gray-400">{user.email}</p>
+                    <p className="text-xs text-gray-400 truncate max-w-[120px]">{user.email}</p>
                   </div>
-                  <svg 
-                    className={`w-5 h-5 text-gray-400 transition-transform duration-200 
-                      ${isDropdownOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <FaChevronDown 
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 
+                      group-hover:text-orange-400 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                  />
                 </button>
 
+                {/* Enhanced Dropdown - With icons, visual grouping, hover effects */}
                 <motion.div 
-                  className="absolute right-0 mt-1 w-56 rounded-xl bg-gray-800 border border-orange-700/30
-                    shadow-lg overflow-hidden"
+                  className="absolute right-0 mt-2 w-64 rounded-xl bg-gray-800 border border-orange-700/30
+                    shadow-lg overflow-hidden shadow-black/20"
                   initial={{ opacity: 0, y: -10, height: 0 }}
                   animate={{ 
                     opacity: isDropdownOpen ? 1 : 0, 
@@ -113,20 +116,40 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                   }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="py-2">
-                    <NavLink to="/dashboard" icon="🏠" label="Dashboard" />
-                    <NavLink to="/tasks" icon="✓" label="Tasks" />
-                    <NavLink to="/calendar" icon="📅" label="Calendar" />
-                    <hr className="my-2 border-gray-700" />
-                    <button 
-                      onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-orange-400 hover:text-orange-300 
-                        hover:bg-gray-700/50 transition-colors duration-200 flex items-center gap-3"
-                    >
-                      <span>🚪</span>
-                      <span>Logout</span>
-                    </button>
-                  </div>
+                  {isDropdownOpen && (
+                    <div className="py-2">
+                      {/* User Info Section */}
+                      <div className="px-4 py-3 border-b border-gray-700/60">
+                        <p className="text-sm font-medium text-white">{user.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      </div>
+                      
+                      {/* Main Navigation Links */}
+                      <div className="py-1 px-2">
+                        <NavLink to="/dashboard" icon={<FaTachometerAlt />} label="Dashboard" />
+                        <NavLink to="/tasks" icon={<FaListUl />} label="Tasks" />
+                        <NavLink to="/calendar" icon={<FaCalendarCheck />} label="Calendar" />
+                      </div>
+                      
+                      {/* Account Actions */}
+                      <div className="py-1 px-2 border-t border-gray-700/60">
+                        <NavLink to="/profile" icon={<FaUserCog />} label="Account Settings" />
+                        <NavLink to="/settings" icon={<FaCog />} label="Preferences" />
+                      </div>
+                      
+                      {/* Logout Button */}
+                      <div className="py-1 px-2 border-t border-gray-700/60">
+                        <button 
+                          onClick={handleLogout}
+                          className="w-full px-3 py-2 text-left text-orange-400 hover:text-orange-300 
+                            hover:bg-gray-700/50 rounded-lg transition-colors duration-200 flex items-center gap-3 text-sm"
+                        >
+                          <FaSignOutAlt className="text-orange-500" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               </div>
             ) : (
@@ -160,16 +183,35 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
   );
 };
 
-// NavLink component
-const NavLink = ({ to, icon, label }) => (
-  <Link 
-    to={to} 
-    className="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-orange-300 
-      hover:bg-gray-700/50 transition-colors duration-200 font-medium"
-  >
-    <span>{icon}</span>
-    <span>{label}</span>
-  </Link>
-);
+// Enhanced NavLink component with icon support and badge option
+const NavLink = ({ to, icon, label, badge }) => {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+
+  return (
+    <Link 
+      to={to} 
+      className={`flex items-center justify-between px-3 py-2 my-0.5 text-sm rounded-lg
+        transition-colors duration-200 group hover:bg-gray-700/70
+        ${isActive 
+          ? 'bg-orange-600/20 text-orange-300 border-l-2 border-orange-500' 
+          : 'text-gray-300 hover:text-orange-300'
+        }`}
+    >
+      <div className="flex items-center gap-3">
+        <span className={`text-${isActive ? 'orange-400' : 'gray-400'} group-hover:text-orange-400`}>
+          {icon}
+        </span>
+        <span>{label}</span>
+      </div>
+      
+      {badge && (
+        <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+};
 
 export default Navbar;
