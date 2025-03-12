@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getTasks, addTask, updateTask, rescheduleTaskInstance } from '../../utils/taskStorage';
 import TaskFormModal from '../tasks/TaskFormModal';
+import TaskCard from '../tasks/TaskCard';
+import { createPortal } from 'react-dom';
 
 const CalendarView = () => {
   const [view, setView] = useState('month'); // 'month', 'week', 'day'
@@ -12,6 +14,7 @@ const CalendarView = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [openTaskDetails, setOpenTaskDetails] = useState(null);
 
   useEffect(() => {
     const loadedTasks = getTasks();
@@ -72,12 +75,12 @@ const CalendarView = () => {
   const handleTaskClick = (e, task) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelectedTask(task);
-    setShowTaskDetails(true);
+    
+    // Instead of setting selectedTask, we'll use the TaskCard component with portal
+    setOpenTaskDetails(task);
   };
 
-  const handleToggleComplete = (e, taskId) => {
-    e.stopPropagation();
+  const handleToggleComplete = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
       const updatedTasks = updateTask(taskId, { 
@@ -85,11 +88,18 @@ const CalendarView = () => {
         completed: !task.completed 
       });
       setTasks(updatedTasks);
-      // Update selectedTask if in popup
-      if (selectedTask?.id === taskId) {
-        setSelectedTask({ ...task, completed: !task.completed });
-      }
     }
+  };
+
+  const handleEditTask = (task) => {
+    setTaskToEdit(task);
+    setIsModalOpen(true);
+    setOpenTaskDetails(null);
+  };
+
+  const handleDeleteTask = (taskId) => {
+    // Implement delete task functionality
+    // This would call a deleteTask function from your taskStorage utility
   };
 
   const handleEditFromPopup = () => {
@@ -250,7 +260,7 @@ const CalendarView = () => {
         )}
       </div>
 
-      {/* Modals - keep as is */}
+      {/* Modals - Task form modal */}
       <TaskFormModal 
         isOpen={isModalOpen}
         onClose={() => {
@@ -262,66 +272,21 @@ const CalendarView = () => {
         defaultDateTime={selectedDate}
       />
 
-      {/* Task Details Modal - keep as is */}
-      {showTaskDetails && selectedTask && (
-        <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800/90 rounded-2xl max-w-lg w-full border border-gray-700/50 overflow-hidden">
-            {/* Popup Header */}
-            <div className="p-6 border-b border-gray-700/50">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-4">
-                  {/* Checkbox Toggle */}
-                  <button
-                    onClick={(e) => handleToggleComplete(e, selectedTask.id)}
-                    className={`flex items-center justify-center w-6 h-6 rounded border-2 transition-all duration-200 
-                      ${selectedTask.completed 
-                        ? 'bg-blue-500 border-blue-600 text-white' 
-                        : 'border-gray-600 hover:border-blue-500'}`}
-                  >
-                    {selectedTask.completed && (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                  <div>
-                    <h3 className="text-xl font-semibold text-white">
-                      {selectedTask.title}
-                    </h3>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Due: {new Date(selectedTask.deadline).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowTaskDetails(false)}
-                  className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-colors"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Popup Body */}
-            <div className="p-6">
-              <div className="prose prose-invert max-w-none">
-                <p className="text-gray-300 whitespace-pre-wrap">{selectedTask.description}</p>
-              </div>
-            </div>
-
-            {/* Updated Popup Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-700/50 bg-gray-800/50">
-              <button
-                onClick={handleEditFromPopup}
-                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Edit Task
-              </button>
-            </div>
+      {/* Task Details using TaskCard with Portal */}
+      {openTaskDetails && createPortal(
+        <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto"
+             onClick={() => setOpenTaskDetails(null)}>
+          <div className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            <TaskCard
+              task={openTaskDetails}
+              onToggleComplete={() => handleToggleComplete(openTaskDetails.id)}
+              onEdit={() => handleEditTask(openTaskDetails)}
+              onDelete={() => handleDeleteTask(openTaskDetails.id)}
+              usePortal={false}
+            />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -469,7 +434,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
     <div className="flex flex-col space-y-2">
       {/* Mobile Day Selector */}
       <div className="md:hidden">
-        {/* Day selector - keep as is */}
+        {/* Day selector */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
           {Array.from({ length: 7 }).map((_, index) => {
             const date = new Date(startOfWeek);
@@ -604,7 +569,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
         </div>
       </div>
 
-      {/* Desktop Week Grid - Keep as is */}
+      {/* Desktop Week Grid */}
       <div className="hidden md:flex flex-col space-y-2 overflow-x-auto">
         <div className="grid grid-cols-8 gap-1">
           <div className="w-20" />
@@ -813,7 +778,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
         })}
       </div>
 
-      {/* Desktop Day View - Keep as is */}
+      {/* Desktop Day View */}
       <div className="hidden md:flex flex-col space-y-2">
         {Array.from({ length: 24 }).map((_, hour) => {
           const hourTasks = dayTasks.filter(task => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
+import { createPortal } from "react-dom";
 import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
 import { 
   FaTasks, FaPlus, FaCheck, FaRegClock, 
@@ -203,12 +204,16 @@ const Tasks = () => {
         )}
       </div>
 
-      <TaskFormModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveTask} 
-        taskToEdit={taskToEdit} 
-      />
+      {/* Use React portal to render modals outside of parent containers */}
+      {isModalOpen && createPortal(
+        <TaskFormModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleSaveTask} 
+          taskToEdit={taskToEdit} 
+        />,
+        document.body
+      )}
     </div>
   );
 };

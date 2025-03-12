@@ -1,7 +1,11 @@
 import React from "react";
 import TaskCard from "./TaskCard";
+import { createPortal } from "react-dom";
 
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
+  // Create a container to track any open task details modals
+  const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
+
   return (
     <div className="space-y-4">
       {tasks.length === 0 ? (
@@ -18,9 +22,14 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
             onEdit={() => onEdit(index)}
             onDelete={() => onDelete(index)}
             onToggleComplete={() => onToggleComplete(index)}
+            setOpenTaskDetails={setOpenTaskDetails}
+            usePortal={true}
           />
         ))
       )}
+
+      {/* Render any open task details using a portal to ensure it renders at the document body level */}
+      {openTaskDetails && createPortal(openTaskDetails, document.body)}
     </div>
   );
 };
