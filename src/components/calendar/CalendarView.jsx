@@ -327,17 +327,20 @@ const CalendarView = () => {
         )}
       </div>
 
-      {/* Modals - Task form modal */}
-      <TaskFormModal 
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setTaskToEdit(null);
-        }}
-        onSave={handleTaskSave}
-        taskToEdit={taskToEdit}
-        defaultDateTime={selectedDate}
-      />
+      {/* Modals - Task form modal - Updated to use React Portal */}
+      {isModalOpen && createPortal(
+        <TaskFormModal 
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setTaskToEdit(null);
+          }}
+          onSave={handleTaskSave}
+          taskToEdit={taskToEdit}
+          defaultDateTime={selectedDate}
+        />,
+        document.body
+      )}
 
       {/* Task Details using TaskCard with Portal */}
       {openTaskDetails && createPortal(

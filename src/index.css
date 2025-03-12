@@ -72,3 +72,88 @@
     width: 100% !important;
   }
 }
+
+/* Adjusted DatePicker size for desktop */
+@media (min-width: 640px) {
+  .dark-calendar {
+    font-size: 1rem !important;
+  }
+  
+  .dark-calendar .react-datepicker__time-container {
+    width: 100px !important;
+  }
+  
+  .dark-calendar .react-datepicker__header--time {
+    padding: 8px !important;
+  }
+  
+  .dark-calendar .react-datepicker__time-list-item {
+    padding: 8px 10px !important;
+    font-size: 0.95rem !important;
+    height: auto !important;
+  }
+  
+  .dark-calendar .react-datepicker__day {
+    width: 2rem !important;
+    line-height: 2rem !important;
+    margin: 0.2rem !important;
+  }
+  
+  .dark-calendar .react-datepicker__day-name {
+    width: 2rem !important;
+    line-height: 1.5rem !important;
+    margin: 0.2rem !important;
+  }
+}
+
+/* Ensure modal always sits on top of everything else */
+.fixed.z-\[100\] {
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+/* Fix for Safari */
+@supports (-webkit-overflow-scrolling: touch) {
+  .fixed.z-\[100\] {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Fix for any modal flickering */
+.transform-gpu {
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Smaller DatePicker for compact UI */
+.dark-calendar.react-datepicker--time-only {
+  width: 8rem !important;
+  font-size: 0.875rem !important;
+}
+
+@media (min-width: 640px) {
+  .dark-calendar.react-datepicker--time-only {
+    width: 10rem !important;
+  }
+}
+
+/* Hide scrollbar but maintain functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Ensure single-line inputs don't get too tall */
+input.text-sm {
+  min-height: 0;
+  height: 2rem;
+}
+
+/* More compact details element */
+details summary::-webkit-details-marker {
+  display: none;
+}
