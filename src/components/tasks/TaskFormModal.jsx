@@ -593,7 +593,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 
                 {/* Start Time inline with Date */}
                 <div>
-                  <label className="text-gray-300 text-xs font-medium block mb-1 flex items-center gap-1">
+                  <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
                     <IoTimeOutline className="text-orange-400 text-xs" />
                     <span>Start Time</span>
                   </label>
@@ -618,11 +618,11 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* Duration Quick Select - Fix for desktop view */}
                 <div>
-                  <label className="text-gray-300 text-xs font-medium block mb-1 flex items-center gap-1">
+                  <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
                     <FaHourglass className="text-orange-400 text-xs" />
                     <span>Duration</span>
                   </label>
-                  <div className="flex flex-nowrap gap-1 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1 -mx-1 px-1 scrollbar-hide">
+                  <div className="flex flex-nowrap gap-1 sm:gap-2 overflow-x-auto sm:flex-wrap sm:overflow-x-visible pb-1 sm:pb-0 -mx-1 px-1 scrollbar-hide">
                     {[
                       { value: "15", label: "15m" },
                       { value: "30", label: "30m" },
@@ -635,7 +635,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                         key={option.value}
                         type="button"
                         onClick={() => handleDurationChange(option.value)}
-                        className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-md text-xs sm:text-sm shrink-0 sm:flex-1 transition-all
+                        className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-md text-xs sm:text-sm shrink-0 sm:flex-1 transition-all
                           ${duration === option.value
                             ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-sm' 
                             : 'bg-gray-800/70 text-gray-400 hover:bg-gray-700 border border-gray-700/40'
