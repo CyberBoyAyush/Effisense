@@ -5,20 +5,25 @@ import TaskFormModal from "../components/tasks/TaskFormModal";
 import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
-  FaClipboardList, FaCheckCircle, FaHourglassHalf
+  FaClipboardList, FaCheckCircle, FaHourglassHalf,
+  FaExclamationCircle, FaFilter, FaAngleDown
 } from "react-icons/fa";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
   useEffect(() => {
     // Load tasks when component mounts
     const savedTasks = getTasks();
     setTasks(savedTasks);
+    setFilteredTasks(savedTasks);
 
     // Check authentication
     const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -28,6 +33,15 @@ const Dashboard = () => {
       setUser(loggedInUser);
     }
   }, [navigate]);
+
+  // Apply priority filter when it changes or when tasks change
+  useEffect(() => {
+    if (priorityFilter === "all") {
+      setFilteredTasks(tasks);
+    } else {
+      setFilteredTasks(tasks.filter(task => task.priority === priorityFilter));
+    }
+  }, [priorityFilter, tasks]);
 
   // Add new task
   const handleAddTask = () => {
@@ -49,21 +63,23 @@ const Dashboard = () => {
 
   // Edit task
   const handleEditTask = (index) => {
-    const taskToEdit = tasks[index];
-    setTaskToEdit({ ...taskToEdit, index });
+    const taskToEdit = filteredTasks[index];
+    // Find original task index in the full tasks array
+    const originalIndex = tasks.findIndex(t => t.id === taskToEdit.id);
+    setTaskToEdit({ ...tasks[originalIndex], index: originalIndex });
     setIsModalOpen(true);
   };
 
   // Delete task
   const handleDeleteTask = (index) => {
-    const taskId = tasks[index].id;
+    const taskId = filteredTasks[index].id;
     const updatedTasks = deleteTask(taskId);
     setTasks(updatedTasks);
   };
 
   // Add task toggle functionality
   const handleToggleComplete = (index) => {
-    const task = tasks[index];
+    const task = filteredTasks[index];
     if (task?.id) {
       const updatedTasks = updateTask(task.id, { 
         ...task, 
@@ -73,10 +89,11 @@ const Dashboard = () => {
     }
   };
 
-  // Logout function
-  const handleLogout = () => {
-    localStorage.removeItem("loggedInUser");
-    navigate("/login");
+  // Priority filter counts
+  const priorityCounts = {
+    high: tasks.filter(t => t.priority === "high").length,
+    medium: tasks.filter(t => t.priority === "medium").length,
+    low: tasks.filter(t => t.priority === "low").length,
   };
 
   return (
@@ -109,6 +126,8 @@ const Dashboard = () => {
             <FaListUl className="text-orange-400" />
             <span>Your Tasks</span>
           </h2>
+          
+          {/* Add Task Button */}
           <button 
             onClick={handleAddTask}
             className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
@@ -121,7 +140,70 @@ const Dashboard = () => {
           </button>
         </div>
         
-        <TaskList tasks={tasks} onEdit={handleEditTask} onDelete={handleDeleteTask} onToggleComplete={handleToggleComplete} />
+        {/* Priority Filter Tabs - Replace dropdown with tab buttons */}
+        <div className="mb-6 flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-gray-400 mr-1 flex items-center">
+            <FaFilter className="text-orange-400 mr-1" />
+            Filter:
+          </span>
+          <PriorityTab 
+            active={priorityFilter === 'all'} 
+            onClick={() => setPriorityFilter('all')}
+            count={tasks.length}
+          >
+            All
+          </PriorityTab>
+          <PriorityTab 
+            active={priorityFilter === 'high'} 
+            onClick={() => setPriorityFilter('high')}
+            count={priorityCounts.high}
+            color="red"
+          >
+            High
+          </PriorityTab>
+          <PriorityTab 
+            active={priorityFilter === 'medium'} 
+            onClick={() => setPriorityFilter('medium')}
+            count={priorityCounts.medium}
+            color="amber"
+          >
+            Medium
+          </PriorityTab>
+          <PriorityTab 
+            active={priorityFilter === 'low'} 
+            onClick={() => setPriorityFilter('low')}
+            count={priorityCounts.low}
+            color="green"
+          >
+            Low
+          </PriorityTab>
+        </div>
+        
+        {/* Conditional message for filtered results */}
+        {priorityFilter !== "all" && (
+          <div className="flex items-center gap-2 mb-4 py-2 px-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <FaExclamationCircle className={`
+              ${priorityFilter === "high" ? "text-red-400" : 
+                priorityFilter === "medium" ? "text-amber-400" : "text-green-400"}
+            `} />
+            <span className="text-sm text-gray-300">
+              Showing {filteredTasks.length} {priorityFilter} priority task{filteredTasks.length !== 1 ? 's' : ''}
+            </span>
+            <button 
+              className="ml-auto text-xs text-orange-400 hover:text-orange-300"
+              onClick={() => setPriorityFilter("all")}
+            >
+              Show All
+            </button>
+          </div>
+        )}
+        
+        <TaskList 
+          tasks={filteredTasks} 
+          onEdit={handleEditTask} 
+          onDelete={handleDeleteTask} 
+          onToggleComplete={handleToggleComplete} 
+        />
       </div>
 
       {/* Calendar Preview - Updated with icon */}
@@ -159,6 +241,42 @@ const StatCard = ({ title, value, Icon, color = "orange" }) => {
       <h3 className="text-[10px] sm:text-sm md:text-base text-gray-400 font-medium">{title}</h3>
       <p className="text-base sm:text-xl md:text-2xl font-bold text-white mt-0.5 md:mt-2">{value}</p>
     </div>
+  );
+};
+
+// New Priority Tab component
+const PriorityTab = ({ active, onClick, count, color = "orange", children }) => {
+  // Get appropriate tab styling based on state and color
+  const getTabStyles = () => {
+    if (active) {
+      switch (color) {
+        case 'red':
+          return 'bg-red-500/20 border-red-500 text-red-400';
+        case 'green':
+          return 'bg-green-500/20 border-green-500 text-green-400';
+        case 'amber':
+          return 'bg-amber-500/20 border-amber-500 text-amber-400';
+        default:
+          return 'bg-orange-500/20 border-orange-500 text-orange-400';
+      }
+    }
+    return 'bg-gray-800/50 border-gray-700/50 text-gray-400 hover:border-gray-600 hover:text-gray-300';
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-sm border transition-all duration-200 flex items-center gap-2 ${getTabStyles()}`}
+    >
+      {color === 'red' && active && <span className="w-2 h-2 rounded-full bg-red-500"></span>}
+      {color === 'amber' && active && <span className="w-2 h-2 rounded-full bg-amber-500"></span>}
+      {color === 'green' && active && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
+      
+      <span>{children}</span>
+      <span className={`rounded-full ${active ? 'bg-gray-800/50' : 'bg-gray-700/50'} px-1.5 py-0.5 text-xs`}>
+        {count}
+      </span>
+    </button>
   );
 };
 
