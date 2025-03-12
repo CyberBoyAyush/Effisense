@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
+import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   // Form fields state
@@ -26,6 +30,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // Add state to track if task is a recurring instance that's being rescheduled
   const [isInstanceReschedule, setIsInstanceReschedule] = useState(false);
+
+  // Convert string deadline to Date object for DatePicker
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
 
   useEffect(() => {
     // Reset form when modal opens
@@ -57,6 +65,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             minute: '2-digit',
             timeZone: 'Asia/Kolkata'
           }));
+          setStartDate(taskDate);
           
           // Handle end time if it exists, otherwise default to 1 hour later
           if (taskToEdit.endTime) {
@@ -67,6 +76,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               minute: '2-digit',
               timeZone: 'Asia/Kolkata'
             }));
+            setEndDate(endDateTime);
           } else {
             // Default to 1 hour after start time
             const taskEndTime = new Date(taskToEdit.deadline);
@@ -77,6 +87,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               minute: '2-digit',
               timeZone: 'Asia/Kolkata'
             }));
+            setEndDate(taskEndTime);
           }
         }
         
@@ -102,6 +113,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         
         setDeadline(localDate);
         setTime(localTime);
+        setStartDate(date);
         
         // Default end time to 1 hour later
         const endDate = new Date(defaultDateTime);
@@ -112,6 +124,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           minute: '2-digit'
         });
         setEndTime(localEndTime);
+        setEndDate(endDate);
         
         // Reset other fields to defaults
         setPriority("medium");
@@ -132,6 +145,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           hour: '2-digit',
           minute: '2-digit'
         }));
+        setStartDate(now);
         
         // Default end time to 1 hour later
         const endDate = new Date(now);
@@ -141,6 +155,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           hour: '2-digit',
           minute: '2-digit'
         }));
+        setEndDate(endDate);
         
         // Reset other fields to defaults
         setPriority("medium");
@@ -255,9 +270,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     if (time) {
       const calculatedEndTime = calculateEndTime(time, duration);
       setEndTime(calculatedEndTime);
+      
+      // Update endDate when duration changes
+      const [hours, minutes] = calculatedEndTime.split(':').map(Number);
+      const newEndDate = new Date(startDate);
+      newEndDate.setHours(hours, minutes, 0, 0);
+      setEndDate(newEndDate);
+      
       validateTimeOrder();
     }
-  }, [time, duration]);
+  }, [time, duration, startDate]);
 
   const handleTimeChange = (e) => {
     setTime(e.target.value);
@@ -267,6 +289,33 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const handleDurationChange = (newDuration) => {
     setDuration(newDuration);
     // End time will be updated by the useEffect
+  };
+
+  const handleStartDateChange = (date) => {
+    setStartDate(date);
+    setDeadline(date.toISOString().split('T')[0]);
+    setTime(date.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    
+    // Update end date to maintain same day
+    const newEndDate = new Date(endDate);
+    newEndDate.setFullYear(date.getFullYear());
+    newEndDate.setMonth(date.getMonth());
+    newEndDate.setDate(date.getDate());
+    setEndDate(newEndDate);
+  };
+
+  const handleEndDateChange = (date) => {
+    setEndDate(date);
+    setEndTime(date.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    validateTimeOrder();
   };
 
   const handleSubmit = (e) => {
@@ -327,18 +376,18 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   
   return (
     <div 
-      className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-sm flex items-center justify-center touch-none overflow-y-auto py-6"
+      className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-sm flex items-center justify-center touch-none overflow-y-auto py-2 sm:py-6 px-2 sm:px-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Centered Modal Container */}
-      <div className="w-[95%] sm:w-[90%] max-w-lg mx-auto my-auto bg-gray-800 rounded-2xl shadow-xl
+      {/* Centered Modal Container - Improved mobile padding */}
+      <div className="w-full sm:w-[90%] max-w-lg mx-auto my-auto bg-gray-800 rounded-2xl shadow-xl
         flex flex-col border border-orange-700/30 transform-gpu">
         
         {/* Header with context about rescheduling */}
-        <div className="p-4 bg-gradient-to-r from-gray-800/80 to-orange-950/20 border-b border-orange-700/30 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-800/80 to-orange-950/20 border-b border-orange-700/30 flex items-center justify-between shrink-0">
+          <h2 className="text-base sm:text-lg font-semibold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
             {taskToEdit 
               ? isInstanceReschedule 
                 ? "Reschedule Task" 
@@ -367,9 +416,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           </div>
         )}
 
-        {/* Scrollable Form */}
-        <div className="overflow-y-auto flex-grow px-4 py-5">
-          <form id="taskForm" onSubmit={handleSubmit} className="space-y-5">
+        {/* Scrollable Form - Improved mobile padding */}
+        <div className="overflow-y-auto flex-grow px-3 sm:px-4 py-4 sm:py-5">
+          <form id="taskForm" onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Title Field */}
             <div>
               <label htmlFor="title" className="text-gray-300 text-sm font-medium block mb-1">
@@ -410,8 +459,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               />
             </div>
 
-            {/* Priority and Status in two columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Priority and Status in two columns - Improved for mobile */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4">
               {/* Priority Dropdown */}
               <div>
                 <label htmlFor="priority" className="text-gray-300 text-sm font-medium block mb-1">
@@ -459,8 +508,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               </div>
             </div>
 
-            {/* Category and Google Calendar Sync */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Category and Google Calendar Sync - Improved for mobile */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               {/* Category Dropdown */}
               <div>
                 <label htmlFor="category" className="text-gray-300 text-sm font-medium block mb-1">
@@ -484,8 +533,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 </select>
               </div>
 
-              {/* Google Calendar Sync Toggle */}
-              <div className="flex items-center h-full mt-6">
+              {/* Google Calendar Sync Toggle - Modified for mobile */}
+              <div className="flex items-center mt-0 sm:mt-6 h-full">
                 <label className="inline-flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
@@ -505,81 +554,88 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               </div>
             </div>
 
-            {/* Enhanced Date and Time Pickers */}
-            <div className="space-y-4">
+            {/* Enhanced Date and Time Pickers with react-datepicker */}
+            <div className="bg-gray-900/40 rounded-xl border border-gray-700/50 p-4 sm:p-5 space-y-4 sm:space-y-5">
+              <div className="flex items-center gap-3 text-orange-400 mb-1">
+                <IoCalendarClearOutline className="text-lg" />
+                <h3 className="text-base font-medium">Schedule</h3>
+              </div>
+              
+              {/* Date Picker using react-datepicker */}
               <div>
-                <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
-                  Date <span className="text-orange-500">*</span>
+                <label className="text-gray-300 text-sm font-medium block mb-2 flex items-center gap-2">
+                  <span>Date</span> 
+                  <span className="text-orange-500">*</span>
                 </label>
-                <input
-                  id="deadline"
-                  type="date"
-                  className={`w-full p-2.5 bg-gray-900/50 border rounded-lg
-                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
-                    ${touched.deadline && errors.deadline ? 'border-red-500' : 'border-gray-700'}`}
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  onBlur={() => handleBlur('deadline')}
-                />
-                {touched.deadline && errors.deadline && (
-                  <p className="text-red-500 text-xs mt-1">{errors.deadline}</p>
-                )}
+                <div className="datepicker-container">
+                  <DatePicker
+                    selected={startDate}
+                    onChange={handleStartDateChange}
+                    dateFormat="MMMM d, yyyy"
+                    className="w-full p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-lg
+                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+                      hover:border-gray-600 transition-colors duration-200"
+                    calendarClassName="dark-calendar"
+                    wrapperClassName="w-full"
+                  />
+                </div>
               </div>
 
-              {/* Time Picker Section with Modern Design */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Time Picker Section with Modern Design and DatePicker */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Start Time */}
                 <div>
-                  <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
-                    Start Time
+                  <label className="text-gray-300 text-sm font-medium block mb-2 flex items-center gap-2">
+                    <IoTimeOutline className="text-orange-400" />
+                    <span>Start Time</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      id="time"
-                      type="time"
-                      className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
-                        text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 pr-10"
-                      value={time}
-                      onChange={handleTimeChange}
-                    />
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-orange-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
+                  <DatePicker
+                    selected={startDate}
+                    onChange={handleStartDateChange}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="Time"
+                    dateFormat="h:mm aa"
+                    className="w-full p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-lg
+                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+                      hover:border-gray-600 transition-colors duration-200"
+                    calendarClassName="dark-calendar"
+                    wrapperClassName="w-full"
+                  />
                 </div>
                 
+                {/* End Time */}
                 <div>
-                  <label htmlFor="endTime" className="text-gray-300 text-sm font-medium block mb-1">
+                  <label className="text-gray-300 text-sm font-medium block mb-2">
                     End Time
                   </label>
-                  <div className="relative">
-                    <input
-                      id="endTime"
-                      type="time"
-                      className={`w-full p-2.5 bg-gray-900/50 border rounded-lg
-                        text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 pr-10
-                        ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700'}`}
-                      value={endTime}
-                      onChange={handleEndTimeChange}
-                      onBlur={validateTimeOrder}
-                    />
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-orange-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
+                  <DatePicker
+                    selected={endDate}
+                    onChange={handleEndDateChange}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="Time"
+                    dateFormat="h:mm aa"
+                    className={`w-full p-2.5 bg-gray-900/50 border rounded-lg
+                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+                      ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700/60'}
+                      hover:border-gray-600 transition-colors duration-200`}
+                    calendarClassName="dark-calendar"
+                    wrapperClassName="w-full"
+                  />
                   {touched.endTime && errors.endTime && (
                     <p className="text-red-500 text-xs mt-1">{errors.endTime}</p>
                   )}
                 </div>
               </div>
               
-              {/* Duration Quick Select */}
+              {/* Duration Quick Select - Enhanced with better mobile spacing */}
               <div>
-                <label className="text-gray-300 text-sm font-medium block mb-2">
-                  Duration
+                <label className="text-gray-300 text-sm font-medium block mb-2 flex items-center gap-2">
+                  <FaHourglass className="text-orange-400" />
+                  <span>Duration</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {[
@@ -594,15 +650,25 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                       key={option.value}
                       type="button"
                       onClick={() => handleDurationChange(option.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200
                         ${duration === option.value
-                          ? 'bg-orange-600 text-white' 
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                          ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/20' 
+                          : 'bg-gray-800/70 text-gray-400 hover:bg-gray-700 hover:text-orange-300 border border-gray-700/40'
                         }`}
                     >
                       {option.label}
                     </button>
                   ))}
+                </div>
+              </div>
+              
+              {/* Time Selection Tips */}
+              <div className="bg-gray-800/40 rounded-lg p-3 border border-gray-700/30">
+                <div className="flex items-center text-xs sm:text-sm text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                    <span>Click a duration to auto-calculate end time</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -721,22 +787,22 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           </form>
         </div>
 
-        {/* Footer with action buttons */}
-        <div className="border-t border-orange-700/30 p-4 bg-gray-800/90 shrink-0">
-          <div className="flex gap-3">
+        {/* Footer with action buttons - Improved for mobile */}
+        <div className="border-t border-orange-700/30 p-3 sm:p-4 bg-gray-800/90 shrink-0">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-gray-700 text-gray-300 rounded-lg 
-                hover:bg-gray-600 transition-colors"
+              className="flex-1 px-3 py-2 sm:px-4 sm:py-2.5 bg-gray-700 text-gray-300 rounded-lg 
+                hover:bg-gray-600 transition-colors text-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="taskForm"
-              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
-                hover:from-orange-500 hover:to-amber-500 transition-colors font-medium
+              className="flex-1 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
+                hover:from-orange-500 hover:to-amber-500 transition-colors font-medium text-sm
                 shadow-[0_0_10px_rgba(251,146,60,0.3)] hover:shadow-[0_0_15px_rgba(251,146,60,0.4)]"
             >
               {taskToEdit 

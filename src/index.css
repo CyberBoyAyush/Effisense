@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+/* Add these styles to your global CSS file */
+
+/* Date picker dark theme styles */
+.dark-calendar {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+  border-radius: 0.5rem !important;
+  font-family: inherit !important;
+  border-width: 1px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-calendar .react-datepicker__header {
+  background-color: #111827 !important;
+  border-bottom-color: #374151 !important;
+}
+
+.dark-calendar .react-datepicker__current-month,
+.dark-calendar .react-datepicker__day-name,
+.dark-calendar .react-datepicker-time__header {
+  color: #e5e7eb !important;
+}
+
+.dark-calendar .react-datepicker__day {
+  color: #d1d5db !important;
+}
+
+.dark-calendar .react-datepicker__day:hover {
+  background-color: #4b5563 !important;
+  border-radius: 0.3rem !important;
+}
+
+.dark-calendar .react-datepicker__day--selected,
+.dark-calendar .react-datepicker__day--keyboard-selected,
+.dark-calendar .react-datepicker__time-list-item--selected {
+  background-color: #f97316 !important;
+  color: white !important;
+  border-radius: 0.3rem !important;
+}
+
+.dark-calendar .react-datepicker__day--outside-month {
+  color: #6b7280 !important;
+}
+
+.dark-calendar .react-datepicker__time-container {
+  border-left-color: #374151 !important;
+}
+
+.dark-calendar .react-datepicker__time-list-item {
+  color: #d1d5db !important;
+  background-color: #1f2937 !important;
+}
+
+.dark-calendar .react-datepicker__time-list-item:hover {
+  background-color: #4b5563 !important;
+}
+
+.react-datepicker-wrapper {
+  display: block;
+  width: 100%;
+}
+
+/* Mobile optimization */
+@media (max-width: 640px) {
+  .react-datepicker__time-container {
+    width: 6rem !important;
+  }
+  
+  .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
+    width: 100% !important;
+  }
+}
