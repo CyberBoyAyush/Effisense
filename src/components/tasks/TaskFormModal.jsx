@@ -38,142 +38,159 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
-      // Reset touched state
-      setTouched({});
-      setErrors({});
-      
-      // Populate form with existing task data or default values
-      if (taskToEdit) {
-        setTitle(taskToEdit.title || "");
-        setDescription(taskToEdit.description || "");
-        setPriority(taskToEdit.priority || "medium");
-        setStatus(taskToEdit.status || "pending");
-        setCategory(taskToEdit.category || "work");
-        setSyncWithGoogle(taskToEdit.syncWithGoogle || false);
-        setIsRecurring(taskToEdit.isRecurring || false);
-        setRecurringType(taskToEdit.recurringType || "daily");
-        setEnableReminders(taskToEdit.enableReminders || false);
-        setReminderTime(taskToEdit.reminderTime || "15");
+      try {
+        // Reset touched state
+        setTouched({});
+        setErrors({});
         
-        // Handle deadline date and time
-        if (taskToEdit.deadline) {
-          const taskDate = new Date(taskToEdit.deadline);
-          setDeadline(taskDate.toISOString().split('T')[0]);
-          setTime(taskDate.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'Asia/Kolkata'
-          }));
-          setStartDate(taskDate);
+        // Populate form with existing task data or default values
+        if (taskToEdit) {
+          setTitle(taskToEdit.title || "");
+          setDescription(taskToEdit.description || "");
+          setPriority(taskToEdit.priority || "medium");
+          setStatus(taskToEdit.status || "pending");
+          setCategory(taskToEdit.category || "work");
+          setSyncWithGoogle(taskToEdit.syncWithGoogle || false);
+          setIsRecurring(taskToEdit.isRecurring || false);
+          setRecurringType(taskToEdit.recurringType || "daily");
+          setEnableReminders(taskToEdit.enableReminders || false);
+          setReminderTime(taskToEdit.reminderTime || "15");
           
-          // Handle end time if it exists, otherwise default to 1 hour later
-          if (taskToEdit.endTime) {
-            const endDateTime = new Date(taskToEdit.endTime);
-            setEndTime(endDateTime.toLocaleTimeString('en-US', { 
+          // Handle deadline date and time
+          if (taskToEdit.deadline) {
+            const taskDate = new Date(taskToEdit.deadline);
+            setDeadline(taskDate.toISOString().split('T')[0]);
+            setTime(taskDate.toLocaleTimeString('en-US', { 
               hour12: false, 
               hour: '2-digit', 
               minute: '2-digit',
               timeZone: 'Asia/Kolkata'
             }));
-            setEndDate(endDateTime);
-          } else {
-            // Default to 1 hour after start time
-            const taskEndTime = new Date(taskToEdit.deadline);
-            taskEndTime.setHours(taskEndTime.getHours() + 1);
-            setEndTime(taskEndTime.toLocaleTimeString('en-US', { 
-              hour12: false, 
-              hour: '2-digit', 
-              minute: '2-digit',
-              timeZone: 'Asia/Kolkata'
-            }));
-            setEndDate(taskEndTime);
+            setStartDate(taskDate);
+            
+            // Handle end time if it exists, otherwise default to 1 hour later
+            if (taskToEdit.endTime) {
+              const endDateTime = new Date(taskToEdit.endTime);
+              setEndTime(endDateTime.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'Asia/Kolkata'
+              }));
+              setEndDate(endDateTime);
+            } else {
+              // Default to 1 hour after start time
+              const taskEndTime = new Date(taskToEdit.deadline);
+              taskEndTime.setHours(taskEndTime.getHours() + 1);
+              setEndTime(taskEndTime.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'Asia/Kolkata'
+              }));
+              setEndDate(taskEndTime);
+            }
           }
-        }
-        
-        // Calculate duration if endTime exists
-        if (taskToEdit.endTime) {
-          const startDate = new Date(taskToEdit.deadline);
-          const endDate = new Date(taskToEdit.endTime);
-          const durationMs = endDate - startDate;
-          const durationMinutes = Math.round(durationMs / (1000 * 60));
-          setDuration(durationMinutes.toString());
+          
+          // Calculate duration if endTime exists
+          if (taskToEdit.endTime) {
+            const startDate = new Date(taskToEdit.deadline);
+            const endDate = new Date(taskToEdit.endTime);
+            const durationMs = endDate - startDate;
+            const durationMinutes = Math.round(durationMs / (1000 * 60));
+            setDuration(durationMinutes.toString());
+          } else {
+            setDuration("60"); // Default to 60 minutes
+          }
+        } else if (defaultDateTime) {
+          // Use the provided default date and time
+          const date = new Date(defaultDateTime);
+          const localDate = date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+          const localTime = date.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          
+          setDeadline(localDate);
+          setTime(localTime);
+          setStartDate(date);
+          
+          // Default end time to 1 hour later
+          const endDate = new Date(defaultDateTime);
+          endDate.setHours(endDate.getHours() + 1);
+          const localEndTime = endDate.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          setEndTime(localEndTime);
+          setEndDate(endDate);
+          
+          // Reset other fields to defaults
+          setPriority("medium");
+          setStatus("pending");
+          setCategory("work");
+          setSyncWithGoogle(false);
+          setIsRecurring(false);
+          setRecurringType("daily");
+          setEnableReminders(false);
+          setReminderTime("15");
+          setDuration("60"); // Default to 60 minutes
         } else {
+          // Set current time as default
+          const now = new Date();
+          setDeadline(now.toLocaleDateString('en-CA'));
+          setTime(now.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setStartDate(now);
+          
+          // Default end time to 1 hour later
+          const endDate = new Date(now);
+          endDate.setHours(endDate.getHours() + 1);
+          setEndTime(endDate.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setEndDate(endDate);
+          
+          // Reset other fields to defaults
+          setPriority("medium");
+          setStatus("pending");
+          setCategory("work");
+          setSyncWithGoogle(false);
+          setIsRecurring(false);
+          setRecurringType("daily");
+          setEnableReminders(false);
+          setReminderTime("15");
           setDuration("60"); // Default to 60 minutes
         }
-      } else if (defaultDateTime) {
-        // Use the provided default date and time
-        const date = new Date(defaultDateTime);
-        const localDate = date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
-        const localTime = date.toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        setDeadline(localDate);
-        setTime(localTime);
-        setStartDate(date);
-        
-        // Default end time to 1 hour later
-        const endDate = new Date(defaultDateTime);
-        endDate.setHours(endDate.getHours() + 1);
-        const localEndTime = endDate.toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        setEndTime(localEndTime);
-        setEndDate(endDate);
-        
-        // Reset other fields to defaults
-        setPriority("medium");
-        setStatus("pending");
-        setCategory("work");
-        setSyncWithGoogle(false);
-        setIsRecurring(false);
-        setRecurringType("daily");
-        setEnableReminders(false);
-        setReminderTime("15");
-        setDuration("60"); // Default to 60 minutes
-      } else {
-        // Set current time as default
-        const now = new Date();
-        setDeadline(now.toLocaleDateString('en-CA'));
-        setTime(now.toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        }));
-        setStartDate(now);
-        
-        // Default end time to 1 hour later
-        const endDate = new Date(now);
-        endDate.setHours(endDate.getHours() + 1);
-        setEndTime(endDate.toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        }));
-        setEndDate(endDate);
-        
-        // Reset other fields to defaults
-        setPriority("medium");
-        setStatus("pending");
-        setCategory("work");
-        setSyncWithGoogle(false);
-        setIsRecurring(false);
-        setRecurringType("daily");
-        setEnableReminders(false);
-        setReminderTime("15");
-        setDuration("60"); // Default to 60 minutes
-      }
 
-      // Check if this is a recurring task instance being rescheduled
-      if (taskToEdit?.isRecurringInstance || taskToEdit?.parentTaskId) {
-        setIsInstanceReschedule(true);
-      } else {
-        setIsInstanceReschedule(false);
+        // Check if this is a recurring task instance being rescheduled
+        if (taskToEdit?.isRecurringInstance || taskToEdit?.parentTaskId) {
+          setIsInstanceReschedule(true);
+        } else {
+          setIsInstanceReschedule(false);
+        }
+
+        // Ensure we always have valid Date objects
+        if (!startDate || isNaN(startDate.getTime())) {
+          const now = new Date();
+          console.log("Setting default start date:", now);
+          setStartDate(now);
+        }
+        
+        if (!endDate || isNaN(endDate.getTime())) {
+          const end = startDate ? new Date(startDate.getTime() + 60 * 60 * 1000) : new Date(Date.now() + 60 * 60 * 1000);
+          console.log("Setting default end date:", end);
+          setEndDate(end);
+        }
+      } catch (error) {
+        console.error("Error initializing form dates:", error);
       }
     }
   }, [isOpen, taskToEdit, defaultDateTime]);
@@ -227,13 +244,12 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     return Object.keys(newErrors).length === 0;
   };
 
-  // Validate time order (end time must be after start time)
+  // Fix the validateTimeOrder function to properly handle times crossing midnight
   const validateTimeOrder = () => {
-    if (time && endTime) {
-      const [startHour, startMinute] = time.split(':').map(Number);
-      const [endHour, endMinute] = endTime.split(':').map(Number);
-      
-      if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+    // Use the actual Date objects instead of string parsing
+    if (startDate && endDate) {
+      // Compare timestamps (which handles day changes correctly)
+      if (endDate.getTime() <= startDate.getTime()) {
         setErrors({...errors, endTime: 'End time must be after start time'});
         return false;
       } else {
@@ -267,15 +283,20 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // Update end time when start time or duration changes
   useEffect(() => {
-    if (time) {
-      const calculatedEndTime = calculateEndTime(time, duration);
-      setEndTime(calculatedEndTime);
+    if (time && startDate) {
+      // Instead of simply setting hours and minutes, calculate from the start time
+      // plus the duration in milliseconds to handle crossing days correctly
+      const durationMs = parseInt(duration) * 60 * 1000;
+      const newEndDate = new Date(startDate.getTime() + durationMs);
       
-      // Update endDate when duration changes
-      const [hours, minutes] = calculatedEndTime.split(':').map(Number);
-      const newEndDate = new Date(startDate);
-      newEndDate.setHours(hours, minutes, 0, 0);
       setEndDate(newEndDate);
+      
+      // Update the endTime string representation
+      setEndTime(newEndDate.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
       
       validateTimeOrder();
     }
@@ -286,82 +307,154 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     // End time will be updated by the useEffect
   };
 
+  // Also update the handleDurationChange to handle day crossing properly
   const handleDurationChange = (newDuration) => {
+    console.log("Setting duration:", newDuration);
     setDuration(newDuration);
-    // End time will be updated by the useEffect
+    
+    // If we have a start date, calculate new end date
+    if (startDate) {
+      try {
+        const durationMs = parseInt(newDuration) * 60 * 1000;
+        // This automatically handles day changes properly
+        const newEndDate = new Date(startDate.getTime() + durationMs);
+        
+        console.log("New end date from duration:", newEndDate);
+        setEndDate(newEndDate);
+        
+        setEndTime(newEndDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+        
+        // Validate after change (but don't show errors yet)
+        validateTimeOrder();
+      } catch (error) {
+        console.error("Error updating end time from duration:", error);
+      }
+    }
   };
 
   const handleStartDateChange = (date) => {
-    setStartDate(date);
-    setDeadline(date.toISOString().split('T')[0]);
-    setTime(date.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    
-    // Update end date to maintain same day
-    const newEndDate = new Date(endDate);
-    newEndDate.setFullYear(date.getFullYear());
-    newEndDate.setMonth(date.getMonth());
-    newEndDate.setDate(date.getDate());
-    setEndDate(newEndDate);
+    if (!date) return;
+  
+    try {
+      console.log("Setting start date:", date);
+      setStartDate(date);
+      
+      // Update dependent fields
+      setDeadline(date.toISOString().split('T')[0]);
+      setTime(date.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+      
+      // If we have a duration, calculate new end time
+      if (duration) {
+        // Create a new end date based on start date + duration
+        const newEndDate = new Date(date.getTime());
+        newEndDate.setMinutes(newEndDate.getMinutes() + parseInt(duration));
+        setEndDate(newEndDate);
+        setEndTime(newEndDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      }
+    } catch (error) {
+      console.error("Error in handleStartDateChange:", error);
+    }
   };
 
+  // Ensure the handleEndDateChange preserves day changes
   const handleEndDateChange = (date) => {
-    setEndDate(date);
-    setEndTime(date.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    validateTimeOrder();
+    if (!date) return;
+  
+    try {
+      console.log("Setting end date:", date);
+      setEndDate(date);
+      
+      // Update end time field
+      setEndTime(date.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+      
+      // If we have a start date, recalculate duration (even across days)
+      if (startDate && date) {
+        const durationMs = date.getTime() - startDate.getTime();
+        const durationMinutes = Math.max(Math.round(durationMs / (60 * 1000)), 15);
+        setDuration(durationMinutes.toString());
+      }
+      
+      validateTimeOrder();
+    } catch (error) {
+      console.error("Error in handleEndDateChange:", error);
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log("Submit button clicked");
     
     // Validate form before submission
     if (!validateForm() || !validateTimeOrder()) {
+      console.log("Validation failed", errors);
       return;
     }
 
-    // Create a new Date object with the input values
-    const [year, month, day] = deadline.split('-').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
-    const [endHours, endMinutes] = endTime.split(':').map(Number);
-    const dateTime = new Date(year, month - 1, day, hours, minutes);
-    const endDateTime = new Date(year, month - 1, day, endHours, endMinutes);
+    try {
+      // Instead of parsing strings, use the DatePicker Date objects directly
+      if (!startDate || !endDate) {
+        console.error("Date objects are missing:", { startDate, endDate });
+        setErrors({...errors, deadline: "Please select valid dates and times"});
+        return;
+      }
 
-    // If end time is on the next day (e.g., when end time is less than start time)
-    if (endHours < hours || (endHours === hours && endMinutes < minutes)) {
-      endDateTime.setDate(endDateTime.getDate() + 1);
-    }
+      // Ensure we have valid Date objects
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.error("Invalid date objects:", { startDate, endDate });
+        setErrors({...errors, deadline: "Invalid date format"});
+        return;
+      }
 
-    const newTask = {
-      title,
-      description,
-      deadline: dateTime.toISOString(),
-      endTime: endDateTime.toISOString(), // Add end time to the task
-      priority,
-      status,
-      category,
-      syncWithGoogle,
-      isRecurring,
-      recurringType: isRecurring ? recurringType : undefined,
-      enableReminders,
-      reminderTime: enableReminders ? reminderTime : undefined
-    };
-    
-    // Add metadata for recurring instances when rescheduling
-    if (isInstanceReschedule && taskToEdit) {
-      newTask.parentTaskId = taskToEdit.parentTaskId || taskToEdit.id;
-      newTask.isRescheduledInstance = true;
-      newTask.originalDate = taskToEdit.deadline;
+      console.log("Creating task with dates:", {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      });
+
+      const newTask = {
+        title,
+        description,
+        deadline: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+        priority,
+        status,
+        category,
+        syncWithGoogle,
+        isRecurring,
+        recurringType: isRecurring ? recurringType : undefined,
+        enableReminders,
+        reminderTime: enableReminders ? reminderTime : undefined
+      };
+      
+      // Add metadata for recurring instances when rescheduling
+      if (isInstanceReschedule && taskToEdit) {
+        newTask.parentTaskId = taskToEdit.parentTaskId || taskToEdit.id;
+        newTask.isRescheduledInstance = true;
+        newTask.originalDate = taskToEdit.deadline;
+      }
+      
+      console.log("Submitting task:", newTask);
+      onSave(newTask);
+      onClose();
+    } catch (error) {
+      console.error("Error creating task:", error);
+      setErrors({...errors, general: "Failed to create task: " + error.message});
     }
-    
-    onSave(newTask);
-    onClose();
   };
 
   // Apply AI suggestion
