@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   // Form fields state
@@ -21,6 +21,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // AI suggestion for optimal time (mock data - in a real app, this would come from the backend)
   const aiSuggestion = "Tomorrow at 10:00 AM";
+
+  // Add state to track if task is a recurring instance that's being rescheduled
+  const [isInstanceReschedule, setIsInstanceReschedule] = useState(false);
 
   useEffect(() => {
     // Reset form when modal opens
@@ -92,6 +95,13 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         setRecurringType("daily");
         setEnableReminders(false);
         setReminderTime("15");
+      }
+
+      // Check if this is a recurring task instance being rescheduled
+      if (taskToEdit?.isRecurringInstance || taskToEdit?.parentTaskId) {
+        setIsInstanceReschedule(true);
+      } else {
+        setIsInstanceReschedule(false);
       }
     }
   }, [isOpen, taskToEdit, defaultDateTime]);
@@ -172,6 +182,13 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       reminderTime: enableReminders ? reminderTime : undefined
     };
     
+    // Add metadata for recurring instances when rescheduling
+    if (isInstanceReschedule && taskToEdit) {
+      newTask.parentTaskId = taskToEdit.parentTaskId || taskToEdit.id;
+      newTask.isRescheduledInstance = true;
+      newTask.originalDate = taskToEdit.deadline;
+    }
+    
     onSave(newTask);
     onClose();
   };
@@ -197,10 +214,15 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       <div className="w-[95%] sm:w-[90%] max-w-lg mx-auto my-auto bg-gray-800 rounded-2xl shadow-xl
         flex flex-col border border-orange-700/30 transform-gpu">
         
-        {/* Header */}
+        {/* Header with context about rescheduling */}
         <div className="p-4 bg-gradient-to-r from-gray-800/80 to-orange-950/20 border-b border-orange-700/30 flex items-center justify-between shrink-0">
           <h2 className="text-lg font-semibold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
-            {taskToEdit ? "Edit Task" : "Add New Task"}
+            {taskToEdit 
+              ? isInstanceReschedule 
+                ? "Reschedule Task" 
+                : "Edit Task" 
+              : "Add New Task"
+            }
           </h2>
           <button
             onClick={onClose}
@@ -212,6 +234,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             </svg>
           </button>
         </div>
+
+        {/* Show info about recurring task if rescheduling */}
+        {isInstanceReschedule && (
+          <div className="px-4 py-2 bg-orange-500/10 border-b border-orange-500/20">
+            <p className="text-orange-300 text-xs flex items-center gap-2">
+              <span className="text-sm">🔄</span>
+              <span>This is a recurring task. Your changes will create a new task instance.</span>
+            </p>
+          </div>
+        )}
 
         {/* Scrollable Form */}
         <div className="overflow-y-auto flex-grow px-4 py-5">
@@ -519,7 +551,12 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 hover:from-orange-500 hover:to-amber-500 transition-colors font-medium
                 shadow-[0_0_10px_rgba(251,146,60,0.3)] hover:shadow-[0_0_15px_rgba(251,146,60,0.4)]"
             >
-              {taskToEdit ? "Update" : "Add"}
+              {taskToEdit 
+                ? isInstanceReschedule 
+                  ? "Reschedule" 
+                  : "Update" 
+                : "Add"
+              }
             </button>
           </div>
         </div>

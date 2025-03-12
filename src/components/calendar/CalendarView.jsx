@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTasks, addTask, updateTask } from '../../utils/taskStorage';
+import { getTasks, addTask, updateTask, rescheduleTaskInstance } from '../../utils/taskStorage';
 import TaskFormModal from '../tasks/TaskFormModal';
 
 const CalendarView = () => {
@@ -100,14 +100,46 @@ const CalendarView = () => {
 
   const handleTaskSave = (taskData) => {
     let updatedTasks;
-    if (taskToEdit) {
+    
+    // Handle rescheduling of recurring task instance
+    if (taskToEdit && (taskToEdit.isRecurringInstance || taskToEdit.parentTaskId)) {
+      const instanceId = taskToEdit.id;
+      const newDate = new Date(taskData.deadline);
+      updatedTasks = rescheduleTaskInstance(instanceId, newDate);
+    } 
+    // Regular task edit or new task
+    else if (taskToEdit) {
       updatedTasks = updateTask(taskToEdit.id, taskData);
     } else {
       updatedTasks = addTask(taskData);
     }
+    
     setTasks(updatedTasks);
     setIsModalOpen(false);
     setTaskToEdit(null);
+  };
+
+  const renderTaskItem = (task, onClick) => {
+    const isRecurring = task.isRecurring || task.isRecurringInstance;
+    
+    return (
+      <div
+        key={task.id}
+        onClick={(e) => onClick(e, task)}
+        className={`text-xs p-1.5 rounded mb-1
+          ${task.completed 
+            ? 'bg-green-500/20 text-green-300 opacity-70' 
+            : isRecurring 
+              ? 'bg-orange-500/20 text-orange-300 border-l-2 border-orange-500' 
+              : 'bg-blue-500/20 text-blue-300'
+          }
+          hover:bg-opacity-40 cursor-pointer flex items-center gap-1`}
+      >
+        {task.completed && <span>✓</span>}
+        {isRecurring && <span className="text-[9px]">🔄</span>}
+        {task.title}
+      </div>
+    );
   };
 
   return (
