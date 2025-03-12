@@ -6,6 +6,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
   const [time, setTime] = useState("12:00");
+  const [endTime, setEndTime] = useState("13:00"); // Add end time state
   const [priority, setPriority] = useState("medium");
   const [status, setStatus] = useState("pending");
   const [category, setCategory] = useState("work");
@@ -14,6 +15,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [recurringType, setRecurringType] = useState("daily");
   const [enableReminders, setEnableReminders] = useState(false);
   const [reminderTime, setReminderTime] = useState("15");
+  const [duration, setDuration] = useState("60"); // Default duration: 60 minutes
   
   // Form validation
   const [errors, setErrors] = useState({});
@@ -55,6 +57,38 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             minute: '2-digit',
             timeZone: 'Asia/Kolkata'
           }));
+          
+          // Handle end time if it exists, otherwise default to 1 hour later
+          if (taskToEdit.endTime) {
+            const endDateTime = new Date(taskToEdit.endTime);
+            setEndTime(endDateTime.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit',
+              timeZone: 'Asia/Kolkata'
+            }));
+          } else {
+            // Default to 1 hour after start time
+            const taskEndTime = new Date(taskToEdit.deadline);
+            taskEndTime.setHours(taskEndTime.getHours() + 1);
+            setEndTime(taskEndTime.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit',
+              timeZone: 'Asia/Kolkata'
+            }));
+          }
+        }
+        
+        // Calculate duration if endTime exists
+        if (taskToEdit.endTime) {
+          const startDate = new Date(taskToEdit.deadline);
+          const endDate = new Date(taskToEdit.endTime);
+          const durationMs = endDate - startDate;
+          const durationMinutes = Math.round(durationMs / (1000 * 60));
+          setDuration(durationMinutes.toString());
+        } else {
+          setDuration("60"); // Default to 60 minutes
         }
       } else if (defaultDateTime) {
         // Use the provided default date and time
@@ -68,6 +102,17 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         
         setDeadline(localDate);
         setTime(localTime);
+        
+        // Default end time to 1 hour later
+        const endDate = new Date(defaultDateTime);
+        endDate.setHours(endDate.getHours() + 1);
+        const localEndTime = endDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        setEndTime(localEndTime);
+        
         // Reset other fields to defaults
         setPriority("medium");
         setStatus("pending");
@@ -77,6 +122,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         setRecurringType("daily");
         setEnableReminders(false);
         setReminderTime("15");
+        setDuration("60"); // Default to 60 minutes
       } else {
         // Set current time as default
         const now = new Date();
@@ -86,6 +132,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           hour: '2-digit',
           minute: '2-digit'
         }));
+        
+        // Default end time to 1 hour later
+        const endDate = new Date(now);
+        endDate.setHours(endDate.getHours() + 1);
+        setEndTime(endDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+        
         // Reset other fields to defaults
         setPriority("medium");
         setStatus("pending");
@@ -95,6 +151,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         setRecurringType("daily");
         setEnableReminders(false);
         setReminderTime("15");
+        setDuration("60"); // Default to 60 minutes
       }
 
       // Check if this is a recurring task instance being rescheduled
@@ -155,23 +212,88 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     return Object.keys(newErrors).length === 0;
   };
 
+  // Validate time order (end time must be after start time)
+  const validateTimeOrder = () => {
+    if (time && endTime) {
+      const [startHour, startMinute] = time.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      
+      if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        setErrors({...errors, endTime: 'End time must be after start time'});
+        return false;
+      } else {
+        const newErrors = {...errors};
+        delete newErrors.endTime;
+        setErrors(newErrors);
+        return true;
+      }
+    }
+    return true;
+  };
+
+  // Handle end time change with validation
+  const handleEndTimeChange = (e) => {
+    setEndTime(e.target.value);
+    setTouched({...touched, endTime: true});
+  };
+
+  // Calculate end time based on start time and selected duration
+  const calculateEndTime = (startTime, durationMinutes) => {
+    if (!startTime) return "";
+    
+    const [hours, minutes] = startTime.split(":").map(Number);
+    const totalMinutes = hours * 60 + minutes + parseInt(durationMinutes);
+    
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    return `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
+  };
+
+  // Update end time when start time or duration changes
+  useEffect(() => {
+    if (time) {
+      const calculatedEndTime = calculateEndTime(time, duration);
+      setEndTime(calculatedEndTime);
+      validateTimeOrder();
+    }
+  }, [time, duration]);
+
+  const handleTimeChange = (e) => {
+    setTime(e.target.value);
+    // End time will be updated by the useEffect
+  };
+
+  const handleDurationChange = (newDuration) => {
+    setDuration(newDuration);
+    // End time will be updated by the useEffect
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
     // Validate form before submission
-    if (!validateForm()) {
+    if (!validateForm() || !validateTimeOrder()) {
       return;
     }
 
     // Create a new Date object with the input values
     const [year, month, day] = deadline.split('-').map(Number);
     const [hours, minutes] = time.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
     const dateTime = new Date(year, month - 1, day, hours, minutes);
+    const endDateTime = new Date(year, month - 1, day, endHours, endMinutes);
+
+    // If end time is on the next day (e.g., when end time is less than start time)
+    if (endHours < hours || (endHours === hours && endMinutes < minutes)) {
+      endDateTime.setDate(endDateTime.getDate() + 1);
+    }
 
     const newTask = {
       title,
       description,
       deadline: dateTime.toISOString(),
+      endTime: endDateTime.toISOString(), // Add end time to the task
       priority,
       status,
       category,
@@ -383,8 +505,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               </div>
             </div>
 
-            {/* Date and Time Pickers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Enhanced Date and Time Pickers */}
+            <div className="space-y-4">
               <div>
                 <label htmlFor="deadline" className="text-gray-300 text-sm font-medium block mb-1">
                   Date <span className="text-orange-500">*</span>
@@ -404,18 +526,84 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 )}
               </div>
 
+              {/* Time Picker Section with Modern Design */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
+                    Start Time
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="time"
+                      type="time"
+                      className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
+                        text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 pr-10"
+                      value={time}
+                      onChange={handleTimeChange}
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-orange-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="endTime" className="text-gray-300 text-sm font-medium block mb-1">
+                    End Time
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="endTime"
+                      type="time"
+                      className={`w-full p-2.5 bg-gray-900/50 border rounded-lg
+                        text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 pr-10
+                        ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700'}`}
+                      value={endTime}
+                      onChange={handleEndTimeChange}
+                      onBlur={validateTimeOrder}
+                    />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-orange-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  {touched.endTime && errors.endTime && (
+                    <p className="text-red-500 text-xs mt-1">{errors.endTime}</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Duration Quick Select */}
               <div>
-                <label htmlFor="time" className="text-gray-300 text-sm font-medium block mb-1">
-                  Time
+                <label className="text-gray-300 text-sm font-medium block mb-2">
+                  Duration
                 </label>
-                <input
-                  id="time"
-                  type="time"
-                  className="w-full p-2.5 bg-gray-900/50 border border-gray-700 rounded-lg
-                    text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: "15", label: "15m" },
+                    { value: "30", label: "30m" },
+                    { value: "45", label: "45m" },
+                    { value: "60", label: "1h" },
+                    { value: "90", label: "1.5h" },
+                    { value: "120", label: "2h" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleDurationChange(option.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors
+                        ${duration === option.value
+                          ? 'bg-orange-600 text-white' 
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                        }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

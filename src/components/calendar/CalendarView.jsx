@@ -180,6 +180,23 @@ const CalendarView = () => {
     }
   };
 
+  // Calculate task duration and check if task spans multiple hours
+  const getTaskDuration = (task) => {
+    const startTime = new Date(task.deadline);
+    const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000); // Default 1 hour
+    
+    // Duration in hours
+    const durationMs = endTime - startTime;
+    const durationHours = durationMs / (1000 * 60 * 60);
+    
+    return {
+      startHour: startTime.getHours(),
+      endHour: endTime.getHours() + (endTime.getMinutes() > 0 ? 1 : 0), // Round up if minutes > 0
+      duration: durationHours,
+      spanMultipleHours: durationHours >= 1 || startTime.getHours() !== endTime.getHours()
+    };
+  };
+
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
@@ -277,6 +294,7 @@ const CalendarView = () => {
             handleTaskClick={handleTaskClick}
             getPriorityDisplay={getPriorityDisplay}
             getCategoryDisplay={getCategoryDisplay}
+            getTaskDuration={getTaskDuration}
           />
         )}
         {view === 'day' && (
@@ -288,6 +306,7 @@ const CalendarView = () => {
             handleTaskClick={handleTaskClick}
             getPriorityDisplay={getPriorityDisplay}
             getCategoryDisplay={getCategoryDisplay}
+            getTaskDuration={getTaskDuration}
           />
         )}
       </div>
@@ -447,7 +466,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
   );
 };
 
-const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay }) => {
+const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay, getTaskDuration }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
   const [hourRange, setHourRange] = useState({ start: 7, end: 19 }); // Default 7am-7pm
   const startOfWeek = new Date(currentDate);
@@ -540,8 +559,10 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
           {visibleHours.map((hour) => {
             const currentDateTasks = tasks.filter(task => {
               const taskDate = new Date(task.deadline);
-              return taskDate.getHours() === hour && 
-                    taskDate.toDateString() === selectedDate.toDateString();
+              const duration = getTaskDuration(task);
+              return (taskDate.getHours() === hour || 
+                     (duration.spanMultipleHours && hour >= duration.startHour && hour < duration.endHour)) && 
+                     taskDate.toDateString() === selectedDate.toDateString();
             });
 
             // Skip rendering empty time slots when there are no tasks
@@ -662,7 +683,10 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
 
               const dayHourTasks = tasks.filter(task => {
                 const taskDate = new Date(task.deadline);
-                return taskDate.getHours() === hour && taskDate.toDateString() === date.toDateString();
+                const duration = getTaskDuration(task);
+                return (taskDate.getHours() === hour || 
+                      (duration.spanMultipleHours && hour >= duration.startHour && hour < duration.endHour)) && 
+                      taskDate.toDateString() === date.toDateString();
               });
 
               return (
@@ -683,6 +707,14 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                         : task.priority === 'low' 
                           ? 'border-green-500'
                           : 'border-amber-500';
+                      
+                      // Calculate if this task is continuing from previous hour
+                      const taskStartHour = new Date(task.deadline).getHours();
+                      const isContinuation = taskStartHour !== hour;
+                      
+                      // Show duration for multi-hour tasks
+                      const duration = getTaskDuration(task);
+                      const showDuration = duration.spanMultipleHours;
                           
                       return (
                         <div
@@ -690,12 +722,21 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                           onClick={(e) => handleTaskClick(e, task)}
                           className={`text-xs p-1.5 rounded bg-orange-500/20 text-orange-300 truncate mb-1 
                             hover:bg-orange-500/30 cursor-pointer flex items-center gap-1 border-l-2 ${priorityColor}
-                            ${task.completed ? 'opacity-50' : ''}`}
+                            ${task.completed ? 'opacity-50' : ''} 
+                            ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''}`}
                           title={task.title}
                         >
                           <div className="flex items-center gap-1 w-full">
                             {task.completed && <span>✓</span>}
+                            {isContinuation && <span className="text-[9px]">↑</span>}
                             <span className="truncate flex-1">{task.title}</span>
+                            
+                            {/* Duration indicator for tasks that span multiple hours */}
+                            {showDuration && !isContinuation && (
+                              <span className="text-[9px] text-gray-400 ml-1">
+                                {Math.round(duration.duration * 60)}m
+                              </span>
+                            )}
                             
                             {/* Category symbol */}
                             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -740,7 +781,7 @@ const HourRangeButton = ({ label, range, setRange, current }) => {
   );
 };
 
-const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay }) => {
+const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay, getTaskDuration }) => {
   const [hourRange, setHourRange] = useState({ start: 7, end: 19 }); // Default 7am-7pm
   
   const dayTasks = tasks.filter(task => {
@@ -800,7 +841,9 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
         {visibleHours.map((hour) => {
           const hourTasks = dayTasks.filter(task => {
             const taskDate = new Date(task.deadline);
-            return taskDate.getHours() === hour;
+            const duration = getTaskDuration(task);
+            return (taskDate.getHours() === hour || 
+                  (duration.spanMultipleHours && hour >= duration.startHour && hour < duration.endHour));
           });
 
           // Skip rendering empty time slots
@@ -836,23 +879,34 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                   const priorityDisplay = getPriorityDisplay(task.priority);
                   const categoryDisplay = getCategoryDisplay(task.category);
                   
+                  // Calculate if this task is continuing from previous hour
+                  const taskStartHour = new Date(task.deadline).getHours();
+                  const isContinuation = taskStartHour !== hour;
+                  
+                  // Show duration information
+                  const startDate = new Date(task.deadline);
+                  const endDate = task.endTime ? new Date(task.endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
+                  
+                  // Format time range for display
+                  const timeRange = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                                   ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                  
                   return (
                     <div
                       key={task.id}
                       onClick={(e) => handleTaskClick(e, task)}
                       className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}
+                        ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''}`}
                     >
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
                           {task.completed && <span className="mr-1">✓</span>}
+                          {isContinuation && <span className="text-[9px] mr-1">↑</span>}
                           {task.title}
                         </h4>
                         <span className="text-xs text-gray-400 ml-2">
-                          {new Date(task.deadline).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                          {isContinuation ? "cont'd" : timeRange}
                         </span>
                       </div>
                       
@@ -887,7 +941,9 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
         {Array.from({ length: 24 }).map((_, hour) => {
           const hourTasks = dayTasks.filter(task => {
             const taskDate = new Date(task.deadline);
-            return taskDate.getHours() === hour;
+            const duration = getTaskDuration(task);
+            return (taskDate.getHours() === hour || 
+                   (duration.spanMultipleHours && hour >= duration.startHour && hour < duration.endHour));
           });
 
           return (
@@ -907,24 +963,39 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                   const priorityDisplay = getPriorityDisplay(task.priority);
                   const categoryDisplay = getCategoryDisplay(task.category);
                   
+                  // Calculate if this task is continuing from previous hour
+                  const taskStartHour = new Date(task.deadline).getHours();
+                  const isContinuation = taskStartHour !== hour;
+                  
+                  // Format time information
+                  const startDate = new Date(task.deadline);
+                  const endDate = task.endTime ? new Date(task.endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
+                  
+                  // Calculate duration in minutes
+                  const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+                  
                   return (
                     <div
                       key={task.id}
                       onClick={(e) => handleTaskClick(e, task)}
                       className={`p-2 mb-2 rounded-lg bg-orange-500/20 border border-orange-500/20
                         hover:border-orange-500/40 transition-colors cursor-pointer
-                        ${task.completed ? 'opacity-50' : ''}`}
+                        ${task.completed ? 'opacity-50' : ''}
+                        ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''}`}
                     >
                       <div className="flex items-center justify-between">
                         <h4 className="text-orange-300 font-medium">
+                          {isContinuation && <span className="text-[12px] mr-1.5">↑</span>}
                           {task.title}
                           {task.completed && <span className="ml-2 text-orange-300">✓</span>}
                         </h4>
                         <span className="text-sm text-gray-400">
-                          {new Date(task.deadline).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                          {isContinuation ? 
+                            "cont'd" :
+                            `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                             ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
+                             (${durationMinutes}m)`
+                          }
                         </span>
                       </div>
                       
