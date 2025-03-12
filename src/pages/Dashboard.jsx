@@ -95,8 +95,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Statistics Cards - Updated with better icons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-4 sm:mt-6 md:mt-8">
+      {/* Statistics Cards - Updated with better icons and more compact for mobile */}
+      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
         <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
         <StatCard title="Completed" value={tasks.filter(t => t.completed).length} Icon={FaCheckCircle} color="amber" />
         <StatCard title="Pending" value={tasks.filter(t => !t.completed).length} Icon={FaHourglassHalf} color="orange" />
@@ -144,20 +144,20 @@ const Dashboard = () => {
   );
 };
 
-// Updated StatCard with icon component
+// Updated StatCard with icon component - More compact on mobile
 const StatCard = ({ title, value, Icon, color = "orange" }) => {
   const borderColorClass = color === "amber" 
     ? "hover:border-amber-500/50"
     : "hover:border-orange-500/50";
   
   return (
-    <div className={`bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 sm:p-4 md:p-6 
-      ${borderColorClass} transition-all duration-300`}>
-      <div className="text-xl sm:text-2xl md:text-3xl mb-2 sm:mb-3 md:mb-4 text-orange-400">
+    <div className={`bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 md:p-6 
+      ${borderColorClass} transition-all duration-300 flex flex-col justify-center`}>
+      <div className="text-lg sm:text-2xl md:text-3xl mb-1 sm:mb-3 md:mb-4 text-orange-400">
         {Icon && <Icon />}
       </div>
-      <h3 className="text-xs sm:text-sm md:text-base text-gray-400 font-medium">{title}</h3>
-      <p className="text-lg sm:text-xl md:text-2xl font-bold text-white mt-1 md:mt-2">{value}</p>
+      <h3 className="text-[10px] sm:text-sm md:text-base text-gray-400 font-medium">{title}</h3>
+      <p className="text-base sm:text-xl md:text-2xl font-bold text-white mt-0.5 md:mt-2">{value}</p>
     </div>
   );
 };
