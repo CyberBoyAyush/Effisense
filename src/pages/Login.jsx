@@ -94,7 +94,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] bg-gradient-to-br from-black via-gray-900 to-[#0F0F0F] py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] bg-gradient-to-br from-black via-gray-900 to-[#0F0F0F] py-8 px-3 sm:py-12 sm:px-4 lg:px-8">
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-[500px] h-[500px] bg-orange-600/5 rounded-full blur-[120px] 
@@ -171,21 +171,21 @@ const Login = () => {
         
         {/* Right side with login form */}
         <motion.div 
-          className="w-full md:w-1/2 bg-gray-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl md:rounded-l-none md:rounded-r-2xl border border-orange-700/30"
+          className="w-full md:w-1/2 bg-gray-800/50 backdrop-blur-sm p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-l-none md:rounded-r-2xl border border-orange-700/30"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           {/* Form Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6 sm:mb-8">
             {/* Mobile Logo */}
             <motion.div 
-              className="md:hidden mx-auto mb-6 h-16 w-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30"
+              className="md:hidden mx-auto mb-4 sm:mb-6 h-14 w-14 sm:h-16 sm:w-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <FaCalendarAlt className="text-white text-3xl" />
+              <FaCalendarAlt className="text-white text-2xl sm:text-3xl" />
             </motion.div>
             
             <AnimatePresence mode="wait">
@@ -195,7 +195,7 @@ const Login = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent"
+                  className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent"
                 >
                   Reset Password
                 </motion.h2>
@@ -205,13 +205,13 @@ const Login = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent"
+                  className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent"
                 >
                   Sign in to your account
                 </motion.h2>
               )}
             </AnimatePresence>
-            <p className="mt-2 text-gray-400">
+            <p className="mt-1 sm:mt-2 text-sm text-gray-400">
               {showResetForm ? "We'll send you a reset link" : "Access your tasks and calendar"}
             </p>
           </div>
@@ -220,7 +220,7 @@ const Login = () => {
           <AnimatePresence>
             {error && (
               <motion.div 
-                className="relative mb-6 bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg"
+                className="relative mb-4 sm:mb-6 bg-red-500/10 border border-red-500/50 text-red-400 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
@@ -228,22 +228,22 @@ const Login = () => {
               >
                 <div className="flex items-center gap-2">
                   <div className="rounded-full bg-red-500/20 p-1">
-                    <FiAlertTriangle className="text-red-400 w-4 h-4" />
+                    <FiAlertTriangle className="text-red-400 w-3 h-3 sm:w-4 sm:h-4" />
                   </div>
-                  <p>{error}</p>
+                  <p className="text-xs sm:text-sm">{error}</p>
                 </div>
                 <button 
                   onClick={() => setError("")}
-                  className="absolute top-3 right-3 text-red-400 hover:text-red-300"
+                  className="absolute top-2 sm:top-3 right-2 sm:right-3 text-red-400 hover:text-red-300"
                 >
-                  <FiX />
+                  <FiX className="w-4 h-4" />
                 </button>
               </motion.div>
             )}
             
             {resetSuccess && (
               <motion.div 
-                className="mb-6 bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg"
+                className="mb-4 sm:mb-6 bg-green-500/10 border border-green-500/50 text-green-400 px-3 sm:px-4 py-2 sm:py-3 rounded-lg"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0 }}
@@ -251,9 +251,9 @@ const Login = () => {
               >
                 <div className="flex items-center gap-2">
                   <div className="rounded-full bg-green-500/20 p-1">
-                    <FiX className="text-green-400 w-4 h-4" />
+                    <FiX className="text-green-400 w-3 h-3 sm:w-4 sm:h-4" />
                   </div>
-                  <p>Password reset link sent! Check your email.</p>
+                  <p className="text-xs sm:text-sm">Password reset link sent! Check your email.</p>
                 </div>
               </motion.div>
             )}
@@ -273,83 +273,85 @@ const Login = () => {
                 <motion.button
                   onClick={handleGoogleLogin}
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-3 mb-6 px-6 py-3 bg-gray-700/70 hover:bg-gray-700 border border-gray-600 text-white rounded-xl transition-all duration-200"
+                  className="w-full flex items-center justify-center gap-3 mb-4 sm:mb-6 px-4 py-2.5 sm:py-3 bg-gray-700/70 hover:bg-gray-700 border border-gray-600 text-white rounded-xl transition-all duration-200 text-sm"
                   whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <FaGoogle className="text-white" />
+                    <FaGoogle className="text-white text-sm sm:text-base" />
                   )}
                   <span>Continue with Google</span>
                 </motion.button>
                 
                 {/* Divider */}
-                <div className="relative flex items-center justify-center mb-6">
+                <div className="relative flex items-center justify-center mb-4 sm:mb-6">
                   <div className="border-t border-gray-700 w-full"></div>
-                  <span className="bg-gray-800 text-gray-400 text-xs px-3 absolute">or sign in with email</span>
+                  <span className="bg-gray-800 text-gray-400 text-[10px] sm:text-xs px-2 sm:px-3 absolute">or sign in with email</span>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-5">
+                <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
                   {/* Email Field */}
                   <div className="space-y-1">
-                    <label htmlFor="email" className="text-sm text-gray-300 flex items-center gap-2">
-                      <FaEnvelope className="text-orange-400 text-xs" /> Email
+                    <label htmlFor="email" className="text-xs sm:text-sm text-gray-300 flex items-center gap-2">
+                      <FaEnvelope className="text-orange-400 text-[10px] sm:text-xs" /> Email
                     </label>
                     <div className="relative">
                       <input
                         id="email"
                         type="email"
                         required
-                        className="w-full px-4 py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200 text-sm"
                         placeholder="your@email.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
                       />
                     </div>
                   </div>
 
                   {/* Password Field with Show/Hide toggle */}
                   <div className="space-y-1">
-                    <label htmlFor="password" className="text-sm text-gray-300 flex items-center gap-2">
-                      <FaLock className="text-orange-400 text-xs" /> Password
+                    <label htmlFor="password" className="text-xs sm:text-sm text-gray-300 flex items-center gap-2">
+                      <FaLock className="text-orange-400 text-[10px] sm:text-xs" /> Password
                     </label>
                     <div className="relative">
                       <input
                         id="password"
                         type={showPassword ? "text" : "password"}
                         required
-                        className="w-full px-4 py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200 text-sm"
                         placeholder="••••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
                       />
                       <button
                         type="button"
                         onClick={togglePasswordVisibility}
-                        className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-orange-400"
+                        className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-orange-400 touch-manipulation"
                       >
-                        {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+                        {showPassword ? <FaRegEyeSlash className="text-lg" /> : <FaRegEye className="text-lg" />}
                       </button>
                     </div>
                   </div>
 
                   {/* Remember Me and Forgot Password */}
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+                    <label className="flex items-center text-xs sm:text-sm touch-manipulation">
                       <input
                         type="checkbox"
                         checked={rememberMe}
                         onChange={() => setRememberMe(!rememberMe)}
-                        className="rounded border-gray-700 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50"
+                        className="rounded border-gray-700 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50 h-4 w-4"
                       />
                       <span className="ml-2 text-gray-400">Remember me</span>
                     </label>
                     <button 
                       type="button"
                       onClick={() => setShowResetForm(true)}
-                      className="text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                      className="text-xs sm:text-sm text-orange-400 hover:text-orange-300 transition-colors px-1 py-1"
                     >
                       Forgot password?
                     </button>
@@ -359,20 +361,20 @@ const Login = () => {
                   <motion.button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all duration-300 flex items-center justify-center gap-2"
+                    className="w-full px-4 sm:px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all duration-300 flex items-center justify-center gap-2 mt-6"
                     whileHover={{ translateY: -2 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     {isLoading ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : "Sign in"}
                   </motion.button>
                 </form>
 
                 {/* Sign Up Link */}
-                <p className="text-center mt-8 text-gray-400">
+                <p className="text-center mt-6 sm:mt-8 text-xs sm:text-sm text-gray-400">
                   Don't have an account?{' '}
-                  <Link to="/signup" className="text-orange-400 hover:text-orange-300 font-medium transition-colors">
+                  <Link to="/signup" className="text-orange-400 hover:text-orange-300 font-medium transition-colors px-1 py-2 inline-block">
                     Create one now
                   </Link>
                 </p>
@@ -382,36 +384,37 @@ const Login = () => {
               <motion.form 
                 key="reset-form" 
                 onSubmit={handleResetPassword}
-                className="space-y-5"
+                className="space-y-4 sm:space-y-5"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
                 <div className="space-y-1">
-                  <label htmlFor="reset-email" className="text-sm text-gray-300 flex items-center gap-2">
-                    <FaEnvelope className="text-orange-400 text-xs" /> Email Address
+                  <label htmlFor="reset-email" className="text-xs sm:text-sm text-gray-300 flex items-center gap-2">
+                    <FaEnvelope className="text-orange-400 text-[10px] sm:text-xs" /> Email Address
                   </label>
                   <input
                     id="reset-email"
                     type="email"
                     required
-                    className="w-full px-4 py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-900/60 border border-gray-700/80 focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 rounded-lg text-gray-200 transition-all duration-200 text-sm"
                     placeholder="your@email.com"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
+                    autoComplete="email"
                   />
                 </div>
 
                 <motion.button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full px-4 sm:px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all duration-300 flex items-center justify-center gap-2 mt-6"
                   whileHover={{ translateY: -2 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : "Send Reset Link"}
                 </motion.button>
 
@@ -419,7 +422,7 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowResetForm(false)}
-                    className="text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                    className="text-xs sm:text-sm text-orange-400 hover:text-orange-300 transition-colors px-2 py-2 inline-block"
                   >
                     Back to Login
                   </button>
