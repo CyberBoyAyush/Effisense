@@ -1,10 +1,19 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { 
+  FaTachometerAlt, 
+  FaListAlt, 
+  FaCalendarAlt, 
+  FaUser, 
+  FaCog, 
+  FaChartBar,
+  FaTimes
+} from "react-icons/fa";
 
 const Sidebar = ({ hidelogo = false, onClose }) => {
   const location = useLocation();
 
-  const NavLink = ({ to, children }) => {
+  const NavLink = ({ to, children, icon }) => {
     const isActive = location.pathname === to;
     return (
       <Link 
@@ -15,6 +24,9 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
             : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
           }`}
       >
+        <span className={`text-lg ${isActive ? 'text-orange-400' : 'text-gray-500'}`}>
+          {icon}
+        </span>
         {children}
       </Link>
     );
@@ -29,25 +41,33 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
           onClick={onClose}
           className="p-2 text-gray-400 hover:text-orange-300 rounded-lg transition-colors"
         >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <FaTimes className="w-5 h-5" />
         </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        <NavLink to="/dashboard">
-          <span className="text-xl">🏠</span>
-          <span>Dashboard</span>
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+        <NavLink to="/dashboard" icon={<FaTachometerAlt />}>
+          Dashboard
         </NavLink>
-        <NavLink to="/tasks">
-          <span className="text-xl">✓</span>
-          <span>Tasks</span>
+        <NavLink to="/tasks" icon={<FaListAlt />}>
+          Tasks
         </NavLink>
-        <NavLink to="/calendar">
-          <span className="text-xl">📅</span>
-          <span>Calendar</span>
+        <NavLink to="/calendar" icon={<FaCalendarAlt />}>
+          Calendar
         </NavLink>
+        
+        {/* Additional navigation links - can be uncommented as features are added */}
+        {/* <div className="pt-4 mt-4 border-t border-gray-700/30">
+          <NavLink to="/profile" icon={<FaUser />}>
+            Profile
+          </NavLink>
+          <NavLink to="/settings" icon={<FaCog />}>
+            Settings
+          </NavLink>
+          <NavLink to="/analytics" icon={<FaChartBar />}>
+            Analytics
+          </NavLink>
+        </div> */}
       </nav>
     </aside>
   );
