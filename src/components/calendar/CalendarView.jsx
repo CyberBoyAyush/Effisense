@@ -152,6 +152,34 @@ const CalendarView = () => {
     );
   };
 
+  // Helper function to get priority display properties
+  const getPriorityDisplay = (priority) => {
+    switch (priority) {
+      case "high":
+        return { color: "text-red-400", bgColor: "bg-red-400/10", label: "High" };
+      case "medium":
+        return { color: "text-amber-400", bgColor: "bg-amber-400/10", label: "Medium" };
+      case "low":
+        return { color: "text-green-400", bgColor: "bg-green-400/10", label: "Low" };
+      default:
+        return { color: "text-amber-400", bgColor: "bg-amber-400/10", label: "Medium" };
+    }
+  };
+
+  // Helper function to get category display properties
+  const getCategoryDisplay = (category) => {
+    switch (category) {
+      case "work":
+        return { color: "text-blue-400", bgColor: "bg-blue-400/10", label: "Work" };
+      case "personal":
+        return { color: "text-purple-400", bgColor: "bg-purple-400/10", label: "Personal" };
+      case "health":
+        return { color: "text-green-400", bgColor: "bg-green-400/10", label: "Health" };
+      default:
+        return { color: "text-blue-400", bgColor: "bg-blue-400/10", label: "Work" };
+    }
+  };
+
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
@@ -247,6 +275,8 @@ const CalendarView = () => {
             formatTime={formatTime}
             onTimeSlotClick={handleDateClick}
             handleTaskClick={handleTaskClick}
+            getPriorityDisplay={getPriorityDisplay}
+            getCategoryDisplay={getCategoryDisplay}
           />
         )}
         {view === 'day' && (
@@ -256,6 +286,8 @@ const CalendarView = () => {
             formatTime={formatTime}
             onTimeSlotClick={handleDateClick}
             handleTaskClick={handleTaskClick}
+            getPriorityDisplay={getPriorityDisplay}
+            getCategoryDisplay={getCategoryDisplay}
           />
         )}
       </div>
@@ -415,7 +447,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
   );
 };
 
-const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick }) => {
+const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
   const [hourRange, setHourRange] = useState({ start: 7, end: 19 }); // Default 7am-7pm
   const startOfWeek = new Date(currentDate);
@@ -539,29 +571,53 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   </button>
                 </div>
                 
-                {/* Tasks for this hour */}
+                {/* Tasks for this hour - Updated with priority and category tags */}
                 <div className="space-y-1 p-1">
-                  {currentDateTasks.map(task => (
-                    <div
-                      key={task.id}
-                      onClick={(e) => handleTaskClick(e, task)}
-                      className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
-                          {task.title}
-                          {task.completed && <span className="ml-1">✓</span>}
-                        </h4>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {new Date(task.deadline).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
+                  {currentDateTasks.map(task => {
+                    // Get priority and category styles
+                    const priorityDisplay = getPriorityDisplay(task.priority);
+                    const categoryDisplay = getCategoryDisplay(task.category);
+                    
+                    return (
+                      <div
+                        key={task.id}
+                        onClick={(e) => handleTaskClick(e, task)}
+                        className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                          hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
+                            {task.completed && <span className="mr-1">✓</span>}
+                            {task.title}
+                          </h4>
+                          <span className="text-xs text-gray-400 ml-2">
+                            {new Date(task.deadline).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        </div>
+                        
+                        {/* Priority and Category Tags */}
+                        <div className="flex mt-1.5 gap-1.5 flex-wrap">
+                          <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                            ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
+                            <span>●</span> {priorityDisplay.label}
+                          </span>
+                          <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                            ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
+                            # {categoryDisplay.label}
+                          </span>
+                          {task.isRecurring && (
+                            <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                              bg-violet-400/10 text-violet-300">
+                              🔄 Recurring
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -620,19 +676,42 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                       isToday ? 'bg-gray-800/40' : 'bg-gray-800/20'
                     }`}
                   >
-                    {dayHourTasks.map(task => (
-                      <div
-                        key={task.id}
-                        onClick={(e) => handleTaskClick(e, task)}
-                        className={`text-xs p-1 rounded bg-orange-500/20 text-orange-300 truncate mb-1 
-                          hover:bg-orange-500/30 cursor-pointer flex items-center gap-1
-                          ${task.completed ? 'opacity-50' : ''}`}
-                        title={task.title}
-                      >
-                        {task.completed && <span>✓</span>}
-                        {task.title}
-                      </div>
-                    ))}
+                    {dayHourTasks.map(task => {
+                      // Get priority color for the left border
+                      const priorityColor = task.priority === 'high' 
+                        ? 'border-red-500'
+                        : task.priority === 'low' 
+                          ? 'border-green-500'
+                          : 'border-amber-500';
+                          
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={(e) => handleTaskClick(e, task)}
+                          className={`text-xs p-1.5 rounded bg-orange-500/20 text-orange-300 truncate mb-1 
+                            hover:bg-orange-500/30 cursor-pointer flex items-center gap-1 border-l-2 ${priorityColor}
+                            ${task.completed ? 'opacity-50' : ''}`}
+                          title={task.title}
+                        >
+                          <div className="flex items-center gap-1 w-full">
+                            {task.completed && <span>✓</span>}
+                            <span className="truncate flex-1">{task.title}</span>
+                            
+                            {/* Category symbol */}
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              task.category === 'work' 
+                                ? 'bg-blue-400' 
+                                : task.category === 'personal'
+                                  ? 'bg-purple-400'
+                                  : 'bg-green-400'
+                            }`}></span>
+                            
+                            {/* Recurring symbol */}
+                            {task.isRecurring && <span className="text-[9px]">🔄</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -661,7 +740,7 @@ const HourRangeButton = ({ label, range, setRange, current }) => {
   );
 };
 
-const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick }) => {
+const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay }) => {
   const [hourRange, setHourRange] = useState({ start: 7, end: 19 }); // Default 7am-7pm
   
   const dayTasks = tasks.filter(task => {
@@ -750,28 +829,53 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 </button>
               </div>
               
+              {/* Tasks for this hour - Updated with priority and category tags */}
               <div className="space-y-1 p-1">
-                {hourTasks.map(task => (
-                  <div
-                    key={task.id}
-                    onClick={(e) => handleTaskClick(e, task)}
-                    className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                      hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
-                        {task.title}
-                        {task.completed && <span className="ml-1">✓</span>}
-                      </h4>
-                      <span className="text-xs text-gray-400 ml-2">
-                        {new Date(task.deadline).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
+                {hourTasks.map(task => {
+                  // Get priority and category styles
+                  const priorityDisplay = getPriorityDisplay(task.priority);
+                  const categoryDisplay = getCategoryDisplay(task.category);
+                  
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={(e) => handleTaskClick(e, task)}
+                      className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
+                          {task.completed && <span className="mr-1">✓</span>}
+                          {task.title}
+                        </h4>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {new Date(task.deadline).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      </div>
+                      
+                      {/* Priority and Category Tags */}
+                      <div className="flex mt-1.5 gap-1.5 flex-wrap">
+                        <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                          ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
+                          <span>●</span> {priorityDisplay.label}
+                        </span>
+                        <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                          ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
+                          # {categoryDisplay.label}
+                        </span>
+                        {task.isRecurring && (
+                          <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
+                            bg-violet-400/10 text-violet-300">
+                            🔄 Recurring
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -798,33 +902,58 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 className="flex-1 min-h-[80px] p-4 border-l border-gray-700/50"
                 onClick={() => onTimeSlotClick(currentDate, hour)}
               >
-                {hourTasks.map(task => (
-                  <div
-                    key={task.id}
-                    onClick={(e) => handleTaskClick(e, task)}
-                    className={`p-2 mb-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                      hover:border-orange-500/40 transition-colors cursor-pointer
-                      ${task.completed ? 'opacity-50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-orange-300 font-medium">
-                        {task.title}
-                        {task.completed && <span className="ml-2 text-orange-300">✓</span>}
-                      </h4>
-                      <span className="text-sm text-gray-400">
-                        {new Date(task.deadline).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
+                {hourTasks.map(task => {
+                  // Get priority and category styles
+                  const priorityDisplay = getPriorityDisplay(task.priority);
+                  const categoryDisplay = getCategoryDisplay(task.category);
+                  
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={(e) => handleTaskClick(e, task)}
+                      className={`p-2 mb-2 rounded-lg bg-orange-500/20 border border-orange-500/20
+                        hover:border-orange-500/40 transition-colors cursor-pointer
+                        ${task.completed ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-orange-300 font-medium">
+                          {task.title}
+                          {task.completed && <span className="ml-2 text-orange-300">✓</span>}
+                        </h4>
+                        <span className="text-sm text-gray-400">
+                          {new Date(task.deadline).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      </div>
+                      
+                      {/* Priority and Category Tags in Desktop View */}
+                      <div className="flex mt-2 gap-2 mb-1">
+                        <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full
+                          ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
+                          <span>●</span> {priorityDisplay.label} Priority
+                        </span>
+                        <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full
+                          ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
+                          # {categoryDisplay.label}
+                        </span>
+                        {task.isRecurring && (
+                          <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full
+                            bg-violet-400/10 text-violet-300">
+                            🔄 Recurring
+                          </span>
+                        )}
+                      </div>
+                      
+                      {task.description && (
+                        <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
                     </div>
-                    {task.description && (
-                      <p className="text-sm text-gray-400 mt-1 line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
