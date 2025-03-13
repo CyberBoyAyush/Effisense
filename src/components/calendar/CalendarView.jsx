@@ -178,11 +178,14 @@ const CalendarView = () => {
   const handleToggleComplete = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
-      const updatedTasks = updateTask(taskId, { 
-        ...task, 
-        completed: !task.completed 
-      });
+      const updatedTask = { ...task, completed: !task.completed };
+      const updatedTasks = updateTask(taskId, updatedTask);
       setTasks(updatedTasks);
+      
+      // If this task is currently being shown in the details view, update it
+      if (openTaskDetails && openTaskDetails.id === taskId) {
+        setOpenTaskDetails(updatedTask);
+      }
     }
   };
 
@@ -443,8 +446,11 @@ const CalendarView = () => {
              onClick={() => setOpenTaskDetails(null)}>
           <div className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
             <TaskCard
-              task={openTaskDetails}
-              onToggleComplete={() => handleToggleComplete(openTaskDetails.id)}
+              task={openTaskDetails} // Use the current state of openTaskDetails
+              onToggleComplete={() => {
+                handleToggleComplete(openTaskDetails.id);
+                // The UI will update automatically because we're updating the openTaskDetails state
+              }}
               onEdit={() => handleEditTask(openTaskDetails)}
               onDelete={() => handleDeleteTask(openTaskDetails.id)}
               usePortal={false}
@@ -549,6 +555,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                     <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0 
                       ${task.completed ? 'bg-green-400' : 'bg-orange-400'}`}></div>
                     <span className="truncate">{task.title}</span>
+                    {task.completed && <span className="text-green-300 ml-1">✓</span>}
                   </div>
                 </div>
               ))}
@@ -796,11 +803,15 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                         zIndex: 10
                       }}
                       className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 flex flex-col justify-center
-                        ${task.completed ? 'opacity-60' : ''} pointer-events-auto overflow-hidden`}
+                        ${task.completed ? 'opacity-60 border-green-500/30' : ''} pointer-events-auto overflow-hidden`}
                     >
                       <div className="flex items-center gap-1">
-                        {task.completed && <span className="text-[10px]">✓</span>}
-                        <span className="text-xs font-medium truncate">{task.title}</span>
+                        {task.completed && (
+                          <span className="text-[10px] text-green-300">✓</span>
+                        )}
+                        <span className={`text-xs font-medium truncate ${task.completed ? 'text-gray-300' : ''}`}>
+                          {task.title}
+                        </span>
                       </div>
                       
                       {heightValue > 28 && (
@@ -973,8 +984,12 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                       <div className="h-full flex flex-col overflow-hidden p-1">
                         {/* Task title with status indicator */}
                         <div className="flex items-start gap-1">
-                          {task.completed && <span className="text-[10px] text-green-300 pt-0.5">✓</span>}
-                          <span className="text-xs font-medium truncate leading-tight">
+                          {task.completed && (
+                            <span className="text-[10px] text-green-300 pt-0.5 font-bold">✓</span>
+                          )}
+                          <span className={`text-xs font-medium truncate leading-tight ${
+                            task.completed ? 'text-gray-400' : ''
+                          }`}>
                             {task.title}
                           </span>
                         </div>
