@@ -6,7 +6,8 @@ import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage'
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
-  FaExclamationCircle, FaFilter, FaAngleDown
+  FaExclamationCircle, FaFilter, FaAngleDown,
+  FaEye, FaEyeSlash, FaInbox, FaRegClock
 } from "react-icons/fa";
 
 const Dashboard = () => {
@@ -18,6 +19,7 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
 
   useEffect(() => {
     // Load tasks when component mounts
@@ -43,6 +45,10 @@ const Dashboard = () => {
     }
   }, [priorityFilter, tasks]);
 
+  // Separate tasks into completed and queued
+  const queuedTasks = filteredTasks.filter(task => !task.completed);
+  const completedTasks = filteredTasks.filter(task => task.completed);
+
   // Add new task
   const handleAddTask = () => {
     setTaskToEdit(null);
@@ -62,8 +68,11 @@ const Dashboard = () => {
   };
 
   // Edit task
-  const handleEditTask = (index) => {
-    const taskToEdit = filteredTasks[index];
+  const handleEditTask = (index, isCompleted = false) => {
+    // Use the right array based on completed status
+    const taskArray = isCompleted ? completedTasks : queuedTasks;
+    const taskToEdit = taskArray[index];
+    
     // Find original task index in the full tasks array
     const originalIndex = tasks.findIndex(t => t.id === taskToEdit.id);
     setTaskToEdit({ ...tasks[originalIndex], index: originalIndex });
@@ -71,15 +80,21 @@ const Dashboard = () => {
   };
 
   // Delete task
-  const handleDeleteTask = (index) => {
-    const taskId = filteredTasks[index].id;
+  const handleDeleteTask = (index, isCompleted = false) => {
+    // Use the right array based on completed status
+    const taskArray = isCompleted ? completedTasks : queuedTasks;
+    const taskId = taskArray[index].id;
+    
     const updatedTasks = deleteTask(taskId);
     setTasks(updatedTasks);
   };
 
   // Add task toggle functionality
-  const handleToggleComplete = (index) => {
-    const task = filteredTasks[index];
+  const handleToggleComplete = (index, isCompleted = false) => {
+    // Use the right array based on completed status
+    const taskArray = isCompleted ? completedTasks : queuedTasks;
+    const task = taskArray[index];
+    
     if (task?.id) {
       const updatedTasks = updateTask(task.id, { 
         ...task, 
@@ -197,13 +212,88 @@ const Dashboard = () => {
             </button>
           </div>
         )}
+
+        {/* Queued Tasks Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FaInbox className="text-orange-400" />
+              <h3 className="text-lg font-medium text-white">Queued Tasks</h3>
+              <span className="bg-orange-500/20 text-orange-300 text-xs px-2 py-1 rounded-md">
+                {queuedTasks.length}
+              </span>
+            </div>
+          </div>
+          
+          {queuedTasks.length === 0 ? (
+            <div className="p-4 bg-gray-800/30 rounded-xl border border-gray-700/50 text-center text-gray-400">
+              <p>No queued tasks. Great job!</p>
+            </div>
+          ) : (
+            <TaskList 
+              tasks={queuedTasks} 
+              onEdit={(index) => handleEditTask(index, false)} 
+              onDelete={(index) => handleDeleteTask(index, false)} 
+              onToggleComplete={(index) => handleToggleComplete(index, false)} 
+            />
+          )}
+        </div>
         
-        <TaskList 
-          tasks={filteredTasks} 
-          onEdit={handleEditTask} 
-          onDelete={handleDeleteTask} 
-          onToggleComplete={handleToggleComplete} 
-        />
+        {/* Completed Tasks Section with Toggle */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FaCheckCircle className="text-green-400" />
+              <h3 className="text-lg font-medium text-white">Completed Tasks</h3>
+              <span className="bg-green-500/20 text-green-300 text-xs px-2 py-1 rounded-md">
+                {completedTasks.length}
+              </span>
+            </div>
+            <button 
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-orange-400 transition-colors"
+              onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+            >
+              {showCompletedTasks ? (
+                <>
+                  <FaEyeSlash className="text-orange-400" /> 
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <FaEye className="text-orange-400" /> 
+                  <span>Show</span>
+                </>
+              )}
+            </button>
+          </div>
+          
+          {showCompletedTasks && (
+            completedTasks.length === 0 ? (
+              <div className="p-4 bg-gray-800/30 rounded-xl border border-gray-700/50 text-center text-gray-400">
+                <p>No completed tasks yet. Get started!</p>
+              </div>
+            ) : (
+              <div className="opacity-80 hover:opacity-100 transition-opacity duration-300">
+                <TaskList 
+                  tasks={completedTasks} 
+                  onEdit={(index) => handleEditTask(index, true)} 
+                  onDelete={(index) => handleDeleteTask(index, true)} 
+                  onToggleComplete={(index) => handleToggleComplete(index, true)} 
+                />
+              </div>
+            )
+          )}
+          
+          {!showCompletedTasks && completedTasks.length > 0 && (
+            <button
+              onClick={() => setShowCompletedTasks(true)}
+              className="w-full py-2 border border-gray-700/50 rounded-lg text-gray-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <FaEye />
+              <span>Show {completedTasks.length} completed task{completedTasks.length !== 1 ? 's' : ''}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Calendar Preview - Updated with icon */}
