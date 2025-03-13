@@ -830,78 +830,127 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
         </div>
       </div>
 
-      {/* Desktop Week Grid */}
+      {/* Desktop Week Grid - Updated to be more like GCal */}
       <div className="hidden md:flex flex-col overflow-x-auto">
-        {/* Week header */}
-        <div className="grid grid-cols-8 gap-1">
-          <div className="w-20" />
+        {/* Week header with day names and dates */}
+        <div className="grid grid-cols-8 gap-0">
+          {/* Empty corner cell */}
+          <div className="w-20 border-r border-b border-gray-700/30 bg-gray-800/30 p-2"></div>
+          
+          {/* Day headers - Similar to GCal */}
           {Array.from({ length: 7 }).map((_, index) => {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + index);
             const isToday = date.toDateString() === new Date().toDateString();
+            const day = date.getDay();
+            const isWeekend = day === 0 || day === 6;
 
             return (
               <div
                 key={date.toISOString()}
                 className={`p-2 text-center border-b border-gray-700/30 
-                  ${isToday ? 'bg-orange-500/20 text-orange-300' : ''}`}
+                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/20' : 'bg-gray-800/30'}`}
               >
-                <div className="text-sm font-medium text-gray-400">
-                  {date.toLocaleDateString('default', { weekday: 'short' })}
+                <div className="flex flex-col items-center">
+                  <div className={`text-xs font-medium tracking-wide uppercase 
+                    ${isToday ? 'text-orange-400' : 'text-gray-400'}`}>
+                    {date.toLocaleDateString('default', { weekday: 'short' })}
+                  </div>
+                  <div className={`w-8 h-8 flex items-center justify-center rounded-full text-base 
+                    ${isToday ? 'bg-orange-600 text-white' : 'text-gray-300'}`}>
+                    {date.getDate()}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-300">{date.getDate()}</div>
               </div>
             );
           })}
         </div>
 
         {/* Calendar grid with events */}
-        <div className="grid grid-cols-8">
-          {/* Time column */}
-          <div className="col-span-1">
+        <div className="grid grid-cols-8 relative">
+          {/* Time column with hour markers - GCal style */}
+          <div className="col-span-1 border-r border-gray-700/30">
             {Array.from({ length: 24 }).map((_, hour) => (
-              <div key={hour} className="h-[60px] text-sm text-gray-500 text-right pr-2 flex items-center justify-end">
-                {formatTime(hour)}
+              <div key={hour} className="relative h-[60px] group">
+                {/* Hour label positioned on the hour line */}
+                <div className="absolute -top-[9px] right-2 px-1 text-xs text-gray-500 bg-gray-800 z-10">
+                  {formatTime(hour)}
+                </div>
+                {/* Hour divider line */}
+                <div className="absolute top-0 right-0 left-0 border-t border-gray-700/30"></div>
+                {/* Half-hour divider line (lighter) */}
+                {hour < 23 && (
+                  <div className="absolute top-1/2 right-0 left-4 border-t border-dashed border-gray-700/20"></div>
+                )}
               </div>
             ))}
           </div>
 
-          {/* Day columns */}
+          {/* Day columns with hour grid */}
           {Array.from({ length: 7 }).map((_, dayIndex) => {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + dayIndex);
             const isToday = date.toDateString() === new Date().toDateString();
+            const day = date.getDay();
+            const isWeekend = day === 0 || day === 6;
             const dayTasks = processTasksForDay(tasks, date);
 
             return (
               <div key={dayIndex} className="col-span-1 relative">
-                {/* Hour cells */}
-                {Array.from({ length: 24 }).map((_, hour) => (
-                  <div
-                    key={hour}
-                    onClick={() => onTimeSlotClick(date, hour)}
-                    className={`h-[60px] border border-gray-700/30 cursor-pointer
-                      ${isToday ? 'bg-gray-800/40' : 'bg-gray-800/20'} hover:bg-gray-700/30`}
-                  >
-                    <div className="h-full w-full"></div>
-                  </div>
-                ))}
+                {/* Hour grid cells */}
+                {Array.from({ length: 24 }).map((_, hour) => {
+                  // Identify if this is the current hour
+                  const isCurrentHour = isToday && new Date().getHours() === hour;
+                  const currentMinutePercent = isCurrentHour ? (new Date().getMinutes() / 60) * 100 : null;
+                  
+                  return (
+                    <div
+                      key={hour}
+                      onClick={() => onTimeSlotClick(date, hour)}
+                      className={`h-[60px] border-r border-gray-700/20 relative cursor-pointer group
+                        ${isToday ? 'hover:bg-orange-950/10' : 'hover:bg-gray-700/10'}
+                        ${isCurrentHour ? 'bg-orange-950/10' : ''}`}
+                    >
+                      {/* Hour divider line */}
+                      <div className="absolute top-0 left-0 right-0 border-t border-gray-700/30"></div>
+                      
+                      {/* Half-hour divider line (lighter) */}
+                      <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-gray-700/20"></div>
+                      
+                      {/* Current time indicator */}
+                      {isCurrentHour && (
+                        <div 
+                          className="absolute left-0 right-0 h-0.5 bg-orange-600 z-20 pointer-events-none"
+                          style={{ top: `${currentMinutePercent}%` }}
+                        >
+                          <div className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full bg-orange-600 -translate-x-1/2 -translate-y-1/2"></div>
+                        </div>
+                      )}
+
+                      {/* Add button on hover */}
+                      <div className="hidden group-hover:flex absolute inset-0 items-center justify-center">
+                        <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center opacity-80 hover:opacity-100">
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                 
-                {/* Task overlays with precise positioning */}
+                {/* Task overlays with GCal styling */}
                 {dayTasks.map(task => {
                   // Calculate precise position and height
                   const startHour = task.startHour;
                   const startMinute = task.startMinutes;
                   
                   // Position calculations (each hour is 60px tall)
-                  // Include minutes in the calculation for precise positioning
                   const top = (startHour * 60) + ((startMinute / 60) * 60);
                   const height = task.durationHours * 60;
                   
-                  // Get priority color
-                  const priorityColor = task.priority === 'high' 
-                    ? 'border-red-500' : task.priority === 'low' 
-                      ? 'border-green-500' : 'border-amber-500';
+                  // Get color based on category/completion
+                  const taskStyles = getTaskStyles(task);
                   
                   return (
                     <div
@@ -910,30 +959,45 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                       style={{
                         position: 'absolute',
                         top: `${top}px`,
-                        height: `${Math.max(height, 20)}px`, // Minimum 20px height
-                        left: '1px', // Position inside cell
-                        right: '1px',
+                        height: `${Math.max(height, 22)}px`, // Minimum height for visibility
+                        left: '2px', // Slight margin from edge
+                        right: '2px',
                         zIndex: 10
                       }}
-                      className={`rounded border-l-2 ${priorityColor} p-1.5
-                        bg-orange-500/20 hover:bg-orange-500/30 text-orange-300
-                        cursor-pointer overflow-hidden text-xs ${task.completed ? 'opacity-50' : ''}`}
+                      className={`rounded-sm shadow-sm ${taskStyles.bgColor} ${taskStyles.textColor} flex flex-col 
+                        cursor-pointer overflow-hidden group/task border-l-4 ${task.completed ? 'border-green-500 opacity-70' : 
+                        task.category === 'work' ? 'border-blue-500' : 
+                        task.category === 'personal' ? 'border-purple-500' : 
+                        task.category === 'health' ? 'border-green-500' : 'border-orange-500'}`}
                     >
-                      <div className="h-full flex flex-col">
-                        <div className="font-medium truncate">
-                          {task.completed && <span>✓ </span>}
-                          {task.title}
+                      <div className="h-full flex flex-col overflow-hidden p-1">
+                        {/* Task title with status indicator */}
+                        <div className="flex items-start gap-1">
+                          {task.completed && <span className="text-[10px] text-green-300 pt-0.5">✓</span>}
+                          <span className="text-xs font-medium truncate leading-tight">
+                            {task.title}
+                          </span>
                         </div>
                         
                         {/* Show time if there's enough space */}
                         {height > 30 && (
-                          <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                          <div className="text-[10px] opacity-80 mt-0.5">
                             {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {height > 40 && (
                               <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
                             )}
                           </div>
                         )}
+                        
+                        {/* Quick actions on hover */}
+                        <div className="hidden group-hover/task:flex absolute top-1 right-1 gap-1">
+                          <button className="p-0.5 rounded bg-gray-800/80 text-white hover:bg-gray-700">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1180,51 +1244,83 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
         </div>
       </div>
 
-      {/* Desktop Day View */}
-      <div className="hidden md:grid grid-cols-[100px_1fr] gap-1">
-        {/* Time column */}
-        <div className="col-span-1">
+      {/* Desktop Day View - Updated to be more like GCal */}
+      <div className="hidden md:grid grid-cols-[100px_1fr] gap-0">
+        {/* Time column with hour markers - GCal style */}
+        <div className="col-span-1 pr-2">
           {Array.from({ length: 24 }).map((_, hour) => (
-            <div key={hour} className="h-[80px] text-sm text-gray-500 text-right pr-4 flex items-start justify-end pt-2">
-              {formatTime(hour)}
+            <div key={hour} className="relative h-[80px]">
+              {/* Hour label positioned on the hour line */}
+              <div className="absolute -top-[9px] right-2 px-1 text-xs text-gray-500 bg-gray-800 z-10">
+                {formatTime(hour)}
+              </div>
+              {/* Hour divider line */}
+              <div className="absolute top-0 right-0 left-4 border-t border-gray-700/30"></div>
+              {/* Half-hour divider line (lighter) */}
+              {hour < 23 && (
+                <div className="absolute top-1/2 right-0 left-8 border-t border-dashed border-gray-700/20"></div>
+              )}
             </div>
           ))}
         </div>
 
-        {/* Day column with tasks */}
-        <div className="col-span-1 relative">
-          {/* Hour cells */}
-          {Array.from({ length: 24 }).map((_, hour) => (
-            <div
-              key={hour}
-              onClick={() => onTimeSlotClick(currentDate, hour)}
-              className="h-[80px] border border-gray-700/30 hover:bg-gray-700/20 cursor-pointer"
-            >
-              {/* Hour grid with minute divisions */}
-              <div className="h-full">
-                <div className="border-b border-gray-700/20 h-[25%]"></div>
-                <div className="border-b border-gray-700/20 h-[25%]"></div>
-                <div className="border-b border-gray-700/20 h-[25%]"></div>
-                <div className="border-b border-gray-700/20 h-[25%]"></div>
+        {/* Day column with tasks - GCal style */}
+        <div className="col-span-1 relative border-l border-gray-700/30">
+          {/* Hour grid cells */}
+          {Array.from({ length: 24 }).map((_, hour) => {
+            // Identify if this is the current hour
+            const isCurrentHour = currentDate.toDateString() === new Date().toDateString() && new Date().getHours() === hour;
+            const currentMinutePercent = isCurrentHour ? (new Date().getMinutes() / 60) * 100 : null;
+            
+            return (
+              <div
+                key={hour}
+                onClick={() => onTimeSlotClick(currentDate, hour)}
+                className={`h-[80px] relative cursor-pointer group
+                  ${isCurrentHour ? 'bg-orange-950/10' : 'hover:bg-gray-700/10'}`}
+              >
+                {/* Hour divider line */}
+                <div className="absolute top-0 left-0 right-0 border-t border-gray-700/30"></div>
+                
+                {/* Quarter-hour divider lines (lightest) */}
+                <div className="absolute top-1/4 left-0 right-0 border-t border-dotted border-gray-700/10"></div>
+                <div className="absolute top-2/4 left-0 right-0 border-t border-dashed border-gray-700/20"></div>
+                <div className="absolute top-3/4 left-0 right-0 border-t border-dotted border-gray-700/10"></div>
+                
+                {/* Current time indicator */}
+                {isCurrentHour && (
+                  <div 
+                    className="absolute left-0 right-0 h-0.5 bg-orange-600 z-20 pointer-events-none"
+                    style={{ top: `${currentMinutePercent}%` }}
+                  >
+                    <div className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full bg-orange-600 -translate-x-1/2 -translate-y-1/2"></div>
+                  </div>
+                )}
+
+                {/* Add button on hover - GCal style */}
+                <div className="hidden group-hover:flex absolute inset-0 items-center justify-center">
+                  <div className="w-7 h-7 bg-orange-600 rounded-full flex items-center justify-center opacity-80 hover:opacity-100 shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
-          {/* Task overlays with precise positioning */}
+          {/* Task overlays with GCal styling */}
           {allDayTasks.map(task => {
             // Calculate precise position based on exact time
             const startHour = task.startHour;
             const startMinute = task.startMinutes;
             
             // Position calculations (each hour is 80px tall)
-            // Include minutes in the calculation for precise positioning
             const top = (startHour * 80) + ((startMinute / 60) * 80);
             const height = task.durationHours * 80;
             
-            // Get priority color
-            const priorityColor = task.priority === 'high' 
-              ? 'border-red-500' : task.priority === 'low' 
-                ? 'border-green-500' : 'border-amber-500';
+            // Get color based on category/completion
+            const taskStyles = getTaskStyles(task);
             
             return (
               <div
@@ -1233,56 +1329,50 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 style={{
                   position: 'absolute',
                   top: `${top}px`,
-                  height: `${Math.max(height, 25)}px`, // Minimum 25px height
-                  left: '1px', // Position inside cell
-                  right: '1px',
+                  height: `${Math.max(height, 25)}px`, // Minimum height for visibility
+                  left: '10px', // Slight margin from edge
+                  right: '10px',
                   zIndex: 10
                 }}
-                className={`rounded border-l-2 ${priorityColor} p-2
-                  bg-orange-500/20 hover:bg-orange-500/30 text-orange-300
-                  cursor-pointer overflow-hidden ${task.completed ? 'opacity-70' : ''}`}
+                className={`rounded-sm shadow-md ${taskStyles.bgColor} ${taskStyles.textColor} flex flex-col 
+                  cursor-pointer overflow-hidden hover:shadow-lg transition-shadow duration-200
+                  group/task border-l-4 ${task.completed ? 'border-green-500 opacity-70' : 
+                  task.category === 'work' ? 'border-blue-500' : 
+                  task.category === 'personal' ? 'border-purple-500' : 
+                  task.category === 'health' ? 'border-green-500' : 'border-orange-500'}`}
               >
-                <div className="flex flex-col h-full overflow-hidden">
-                  <h4 className="text-orange-300 font-medium text-sm truncate flex items-center gap-1.5">
-                    {task.completed && <span className="text-green-400">✓</span>}
+                <div className="h-full flex flex-col p-2 overflow-hidden">
+                  {/* Task title with status indicator */}
+                  <h4 className="text-sm font-medium truncate flex items-center gap-1">
+                    {task.completed && <span className="text-green-300">✓</span>}
                     {task.title}
                   </h4>
                   
-                  {/* Time information */}
+                  {/* Time information - GCal style */}
                   {height > 40 && (
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-xs opacity-80 mt-0.5">
                       {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
                       {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       <span className="ml-1">({task.durationText})</span>
                     </div>
                   )}
                   
-                  {/* Priority and Category Tags - Show if enough space */}
-                  {height > 60 && (
-                    <div className="flex mt-2 gap-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-900/30 text-gray-300">
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          task.priority === 'high' ? 'bg-red-400' : 
-                          task.priority === 'low' ? 'bg-green-400' : 'bg-amber-400'
-                        }`}></span>
-                        {task.priority}
-                      </span>
-                      
-                      {task.isRecurring && (
-                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full
-                          bg-violet-400/10 text-violet-300">
-                          🔄
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Show description if there's enough space */}
-                  {height > 80 && task.description && (
-                    <p className="text-xs text-gray-400 mt-2 line-clamp-2">
+                  {/* Show description if enough space - GCal style */}
+                  {height > 60 && task.description && (
+                    <p className="text-xs opacity-70 mt-2 line-clamp-2">
                       {task.description}
                     </p>
                   )}
+                  
+                  {/* Quick actions on hover - GCal style */}
+                  <div className="hidden group-hover/task:flex absolute top-2 right-2 gap-1">
+                    <button className="p-1 rounded bg-gray-800/80 text-white hover:bg-gray-700">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1293,7 +1383,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
   );
 };
 
-// Helper function to get styling for tasks based on category/completion status
+// Helper function to get styling for tasks based on category/completion status - Updated for GCal style
 const getTaskStyles = (task) => {
   if (task.completed) {
     return { 
@@ -1302,26 +1392,26 @@ const getTaskStyles = (task) => {
     };
   }
   
-  // By category
+  // By category - More GCal-like colors
   switch(task.category) {
     case 'work':
       return { 
-        bgColor: 'bg-blue-500/20 border border-blue-500/50', 
+        bgColor: 'bg-blue-500/15 border border-blue-500/40', 
         textColor: 'text-blue-200' 
       };
     case 'personal':
       return { 
-        bgColor: 'bg-purple-500/20 border border-purple-500/50', 
+        bgColor: 'bg-purple-500/15 border border-purple-500/40', 
         textColor: 'text-purple-200' 
       };
     case 'health':
       return { 
-        bgColor: 'bg-green-500/20 border border-green-500/50', 
+        bgColor: 'bg-green-500/15 border border-green-500/40', 
         textColor: 'text-green-200' 
       };
     default:
       return { 
-        bgColor: 'bg-orange-500/20 border border-orange-500/50', 
+        bgColor: 'bg-orange-500/15 border border-orange-500/40', 
         textColor: 'text-orange-200' 
       };
   }
