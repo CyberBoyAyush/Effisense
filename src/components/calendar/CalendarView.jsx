@@ -4,6 +4,71 @@ import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
 
+// Helper function to process tasks for calendar views - moved outside of any component
+const processTasksForDay = (tasks, date) => {
+  return tasks
+    .filter(task => {
+      const taskDate = new Date(task.deadline);
+      return taskDate.toDateString() === date.toDateString();
+    })
+    .map(task => {
+      const startTime = new Date(task.deadline);
+      // If endTime exists, use it; otherwise default to 1 hour after start
+      const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+      
+      // Calculate positioning values with precise minutes
+      const startHour = startTime.getHours();
+      const startMinutes = startTime.getMinutes();
+      const endHour = endTime.getHours();
+      const endMinutes = endTime.getMinutes();
+      
+      // Duration calculations with precise minutes
+      const durationMs = endTime - startTime;
+      const durationMinutes = durationMs / (1000 * 60);
+      const durationHours = durationMinutes / 60;
+      
+      // Format duration for display
+      let durationText;
+      if (durationMinutes < 60) {
+        durationText = `${Math.round(durationMinutes)}m`;
+      } else {
+        const hours = Math.floor(durationHours);
+        const minutes = Math.round(durationMinutes % 60);
+        durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+      }
+
+      return {
+        ...task,
+        startTime,
+        endTime,
+        startHour,
+        startMinutes,
+        endHour,
+        endMinutes,
+        durationMinutes,
+        durationHours,
+        durationText
+      };
+    });
+};
+
+// Hour range button component
+const HourRangeButton = ({ label, range, setRange, current }) => {
+  const isActive = current.start === range.start && current.end === range.end;
+  return (
+    <button
+      onClick={() => setRange(range)}
+      className={`px-3 py-1.5 text-xs rounded-lg whitespace-nowrap
+        ${isActive 
+          ? 'bg-orange-600 text-white' 
+          : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+        }`}
+    >
+      {label}
+    </button>
+  );
+};
+
 const CalendarView = () => {
   const [view, setView] = useState('month'); // 'month', 'week', 'day'
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,6 +84,36 @@ const CalendarView = () => {
   useEffect(() => {
     const loadedTasks = getTasks();
     setTasks(loadedTasks);
+  }, []);
+
+  // Add CSS styles for calendar positioning
+  useEffect(() => {
+    // Add a style tag to ensure correct positioning
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = `
+      #week-calendar-grid .grid-container, #day-calendar-grid .grid-container {
+        position: relative;
+        z-index: 1;
+      }
+      
+      /* Ensure time labels are on top of the grid lines */
+      #week-calendar-grid .time-label, #day-calendar-grid .time-label {
+        position: relative;
+        z-index: 2;
+        background: inherit;
+      }
+      
+      /* Precise alignment styles */
+      #week-calendar-grid > .absolute, #day-calendar-grid > .absolute {
+        z-index: 10;
+      }
+    `;
+    document.head.appendChild(styleTag);
+    
+    // Clean up the style tag when component unmounts
+    return () => {
+      document.head.removeChild(styleTag);
+    };
   }, []);
 
   const viewOptions = [
@@ -499,373 +594,432 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
     { length: 24 }, 
     (_, i) => i
   ).filter(hour => hour >= hourRange.start && hour <= hourRange.end);
+  
+  // Process tasks for the selected day
+  const selectedDayTasks = processTasksForDay(tasks, selectedDate);
+  
+  // Filter tasks based on visible hours for mobile view
+  const visibleTasks = selectedDayTasks.filter(task => {
+    return (task.endHour >= hourRange.start && task.startHour <= hourRange.end);
+  });
 
+  // Group tasks by their continuous blocks
+  const tasksByHour = groupTasksByBlocks(visibleTasks, visibleHours);
+  
   return (
     <div className="flex flex-col space-y-2">
-      {/* Mobile Day Selector */}
-      <div className="md:hidden">
-        {/* Day selector */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+      {/* Mobile Week View */}
+      <div className="md:hidden flex flex-col">
+        {/* Day selector tabs - Google Calendar style */}
+        <div className="flex bg-gray-800/70 rounded-lg overflow-hidden mb-2 border border-gray-700/30">
           {Array.from({ length: 7 }).map((_, index) => {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + index);
             const isToday = date.toDateString() === new Date().toDateString();
             const isSelected = index === selectedDayIndex;
+            
+            // Format day short name and date
+            const dayName = date.toLocaleDateString('default', { weekday: 'short' }).substring(0, 1);
+            const dayDate = date.getDate();
 
             return (
               <button
                 key={date.toISOString()}
                 onClick={() => setSelectedDayIndex(index)}
-                className={`flex flex-col items-center p-3 rounded-xl min-w-[80px]
-                  transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-orange-600 text-white'
-                      : isToday
-                      ? 'bg-orange-500/20 text-orange-300'
-                      : 'text-gray-400 hover:bg-gray-700/30'
+                className={`flex-1 flex flex-col items-center py-2 relative
+                  ${isSelected 
+                    ? 'text-orange-400' 
+                    : isToday
+                      ? 'text-gray-200'
+                      : 'text-gray-400'
                   }`}
               >
-                <span className="text-sm font-medium">
-                  {date.toLocaleDateString('default', { weekday: 'short' })}
+                <span className="text-[10px] uppercase font-medium mb-1">{dayName}</span>
+                <span className={`w-8 h-8 flex items-center justify-center text-sm rounded-full
+                  ${isToday 
+                    ? 'bg-orange-500 text-white' 
+                    : ''
+                  }
+                  ${isSelected && !isToday
+                    ? 'bg-gray-700 text-orange-400' 
+                    : ''
+                  }`}>
+                  {dayDate}
                 </span>
-                <span className="text-lg mt-1">{date.getDate()}</span>
+                
+                {/* Selected indicator */}
+                {isSelected && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-400"></div>
+                )}
               </button>
             );
           })}
         </div>
-
-        {/* Hour Range Selector for Mobile */}
-        <div className="bg-gray-800/50 rounded-lg p-3 mt-3 border border-gray-700/30">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-sm font-medium text-gray-300">Hours</h3>
-            <button 
+        
+        {/* Mini Hour Selector - Pills like Google Calendar */}
+        <div className="flex justify-between items-center mb-2 px-1">
+          <div className="flex gap-1.5 overflow-x-auto py-1 no-scrollbar">
+            <button
               onClick={() => setHourRange({ start: 0, end: 23 })}
-              className="text-xs text-orange-400 px-2 py-1 rounded hover:bg-gray-700/50"
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 0 && hourRange.end === 23 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
             >
-              Show All
+              All day
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 9, end: 17 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 9 && hourRange.end === 17 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Working hours
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 5, end: 11 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 5 && hourRange.end === 11 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Morning
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 12, end: 17 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 12 && hourRange.end === 17
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Afternoon
             </button>
           </div>
-          <div className="flex gap-2 overflow-x-auto py-1">
-            <HourRangeButton 
-              label="Morning" 
-              range={{ start: 5, end: 11 }} 
-              setRange={setHourRange} 
-              current={hourRange}
-            />
-            <HourRangeButton 
-              label="Afternoon" 
-              range={{ start: 12, end: 16 }} 
-              setRange={setHourRange} 
-              current={hourRange}
-            />
-            <HourRangeButton 
-              label="Evening" 
-              range={{ start: 17, end: 23 }}
-              setRange={setHourRange}
-              current={hourRange}
-            />
-            <HourRangeButton 
-              label="Work Hours" 
-              range={{ start: 9, end: 17 }}
-              setRange={setHourRange}
-              current={hourRange}
-            />
-          </div>
+          
+          <button 
+            onClick={() => onTimeSlotClick(selectedDate)}
+            className="text-white p-1.5 bg-orange-500 hover:bg-orange-600 rounded-full flex items-center justify-center"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
         </div>
-
-        {/* Mobile Time Slots - More compact */}
-        <div className="mt-4">
-          {visibleHours.map((hour) => {
-            const currentDateTasks = tasks.filter(task => {
-              const taskDate = new Date(task.deadline);
-              const duration = getTaskDuration(task);
-              // Only show tasks that start in this hour or span into this hour
-              return (Math.floor(duration.startHourExact) === hour || 
-                     (duration.spanMultipleHours && hour >= Math.floor(duration.startHourExact) && hour < duration.endHour)) && 
-                     taskDate.toDateString() === selectedDate.toDateString();
-            });
-
-            // Skip rendering empty time slots when there are no tasks
-            if (currentDateTasks.length === 0) {
-              return (
+        
+        {/* Timeline View - Google Calendar style */}
+        <div className="bg-gray-800/40 rounded-lg border border-gray-700/30">
+          {/* Day header - Nice header with date info */}
+          <div className="p-3 border-b border-gray-700/50 bg-gray-800/80">
+            <h3 className="text-gray-200 font-medium">
+              {selectedDate.toLocaleDateString('default', { 
+                weekday: 'long', 
+                day: 'numeric',
+                month: 'long'
+              })}
+            </h3>
+          </div>
+          
+          {/* Time slots with tasks - FIXED ALIGNMENT TO HOUR LINES */}
+          <div className="relative" id="week-calendar-grid">
+            {/* Fixed background grid with consistent height */}
+            <div className="grid-container">
+              {visibleHours.map((hour) => (
                 <div 
                   key={hour} 
-                  className="flex items-center p-2 border-b border-gray-700/20 hover:bg-gray-800/30"
+                  className="flex border-b border-gray-700/20 last:border-b-0"
                   onClick={() => onTimeSlotClick(selectedDate, hour)}
                 >
-                  <span className="text-sm text-gray-500 w-14">{formatTime(hour)}</span>
-                  <span className="text-xs text-gray-500 pl-2">+ Add task</span>
-                </div>
-              );
-            }
-
-            return (
-              <div key={hour} className="mb-2">
-                {/* Time Header - More compact */}
-                <div className="flex items-center py-1.5 px-3 bg-gray-800/70 rounded-t-lg">
-                  <span className="text-sm font-medium text-gray-300">{formatTime(hour)}</span>
-                  <button
-                    onClick={() => onTimeSlotClick(selectedDate, hour)}
-                    className="ml-auto text-xs text-orange-400 p-1"
+                  {/* Time column - FIXED WIDTH */}
+                  <div className={`w-12 flex-shrink-0 py-2 pl-3 pr-1 text-right text-xs font-medium text-gray-500
+                    ${hour === Math.min(...visibleHours) ? 'pt-3' : ''}
+                    ${hour === Math.max(...visibleHours) ? 'pb-3' : ''}`}
                   >
-                    +
-                  </button>
+                    {formatTime(hour).replace(':00', '')}
+                  </div>
+                  
+                  {/* Empty task area with FIXED HEIGHT for consistency */}
+                  <div className="flex-1 h-[60px]"></div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Overlay continuous tasks - CORRECTED POSITIONING */}
+            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
+              {(() => {
+                const taskGroups = {};
+                const hourHeight = 60; // FIXED HEIGHT - each hour cell is exactly 60px
+                const firstVisibleHour = Math.min(...visibleHours);
                 
-                {/* Tasks for this hour - Updated with priority and category tags */}
-                <div className="space-y-1 p-1">
-                  {currentDateTasks.map(task => {
-                    // Get priority and category styles
-                    const priorityDisplay = getPriorityDisplay(task.priority);
-                    const categoryDisplay = getCategoryDisplay(task.category);
-                    
-                    // Calculate if this task is continuing from previous hour
-                    const taskDuration = getTaskDuration(task);
-                    const isContinuation = Math.floor(taskDuration.startHourExact) !== hour;
-                    
-                    // Format time information
-                    const startDate = new Date(task.deadline);
-                    const endDate = task.endTime ? new Date(task.endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
-                    
-                    // Format duration for display
-                    let durationDisplay = "";
-                    const durationMinutes = Math.round(taskDuration.durationHours * 60);
-                    if (durationMinutes < 60) {
-                      durationDisplay = `(${durationMinutes}m)`;
-                    } else {
-                      const hours = Math.floor(taskDuration.durationHours);
-                      const minutes = Math.round((taskDuration.durationHours - hours) * 60);
-                      durationDisplay = minutes > 0 ? `(${hours}h ${minutes}m)` : `(${hours}h)`;
+                // First group all task segments by task ID
+                Object.entries(tasksByHour).forEach(([hour, tasks]) => {
+                  tasks.forEach(task => {
+                    if (!taskGroups[task.id]) {
+                      taskGroups[task.id] = {
+                        task: { ...task }
+                      };
                     }
-                    
-                    // Format time range for display
-                    const timeRange = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                                     ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${durationDisplay}`;
-                    
-                    return (
-                      <div
-                        key={task.id}
-                        onClick={(e) => handleTaskClick(e, task)}
-                        className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                          hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}
-                          ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
-                            {task.completed && <span className="mr-1">✓</span>}
-                            {isContinuation && <span className="text-[9px] mr-1">↑</span>}
-                            {task.title}
-                          </h4>
-                          <span className="text-xs text-gray-400 ml-2">
-                            {isContinuation ? "cont'd" : timeRange}
-                          </span>
-                        </div>
-                        
-                        {/* Priority and Category Tags */}
-                        <div className="flex mt-1.5 gap-1.5 flex-wrap">
-                          <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                            ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
-                            <span>●</span> {priorityDisplay.label}
-                          </span>
-                          <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                            ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
-                            # {categoryDisplay.label}
-                          </span>
-                          {task.isRecurring && (
-                            <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                              bg-violet-400/10 text-violet-300">
-                              🔄 Recurring
-                            </span>
+                  });
+                });
+                
+                // Calculate positions for each task with PRECISE timing
+                return Object.values(taskGroups).map(({ task }) => {
+                  const taskStyles = getTaskStyles(task);
+                  
+                  // Calculate position with PRECISE MEASUREMENTS
+                  const hourDiff = task.startHour - firstVisibleHour;
+                  const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
+
+                  // Calculate vertical offset to align with hour lines
+                  const topOffsetPx = 4; // Small correction to align perfectly with hour lines
+                  
+                  // Calculate precise height based on duration and time
+                  const heightValue = task.durationHours * hourHeight;
+                  
+                  return (
+                    <div 
+                      key={task.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTaskClick(e, task);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: `${topPosition + topOffsetPx}px`, // Added correction to align exactly with hour lines
+                        left: '48px', // Time column width margin
+                        right: '8px',
+                        height: `${Math.max(heightValue - topOffsetPx, 24)}px`, // Adjust height to maintain integrity
+                        zIndex: 10
+                      }}
+                      className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 flex flex-col justify-center
+                        ${task.completed ? 'opacity-60' : ''} pointer-events-auto overflow-hidden`}
+                    >
+                      <div className="flex items-center gap-1">
+                        {task.completed && <span className="text-[10px]">✓</span>}
+                        <span className="text-xs font-medium truncate">{task.title}</span>
+                      </div>
+                      
+                      {heightValue > 28 && (
+                        <div className="text-[10px] opacity-80">
+                          {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {task.durationHours >= 0.25 && (
+                            <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                          )}
+                          {task.durationHours >= 0.75 && (
+                            <span className="ml-1">({task.durationText})</span>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+            
+          {/* Empty state - No visible hours */}
+          {visibleHours.length === 0 && (
+            <div className="p-6 text-center text-gray-500">
+              <p>No hours in selected range</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Desktop Week Grid */}
-      <div className="hidden md:flex flex-col space-y-2 overflow-x-auto">
-        <div className="grid grid-cols-8 gap-1">
-          <div className="w-20" />
+      {/* Desktop Week Grid - Updated to be more like GCal */}
+      <div className="hidden md:flex flex-col overflow-x-auto">
+        {/* Week header with day names and dates */}
+        <div className="grid grid-cols-8 gap-0">
+          {/* Empty corner cell */}
+          <div className="w-20 border-r border-b border-gray-700/30 bg-gray-800/30 p-2"></div>
+          
+          {/* Day headers - Similar to GCal */}
           {Array.from({ length: 7 }).map((_, index) => {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + index);
             const isToday = date.toDateString() === new Date().toDateString();
+            const day = date.getDay();
+            const isWeekend = day === 0 || day === 6;
 
             return (
               <div
                 key={date.toISOString()}
                 className={`p-2 text-center border-b border-gray-700/30 
-                  ${isToday ? 'bg-orange-500/20 text-orange-300' : ''}`}
+                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/20' : 'bg-gray-800/30'}`}
               >
-                <div className="text-sm font-medium text-gray-400">
-                  {date.toLocaleDateString('default', { weekday: 'short' })}
+                <div className="flex flex-col items-center">
+                  <div className={`text-xs font-medium tracking-wide uppercase 
+                    ${isToday ? 'text-orange-400' : 'text-gray-400'}`}>
+                    {date.toLocaleDateString('default', { weekday: 'short' })}
+                  </div>
+                  <div className={`w-8 h-8 flex items-center justify-center rounded-full text-base 
+                    ${isToday ? 'bg-orange-600 text-white' : 'text-gray-300'}`}>
+                    {date.getDate()}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-300">{date.getDate()}</div>
               </div>
             );
           })}
         </div>
 
-        {/* Time Grid */}
-        {Array.from({ length: 24 }).map((_, hour) => (
-          <div key={hour} className="grid grid-cols-8 gap-1 min-h-[60px]">
-            <div className="w-20 text-sm text-gray-500 text-right pr-2">
-              {formatTime(hour)}
-            </div>
-            {Array.from({ length: 7 }).map((_, dayIndex) => {
-              const date = new Date(startOfWeek);
-              date.setDate(startOfWeek.getDate() + dayIndex);
-              const isToday = date.toDateString() === new Date().toDateString();
-
-              const dayHourTasks = tasks.filter(task => {
-                const taskDate = new Date(task.deadline);
-                const duration = getTaskDuration(task);
-                return (Math.floor(duration.startHourExact) === hour || 
-                      (duration.spanMultipleHours && hour >= Math.floor(duration.startHourExact) && hour < duration.endHour)) && 
-                      taskDate.toDateString() === date.toDateString();
-              });
-
-              return (
-                <div
-                  key={`${date.toISOString()}-${hour}`}
-                  onClick={() => onTimeSlotClick(date, hour)}
-                  className="cursor-pointer hover:bg-gray-700/20 relative h-[60px]"
-                >
-                  <div
-                    className={`border border-gray-700/30 rounded-lg h-full ${
-                      isToday ? 'bg-gray-800/40' : 'bg-gray-800/20'
-                    }`}
-                  >
-                    {dayHourTasks.map(task => {
-                      // Get priority color for the left border
-                      const priorityColor = task.priority === 'high' 
-                        ? 'border-red-500'
-                        : task.priority === 'low' 
-                          ? 'border-green-500'
-                          : 'border-amber-500';
-                      
-                      const taskDuration = getTaskDuration(task);
-                      const isContinuation = Math.floor(taskDuration.startHourExact) !== hour;
-                      
-                      // Calculate position and height
-                      let topPosition = 0;
-                      let heightPercent = 100;
-                      
-                      if (!isContinuation) {
-                        // For tasks starting in this hour, position them according to start minute
-                        topPosition = taskDuration.startMinutePercent;
-                        
-                        // If the task ends in this same hour, adjust height accordingly
-                        if (!taskDuration.spanMultipleHours) {
-                          heightPercent = taskDuration.durationPercent;
-                        } else {
-                          // For tasks spanning to next hour, fill the remainder of this hour
-                          heightPercent = 100 - topPosition;
-                        }
-                      }
-                      
-                      // For continuation tasks, they start at the top and may fill the whole hour
-                      // or end partway through depending on end time
-                      if (isContinuation) {
-                        if (Math.floor(taskDuration.endHourExact) === hour) {
-                          // This task ends during this hour
-                          heightPercent = (taskDuration.endHourExact - hour) * 100;
-                        }
-                      }
-                      
-                      // Ensure minimum height for visibility
-                      heightPercent = Math.max(heightPercent, 15);
-                      
-                      // Format duration for display
-                      const durationMinutes = Math.round(taskDuration.durationHours * 60);
-                      const durationText = durationMinutes >= 60 
-                        ? `${Math.floor(durationMinutes / 60)}h${durationMinutes % 60 > 0 ? ` ${durationMinutes % 60}m` : ''}`
-                        : `${durationMinutes}m`;
-                          
-                      return (
-                        <div
-                          key={task.id}
-                          onClick={(e) => handleTaskClick(e, task)}
-                          className={`text-xs p-1.5 rounded bg-orange-500/20 text-orange-300 truncate
-                            hover:bg-orange-500/30 cursor-pointer flex items-center gap-1 border-l-2 ${priorityColor}
-                            ${task.completed ? 'opacity-50' : ''} 
-                            ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''} absolute`}
-                          style={{
-                            top: `${topPosition}%`,
-                            height: `${heightPercent}%`,
-                            width: 'calc(100% - 4px)',
-                            left: '2px',
-                            zIndex: isContinuation ? 1 : 2
-                          }}
-                          title={task.title}
-                        >
-                          <div className="flex items-center gap-1 w-full overflow-hidden">
-                            {task.completed && <span>✓</span>}
-                            {isContinuation && <span className="text-[9px]">↑</span>}
-                            <span className="truncate flex-1">{task.title}</span>
-                            
-                            {/* Duration indicator for tasks */}
-                            {!isContinuation && (
-                              <span className="text-[9px] text-gray-400 ml-1 whitespace-nowrap">
-                                {durationText}
-                              </span>
-                            )}
-                            
-                            {/* Category symbol */}
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              task.category === 'work' 
-                                ? 'bg-blue-400' 
-                                : task.category === 'personal'
-                                  ? 'bg-purple-400'
-                                  : 'bg-green-400'
-                            }`}></span>
-                            
-                            {/* Recurring symbol */}
-                            {task.isRecurring && <span className="text-[9px]">🔄</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+        {/* Calendar grid with events */}
+        <div className="grid grid-cols-8 relative">
+          {/* Time column with hour markers - GCal style */}
+          <div className="col-span-1 border-r border-gray-700/30">
+            {Array.from({ length: 24 }).map((_, hour) => (
+              <div key={hour} className="relative h-[60px] group">
+                {/* Hour label positioned on the hour line */}
+                <div className="absolute -top-[9px] right-2 px-1 text-xs text-gray-500 bg-gray-800 z-10">
+                  {formatTime(hour)}
                 </div>
-              );
-            })}
+                {/* Hour divider line */}
+                <div className="absolute top-0 right-0 left-0 border-t border-gray-700/30"></div>
+                {/* Half-hour divider line (lighter) */}
+                {hour < 23 && (
+                  <div className="absolute top-1/2 right-0 left-4 border-t border-dashed border-gray-700/20"></div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+
+          {/* Day columns with hour grid */}
+          {Array.from({ length: 7 }).map((_, dayIndex) => {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + dayIndex);
+            const isToday = date.toDateString() === new Date().toDateString();
+            const day = date.getDay();
+            const isWeekend = day === 0 || day === 6;
+            const dayTasks = processTasksForDay(tasks, date);
+
+            return (
+              <div key={dayIndex} className="col-span-1 relative">
+                {/* Hour grid cells */}
+                {Array.from({ length: 24 }).map((_, hour) => {
+                  // Identify if this is the current hour
+                  const isCurrentHour = isToday && new Date().getHours() === hour;
+                  const currentMinutePercent = isCurrentHour ? (new Date().getMinutes() / 60) * 100 : null;
+                  
+                  return (
+                    <div
+                      key={hour}
+                      onClick={() => onTimeSlotClick(date, hour)}
+                      className={`h-[60px] border-r border-gray-700/20 relative cursor-pointer group
+                        ${isToday ? 'hover:bg-orange-950/10' : 'hover:bg-gray-700/10'}
+                        ${isCurrentHour ? 'bg-orange-950/10' : ''}`}
+                    >
+                      {/* Hour divider line */}
+                      <div className="absolute top-0 left-0 right-0 border-t border-gray-700/30"></div>
+                      
+                      {/* Half-hour divider line (lighter) */}
+                      <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-gray-700/20"></div>
+                      
+                      {/* Current time indicator */}
+                      {isCurrentHour && (
+                        <div 
+                          className="absolute left-0 right-0 h-0.5 bg-orange-600 z-20 pointer-events-none"
+                          style={{ top: `${currentMinutePercent}%` }}
+                        >
+                          <div className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full bg-orange-600 -translate-x-1/2 -translate-y-1/2"></div>
+                        </div>
+                      )}
+
+                      {/* Add button on hover */}
+                      <div className="hidden group-hover:flex absolute inset-0 items-center justify-center">
+                        <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center opacity-80 hover:opacity-100">
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Task overlays with GCal styling */}
+                {dayTasks.map(task => {
+                  // Calculate precise position and height
+                  const startHour = task.startHour;
+                  const startMinute = task.startMinutes;
+                  
+                  // Position calculations (each hour is 60px tall)
+                  const top = (startHour * 60) + ((startMinute / 60) * 60);
+                  const height = task.durationHours * 60;
+                  
+                  // Get color based on category/completion
+                  const taskStyles = getTaskStyles(task);
+                  
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={(e) => handleTaskClick(e, task)}
+                      style={{
+                        position: 'absolute',
+                        top: `${top}px`,
+                        height: `${Math.max(height, 22)}px`, // Minimum height for visibility
+                        left: '2px', // Slight margin from edge
+                        right: '2px',
+                        zIndex: 10
+                      }}
+                      className={`rounded-sm shadow-sm ${taskStyles.bgColor} ${taskStyles.textColor} flex flex-col 
+                        cursor-pointer overflow-hidden group/task border-l-4 ${task.completed ? 'border-green-500 opacity-70' : 
+                        task.category === 'work' ? 'border-blue-500' : 
+                        task.category === 'personal' ? 'border-purple-500' : 
+                        task.category === 'health' ? 'border-green-500' : 'border-orange-500'}`}
+                    >
+                      <div className="h-full flex flex-col overflow-hidden p-1">
+                        {/* Task title with status indicator */}
+                        <div className="flex items-start gap-1">
+                          {task.completed && <span className="text-[10px] text-green-300 pt-0.5">✓</span>}
+                          <span className="text-xs font-medium truncate leading-tight">
+                            {task.title}
+                          </span>
+                        </div>
+                        
+                        {/* Show time if there's enough space */}
+                        {height > 30 && (
+                          <div className="text-[10px] opacity-80 mt-0.5">
+                            {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {height > 40 && (
+                              <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Quick actions on hover */}
+                        <div className="hidden group-hover/task:flex absolute top-1 right-1 gap-1">
+                          <button className="p-0.5 rounded bg-gray-800/80 text-white hover:bg-gray-700">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
-  );
-};
-
-// Hour range button component
-const HourRangeButton = ({ label, range, setRange, current }) => {
-  const isActive = current.start === range.start && current.end === range.end;
-  return (
-    <button
-      onClick={() => setRange(range)}
-      className={`px-3 py-1.5 text-xs rounded-lg whitespace-nowrap
-        ${isActive 
-          ? 'bg-orange-600 text-white' 
-          : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
-        }`}
-    >
-      {label}
-    </button>
   );
 };
 
 const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskClick, getPriorityDisplay, getCategoryDisplay, getTaskDuration }) => {
   const [hourRange, setHourRange] = useState({ start: 7, end: 19 }); // Default 7am-7pm
   
-  const dayTasks = tasks.filter(task => {
-    const taskDate = new Date(task.deadline);
-    return taskDate.toDateString() === currentDate.toDateString();
+  // Process all day tasks with positioning information
+  const allDayTasks = processTasksForDay(tasks, currentDate);
+  
+  // Filter tasks visible in the current hour range for mobile
+  const visibleTasks = allDayTasks.filter(task => {
+    return (task.endHour >= hourRange.start && task.startHour <= hourRange.end);
   });
 
   // Filter hours based on the selected range for mobile
@@ -874,298 +1028,423 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
     (_, i) => i
   ).filter(hour => hour >= hourRange.start && hour <= hourRange.end);
 
+  // Group tasks by their continuous blocks
+  const tasksByHour = groupTasksByBlocks(visibleTasks, visibleHours);
+
   return (
     <div className="flex flex-col space-y-2">
-      {/* Mobile Hour Range Selector */}
-      <div className="md:hidden bg-gray-800/50 rounded-lg p-3 border border-gray-700/30">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-medium text-gray-300">Hours</h3>
+      {/* Mobile Day View */}
+      <div className="md:hidden flex flex-col">
+        {/* Mini Hour Selector - Pills like Google Calendar */}
+        <div className="flex justify-between items-center mb-2 px-1">
+          <div className="flex gap-1.5 overflow-x-auto py-1 no-scrollbar">
+            <button
+              onClick={() => setHourRange({ start: 0, end: 23 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 0 && hourRange.end === 23 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              All day
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 9, end: 17 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 9 && hourRange.end === 17 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Working hours
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 5, end: 11 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 5 && hourRange.end === 11 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Morning
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 12, end: 17 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 12 && hourRange.end === 17
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Afternoon
+            </button>
+            <button
+              onClick={() => setHourRange({ start: 17, end: 23 })}
+              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
+                ${hourRange.start === 17 && hourRange.end === 23
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                }`}
+            >
+              Evening
+            </button>
+          </div>
+          
           <button 
-            onClick={() => setHourRange({ start: 0, end: 23 })}
-            className="text-xs text-orange-400 px-2 py-1 rounded hover:bg-gray-700/50"
+            onClick={() => onTimeSlotClick(currentDate)}
+            className="text-white p-1.5 bg-orange-500 hover:bg-orange-600 rounded-full flex items-center justify-center"
           >
-            Show All
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
           </button>
         </div>
-        <div className="flex gap-2 overflow-x-auto py-1">
-          <HourRangeButton 
-            label="Morning" 
-            range={{ start: 5, end: 11 }} 
-            setRange={setHourRange} 
-            current={hourRange}
-          />
-          <HourRangeButton 
-            label="Afternoon" 
-            range={{ start: 12, end: 16 }} 
-            setRange={setHourRange} 
-            current={hourRange}
-          />
-          <HourRangeButton 
-            label="Evening" 
-            range={{ start: 17, end: 23 }} 
-            setRange={setHourRange}
-            current={hourRange}
-          />
-          <HourRangeButton 
-            label="Work Hours" 
-            range={{ start: 9, end: 17 }}
-            setRange={setHourRange}
-            current={hourRange}
-          />
-        </div>
-      </div>
-
-      {/* Mobile Day View - Compact Layout */}
-      <div className="md:hidden">
-        {visibleHours.map((hour) => {
-          const hourTasks = dayTasks.filter(task => {
-            const taskDate = new Date(task.deadline);
-            const duration = getTaskDuration(task);
-            return (Math.floor(duration.startHourExact) === hour || 
-                  (duration.spanMultipleHours && hour >= Math.floor(duration.startHourExact) && hour < duration.endHour));
-          });
-
-          // Skip rendering empty time slots
-          if (hourTasks.length === 0) {
-            return (
-              <div 
-                key={hour} 
-                className="flex items-center p-2 border-b border-gray-700/20 hover:bg-gray-800/30"
-                onClick={() => onTimeSlotClick(currentDate, hour)}
-              >
-                <span className="text-sm text-gray-500 w-14">{formatTime(hour)}</span>
-                <span className="text-xs text-gray-500 pl-2">+ Add task</span>
+        
+        {/* Timeline View - Google Calendar style */}
+        <div className="bg-gray-800/40 rounded-lg border border-gray-700/30">
+          {/* Day header - Nice header with date info */}
+          <div className="p-3 border-b border-gray-700/50 bg-gray-800/80">
+            <h3 className="text-gray-200 font-medium">
+              {currentDate.toLocaleDateString('default', { 
+                weekday: 'long', 
+                day: 'numeric',
+                month: 'long'
+              })}
+            </h3>
+            
+            {/* Current time indicator if today */}
+            {currentDate.toDateString() === new Date().toDateString() && (
+              <div className="flex items-center mt-1 text-xs text-orange-400">
+                <div className="w-2 h-2 rounded-full bg-orange-500 mr-1.5"></div>
+                <span>Current time: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
-            );
-          }
-
-          return (
-            <div key={hour} className="mb-2">
-              <div className="flex items-center py-1.5 px-3 bg-gray-800/70 rounded-t-lg">
-                <span className="text-sm font-medium text-gray-300">{formatTime(hour)}</span>
-                <button
-                  onClick={() => onTimeSlotClick(currentDate, hour)}
-                  className="ml-auto text-xs text-orange-400 p-1"
-                >
-                  +
-                </button>
-              </div>
-              
-              {/* Tasks for this hour - Updated with priority and category tags */}
-              <div className="space-y-1 p-1">
-                {hourTasks.map(task => {
-                  // Get priority and category styles
-                  const priorityDisplay = getPriorityDisplay(task.priority);
-                  const categoryDisplay = getCategoryDisplay(task.category);
-                  
-                  // Calculate if this task is continuing from previous hour
-                  const taskDuration = getTaskDuration(task);
-                  const isContinuation = Math.floor(taskDuration.startHourExact) !== hour;
-                  
-                  // Show duration information
-                  const startDate = new Date(task.deadline);
-                  const endDate = task.endTime ? new Date(task.endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
-                  
-                  // Format duration for display
-                  const durationMinutes = Math.round(taskDuration.durationHours * 60);
-                  const durationText = durationMinutes >= 60 
-                    ? `${Math.floor(durationMinutes / 60)}h${durationMinutes % 60 > 0 ? ` ${durationMinutes % 60}m` : ''}`
-                    : `${durationMinutes}m`;
-                  
-                  // Format time range for display
-                  const timeRange = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                                   ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${durationText})`;
-                  
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={(e) => handleTaskClick(e, task)}
-                      className={`p-2 rounded-lg bg-orange-500/20 border border-orange-500/20
-                        hover:border-orange-500/40 transition-colors ${task.completed ? 'opacity-50' : ''}
-                        ${isContinuation ? 'bg-orange-500/10 border-dashed' : ''}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm text-orange-300 font-medium truncate flex-1">
-                          {task.completed && <span className="mr-1">✓</span>}
-                          {isContinuation && <span className="text-[9px] mr-1">↑</span>}
-                          {task.title}
-                        </h4>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {isContinuation ? "cont'd" : timeRange}
-                        </span>
-                      </div>
-                      
-                      {/* Priority and Category Tags */}
-                      <div className="flex mt-1.5 gap-1.5 flex-wrap">
-                        <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                          ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
-                          <span>●</span> {priorityDisplay.label}
-                        </span>
-                        <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                          ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
-                          # {categoryDisplay.label}
-                        </span>
-                        {task.isRecurring && (
-                          <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full
-                            bg-violet-400/10 text-violet-300">
-                            🔄 Recurring
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Desktop Day View */}
-      <div className="hidden md:flex flex-col space-y-2">
-        {Array.from({ length: 24 }).map((_, hour) => {
-          const hourTasks = dayTasks.filter(task => {
-            const taskDate = new Date(task.deadline);
-            const duration = getTaskDuration(task);
-            return (Math.floor(duration.startHourExact) === hour || 
-                   (duration.spanMultipleHours && hour >= Math.floor(duration.startHourExact) && hour < duration.endHour));
-          });
-
-          return (
-            <div
-              key={hour}
-              className="flex cursor-pointer hover:bg-gray-700/20 rounded-lg"
-            >
-              <div className="w-24 text-sm text-gray-500 p-4 flex-shrink-0">
-                {formatTime(hour)}
-              </div>
-              <div 
-                className="flex-1 min-h-[80px] p-0 border-l border-gray-700/50 relative"
-                onClick={() => onTimeSlotClick(currentDate, hour)}
-              >
-                {/* Hour grid with minute divisions */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="border-b border-gray-700/20 h-[25%]"></div>
-                  <div className="border-b border-gray-700/20 h-[25%]"></div>
-                  <div className="border-b border-gray-700/20 h-[25%]"></div>
-                </div>
+            )}
+          </div>
+          
+          {/* Time slots with tasks - FIXED ALIGNMENT TO HOUR LINES */}
+          <div className="relative" id="day-calendar-grid">
+            {/* Fixed background grid with consistent height */}
+            <div className="grid-container">
+              {visibleHours.map((hour) => {
+                // Current time indicator calculation
+                const isCurrentHour = currentDate.toDateString() === new Date().toDateString() && 
+                                    hour === new Date().getHours();
+                const currentMinutePercent = isCurrentHour ? (new Date().getMinutes() / 60) * 100 : null;
                 
-                {hourTasks.map(task => {
-                  // Get priority and category styles
-                  const priorityDisplay = getPriorityDisplay(task.priority);
-                  const categoryDisplay = getCategoryDisplay(task.category);
-                  
-                  // Calculate task positioning
-                  const taskDuration = getTaskDuration(task);
-                  const isContinuation = Math.floor(taskDuration.startHourExact) !== hour;
-                  
-                  // Calculate position and height
-                  let topPosition = 0;
-                  let heightPercent = 100;
-                  
-                  if (!isContinuation) {
-                    // For tasks starting in this hour, position them according to start minute
-                    topPosition = taskDuration.startMinutePercent;
-                    
-                    // If the task ends in this same hour, adjust height accordingly
-                    if (!taskDuration.spanMultipleHours) {
-                      heightPercent = taskDuration.durationPercent;
-                    } else {
-                      // For tasks spanning to next hour, fill the remainder of this hour
-                      heightPercent = 100 - topPosition;
-                    }
-                  }
-                  
-                  // For continuation tasks, they may fill the whole hour or end partway through
-                  if (isContinuation) {
-                    if (Math.floor(taskDuration.endHourExact) === hour) {
-                      // This task ends during this hour
-                      heightPercent = (taskDuration.endHourExact - hour) * 100;
-                    }
-                  }
-                  
-                  // Ensure minimum height for visibility
-                  heightPercent = Math.max(heightPercent, 15);
-                  
-                  // Format time information
-                  const startDate = new Date(task.deadline);
-                  const endDate = task.endTime ? new Date(task.endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
-                  
-                  // Format duration for display
-                  const durationMinutes = Math.round(taskDuration.durationHours * 60);
-                  const durationText = durationMinutes >= 60 
-                    ? `${Math.floor(durationMinutes / 60)}h${durationMinutes % 60 > 0 ? ` ${durationMinutes % 60}m` : ''}`
-                    : `${durationMinutes}m`;
-                  
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={(e) => handleTaskClick(e, task)}
-                      className={`p-2 rounded-lg border mb-0 
-                        hover:border-orange-500/40 transition-colors cursor-pointer
-                        ${task.completed ? 'opacity-50' : ''}
-                        ${isContinuation ? 'bg-orange-500/10 border-orange-500/20 border-dashed' : 'bg-orange-500/20 border-orange-500/20'}
-                        absolute`}
-                      style={{
-                        top: `${topPosition}%`,
-                        height: `${heightPercent}%`,
-                        width: 'calc(100% - 16px)',
-                        left: '8px',
-                        zIndex: isContinuation ? 1 : 2
-                      }}
+                return (
+                  <div 
+                    key={hour} 
+                    className="flex border-b border-gray-700/20 last:border-b-0 relative"
+                    onClick={() => onTimeSlotClick(currentDate, hour)}
+                  >
+                    {/* Time column */}
+                    <div className={`w-12 flex-shrink-0 py-2 pl-3 pr-1 text-right text-xs font-medium text-gray-500
+                      ${hour === Math.min(...visibleHours) ? 'pt-3' : ''}
+                      ${hour === Math.max(...visibleHours) ? 'pb-3' : ''}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-orange-300 font-medium text-sm">
-                          {isContinuation && <span className="text-[12px] mr-1.5">↑</span>}
-                          {task.title}
-                          {task.completed && <span className="ml-2 text-orange-300">✓</span>}
-                        </h4>
-                        <span className="text-xs text-gray-400">
-                          {isContinuation ? 
-                            "cont'd" :
-                            `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                             ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                             (${durationText})`
-                          }
-                        </span>
+                      {formatTime(hour).replace(':00', '')}
+                    </div>
+                    
+                    {/* Empty task area with FIXED HEIGHT */}
+                    <div className="flex-1 h-[60px] relative">
+                      {/* Current time indicator */}
+                      {isCurrentHour && (
+                        <div 
+                          className="absolute left-0 right-0 h-0.5 bg-orange-500 z-20"
+                          style={{ top: `${currentMinutePercent}%` }}
+                        >
+                          <div className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full bg-orange-500 -translate-x-1/2 -translate-y-1/2"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Overlay continuous tasks - CORRECTED POSITIONING */}
+            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
+              {(() => {
+                const taskGroups = {};
+                const hourHeight = 60; // FIXED HEIGHT - each hour cell is exactly 60px
+                const firstVisibleHour = Math.min(...visibleHours);
+                
+                // Group tasks by their ID
+                Object.entries(tasksByHour).forEach(([hour, tasks]) => {
+                  tasks.forEach(task => {
+                    if (!taskGroups[task.id]) {
+                      taskGroups[task.id] = {
+                        task: { ...task }
+                      };
+                    }
+                  });
+                });
+                
+                // Calculate accurate positions for each task
+                return Object.values(taskGroups).map(({ task }) => {
+                  const taskStyles = getTaskStyles(task);
+                  
+                  // Calculate position with PRECISE MEASUREMENTS
+                  const hourDiff = task.startHour - firstVisibleHour;
+                  const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
+                  
+                  // Calculate vertical offset to align with hour lines
+                  const topOffsetPx = 4; // Small correction to align perfectly with hour lines
+                  
+                  // Calculate precise height based on exact duration including minutes
+                  const heightValue = task.durationHours * hourHeight;
+
+                  return (
+                    <div 
+                      key={task.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTaskClick(e, task);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: `${topPosition + topOffsetPx}px`, // Added correction to align exactly with hour lines
+                        left: '48px', // Time column width margin
+                        right: '8px',
+                        height: `${Math.max(heightValue - topOffsetPx, 24)}px`, // Adjust height to maintain integrity
+                        zIndex: 10
+                      }}
+                      className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 flex flex-col justify-center
+                        ${task.completed ? 'opacity-60' : ''} pointer-events-auto overflow-hidden`}
+                    >
+                      <div className="flex items-center gap-1">
+                        {task.completed && <span className="text-[10px]">✓</span>}
+                        <span className="text-xs font-medium truncate">{task.title}</span>
                       </div>
                       
-                      {/* Priority and Category Tags - Show if enough space */}
-                      {heightPercent > 25 && (
-                        <div className="flex mt-2 gap-2 mb-1 flex-wrap">
-                          <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                            ${priorityDisplay.bgColor} ${priorityDisplay.color}`}>
-                            <span>●</span> {priorityDisplay.label} Priority
-                          </span>
-                          <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                            ${categoryDisplay.bgColor} ${categoryDisplay.color}`}>
-                            # {categoryDisplay.label}
-                          </span>
-                          {task.isRecurring && (
-                            <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full
-                              bg-violet-400/10 text-violet-300">
-                              🔄 Recurring
-                            </span>
+                      {heightValue > 28 && (
+                        <div className="text-[10px] opacity-80">
+                          {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {task.durationHours >= 0.25 && (
+                            <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                          )}
+                          {task.durationHours >= 0.75 && (
+                            <span className="ml-1">({task.durationText})</span>
                           )}
                         </div>
                       )}
-                      
-                      {/* Show description if there's enough space */}
-                      {heightPercent > 40 && task.description && (
-                        <p className="text-sm text-gray-400 mt-1 line-clamp-2">
-                          {task.description}
-                        </p>
-                      )}
                     </div>
                   );
-                })}
-              </div>
+                });
+              })()}
             </div>
-          );
-        })}
+          </div>
+            
+          {/* Empty state - No visible hours */}
+          {visibleHours.length === 0 && (
+            <div className="p-6 text-center text-gray-500">
+              <p>No hours in selected range</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Day View - Updated to be more like GCal */}
+      <div className="hidden md:grid grid-cols-[100px_1fr] gap-0">
+        {/* Time column with hour markers - GCal style */}
+        <div className="col-span-1 pr-2">
+          {Array.from({ length: 24 }).map((_, hour) => (
+            <div key={hour} className="relative h-[80px]">
+              {/* Hour label positioned on the hour line */}
+              <div className="absolute -top-[9px] right-2 px-1 text-xs text-gray-500 bg-gray-800 z-10">
+                {formatTime(hour)}
+              </div>
+              {/* Hour divider line */}
+              <div className="absolute top-0 right-0 left-4 border-t border-gray-700/30"></div>
+              {/* Half-hour divider line (lighter) */}
+              {hour < 23 && (
+                <div className="absolute top-1/2 right-0 left-8 border-t border-dashed border-gray-700/20"></div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Day column with tasks - GCal style */}
+        <div className="col-span-1 relative border-l border-gray-700/30">
+          {/* Hour grid cells */}
+          {Array.from({ length: 24 }).map((_, hour) => {
+            // Identify if this is the current hour
+            const isCurrentHour = currentDate.toDateString() === new Date().toDateString() && new Date().getHours() === hour;
+            const currentMinutePercent = isCurrentHour ? (new Date().getMinutes() / 60) * 100 : null;
+            
+            return (
+              <div
+                key={hour}
+                onClick={() => onTimeSlotClick(currentDate, hour)}
+                className={`h-[80px] relative cursor-pointer group
+                  ${isCurrentHour ? 'bg-orange-950/10' : 'hover:bg-gray-700/10'}`}
+              >
+                {/* Hour divider line */}
+                <div className="absolute top-0 left-0 right-0 border-t border-gray-700/30"></div>
+                
+                {/* Quarter-hour divider lines (lightest) */}
+                <div className="absolute top-1/4 left-0 right-0 border-t border-dotted border-gray-700/10"></div>
+                <div className="absolute top-2/4 left-0 right-0 border-t border-dashed border-gray-700/20"></div>
+                <div className="absolute top-3/4 left-0 right-0 border-t border-dotted border-gray-700/10"></div>
+                
+                {/* Current time indicator */}
+                {isCurrentHour && (
+                  <div 
+                    className="absolute left-0 right-0 h-0.5 bg-orange-600 z-20 pointer-events-none"
+                    style={{ top: `${currentMinutePercent}%` }}
+                  >
+                    <div className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full bg-orange-600 -translate-x-1/2 -translate-y-1/2"></div>
+                  </div>
+                )}
+
+                {/* Add button on hover - GCal style */}
+                <div className="hidden group-hover:flex absolute inset-0 items-center justify-center">
+                  <div className="w-7 h-7 bg-orange-600 rounded-full flex items-center justify-center opacity-80 hover:opacity-100 shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {/* Task overlays with GCal styling */}
+          {allDayTasks.map(task => {
+            // Calculate precise position based on exact time
+            const startHour = task.startHour;
+            const startMinute = task.startMinutes;
+            
+            // Position calculations (each hour is 80px tall)
+            const top = (startHour * 80) + ((startMinute / 60) * 80);
+            const height = task.durationHours * 80;
+            
+            // Get color based on category/completion
+            const taskStyles = getTaskStyles(task);
+            
+            return (
+              <div
+                key={task.id}
+                onClick={(e) => handleTaskClick(e, task)}
+                style={{
+                  position: 'absolute',
+                  top: `${top}px`,
+                  height: `${Math.max(height, 25)}px`, // Minimum height for visibility
+                  left: '10px', // Slight margin from edge
+                  right: '10px',
+                  zIndex: 10
+                }}
+                className={`rounded-sm shadow-md ${taskStyles.bgColor} ${taskStyles.textColor} flex flex-col 
+                  cursor-pointer overflow-hidden hover:shadow-lg transition-shadow duration-200
+                  group/task border-l-4 ${task.completed ? 'border-green-500 opacity-70' : 
+                  task.category === 'work' ? 'border-blue-500' : 
+                  task.category === 'personal' ? 'border-purple-500' : 
+                  task.category === 'health' ? 'border-green-500' : 'border-orange-500'}`}
+              >
+                <div className="h-full flex flex-col p-2 overflow-hidden">
+                  {/* Task title with status indicator */}
+                  <h4 className="text-sm font-medium truncate flex items-center gap-1">
+                    {task.completed && <span className="text-green-300">✓</span>}
+                    {task.title}
+                  </h4>
+                  
+                  {/* Time information - GCal style */}
+                  {height > 40 && (
+                    <div className="text-xs opacity-80 mt-0.5">
+                      {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                      {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="ml-1">({task.durationText})</span>
+                    </div>
+                  )}
+                  
+                  {/* Show description if enough space - GCal style */}
+                  {height > 60 && task.description && (
+                    <p className="text-xs opacity-70 mt-2 line-clamp-2">
+                      {task.description}
+                    </p>
+                  )}
+                  
+                  {/* Quick actions on hover - GCal style */}
+                  <div className="hidden group-hover/task:flex absolute top-2 right-2 gap-1">
+                    <button className="p-1 rounded bg-gray-800/80 text-white hover:bg-gray-700">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
+};
+
+// Helper function to get styling for tasks based on category/completion status - Updated for GCal style
+const getTaskStyles = (task) => {
+  if (task.completed) {
+    return { 
+      bgColor: 'bg-gray-800/70 border border-green-500/30', 
+      textColor: 'text-gray-300'
+    };
+  }
+  
+  // By category - More GCal-like colors
+  switch(task.category) {
+    case 'work':
+      return { 
+        bgColor: 'bg-blue-500/15 border border-blue-500/40', 
+        textColor: 'text-blue-200' 
+      };
+    case 'personal':
+      return { 
+        bgColor: 'bg-purple-500/15 border border-purple-500/40', 
+        textColor: 'text-purple-200' 
+      };
+    case 'health':
+      return { 
+        bgColor: 'bg-green-500/15 border border-green-500/40', 
+        textColor: 'text-green-200' 
+      };
+    default:
+      return { 
+        bgColor: 'bg-orange-500/15 border border-orange-500/40', 
+        textColor: 'text-orange-200' 
+      };
+  }
+};
+
+// Group tasks by their continuous blocks to avoid splitting between hours
+const groupTasksByBlocks = (tasks, visibleHours) => {
+  // First, create a map to track which tasks are displayed in which hours
+  const hourTasksMap = {};
+  visibleHours.forEach(hour => {
+    hourTasksMap[hour] = [];
+  });
+
+  // Assign tasks to their respective hours
+  tasks.forEach(task => {
+    // Only consider tasks that overlap with visible hours
+    const startHour = Math.max(task.startHour, Math.min(...visibleHours));
+    const endHour = Math.min(task.endHour, Math.max(...visibleHours) + 1);
+    
+    // Add task to each hour it spans
+    for (let h = startHour; h < endHour; h++) {
+      if (visibleHours.includes(h)) {
+        hourTasksMap[h].push({
+          ...task,
+          isStartHour: h === task.startHour,
+          isEndHour: h === task.endHour - 1,
+          displayFull: h === task.startHour // Only show full details on the first hour
+        });
+      }
+    }
+  });
+
+  return hourTasksMap;
 };
 
 export default CalendarView;

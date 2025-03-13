@@ -102,7 +102,18 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           task={task} 
           onClose={() => setOpenTaskDetails(null)} 
           onEdit={onEdit} 
-          onToggleComplete={onToggleComplete}
+          onToggleComplete={() => {
+            onToggleComplete();
+            // Force re-render with updated task
+            setOpenTaskDetails(
+              <TaskDetailsModal 
+                task={{...task, completed: !task.completed}} 
+                onClose={() => setOpenTaskDetails(null)} 
+                onEdit={onEdit} 
+                onToggleComplete={onToggleComplete}
+              />
+            );
+          }}
         />
       );
     } else {
@@ -259,6 +270,11 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
   const categoryDisplay = getCategoryDisplay(task);
   const isOverdue = getDeadlineStatus(task) === "overdue" && !task.completed;
   
+  // Prepare a handler for toggling completion that updates UI immediately
+  const handleToggleComplete = () => {
+    onToggleComplete();
+  };
+  
   return (
     <motion.div 
       className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto"
@@ -281,7 +297,7 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
             <div className="flex items-center gap-4 flex-1">
               {/* Checkbox */}
               <button
-                onClick={onToggleComplete}
+                onClick={handleToggleComplete}
                 className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200
                   ${task.completed 
                     ? 'text-green-500' 
