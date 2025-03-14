@@ -64,9 +64,16 @@ export const getCurrentUser = async () => {
     }
 };
 
+const getResetPasswordURL = () => {
+    const baseURL = import.meta.env.PROD 
+        ? 'https://effisense.vercel.app'
+        : 'http://localhost:5173';
+    return `${baseURL}/reset-password`;
+};
+
 export const resetPassword = async (email) => {
     try {
-        await account.createRecovery(email, 'http://localhost:5173/reset-password');
+        await account.createRecovery(email, getResetPasswordURL());
         return true;
     } catch (error) {
         console.error('Appwrite service error:', error);
