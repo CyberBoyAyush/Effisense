@@ -9,6 +9,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Calendar from "./pages/Calendar";
+import Settings from "./pages/Settings";
 import "./index.css"; // Tailwind setup
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -35,6 +36,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/calendar" element={
             <ProtectedRoute>
               <Calendar />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } />
         </Route>
