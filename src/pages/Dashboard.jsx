@@ -99,26 +99,16 @@ const Dashboard = () => {
           ));
         }
       } else {
-        // Create new task without $id to avoid Appwrite exception
+        // Create new task
         const { $id, ...taskDataWithoutId } = taskData;
-        const optimisticTask = {
-          ...taskDataWithoutId,
-          userId: user.$id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
         
-        // Add to UI immediately
-        setTasks(prevTasks => [...prevTasks, optimisticTask]);
-        
-        // Send to server
+        // Send to server first
         const newTask = await createTask(taskDataWithoutId, user.$id);
         
-        // Replace temporary task with real one from server
         if (newTask) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.createdAt === optimisticTask.createdAt ? newTask : task
-          ));
+          // Only update UI after server confirmation
+          setTasks(prevTasks => [...prevTasks, newTask]);
+          setFilteredTasks(prevTasks => [...prevTasks, newTask]);
         }
       }
       setIsModalOpen(false);

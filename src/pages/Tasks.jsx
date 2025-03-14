@@ -78,16 +78,21 @@ const Tasks = () => {
           ));
         }
       } else {
-        const newTask = await createTask(taskData, user.$id);
+        // Remove $id from taskData
+        const { $id, ...taskDataWithoutId } = taskData;
+        
+        // Create task on server first
+        const newTask = await createTask(taskDataWithoutId, user.$id);
+        
         if (newTask) {
+          // Only update UI after server confirmation
           setTasks(prevTasks => [...prevTasks, newTask]);
         }
       }
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving task:', error);
-      // Remove the alert that's causing issues
-      setIsModalOpen(false); // Close modal even on error
+      setIsModalOpen(false);
     }
   };
 
