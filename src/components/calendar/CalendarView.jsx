@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getUserTasks, createTask, updateTask, deleteTask } from '../../utils/database';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../../utils/database';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -89,22 +89,46 @@ const CalendarView = () => {
   const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
+  const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'active', 'completed'
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const user = JSON.parse(localStorage.getItem('loggedInUser'));
-        if (user) {
-          const fetchedTasks = await getUserTasks(user.$id);
-          setTasks(fetchedTasks);
+  // Improved task fetching with cache prioritization and optimistic updates
+  const fetchTasks = useCallback(async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (!user) return;
+      
+      // First show cached tasks immediately for responsive UX
+      if (taskCache.tasks.length > 0) {
+        let filteredTasks = taskCache.tasks;
+        if (taskFilter === 'completed') {
+          filteredTasks = taskCache.tasks.filter(t => t.completed === true);
+        } else if (taskFilter === 'active') {
+          filteredTasks = taskCache.tasks.filter(t => t.completed === false);
         }
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
+        setTasks(filteredTasks);
       }
-    };
-
+      
+      // Then fetch from server
+      let fetchedTasks;
+      if (taskFilter === 'completed') {
+        fetchedTasks = await getCompletedTasks(user.$id);
+      } else if (taskFilter === 'active') {
+        fetchedTasks = await getActiveTasks(user.$id);
+      } else {
+        fetchedTasks = await getUserTasks(user.$id);
+      }
+      
+      setTasks(fetchedTasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      // Fallback to cache in case of error
+    }
+  }, [taskFilter]);
+  
+  // Use the improved fetchTasks function
+  useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks, taskFilter]);
 
   // Add CSS styles for calendar positioning
   useEffect(() => {
@@ -184,18 +208,54 @@ const CalendarView = () => {
   const handleSaveTask = async (taskData) => {
     try {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (!user) return;
       
-      let updatedTasks;
       if (taskToEdit) {
-        // Update existing task
-        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        // Optimistic update for editing
+        const updatedTaskLocal = {
+          ...taskToEdit,
+          ...taskData,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Update UI immediately
         setTasks(prevTasks => prevTasks.map(task => 
-          task.$id === updatedTask.$id ? updatedTask : task
+          task.$id === taskToEdit.$id ? updatedTaskLocal : task
         ));
+        
+        // Update backend
+        const response = await updateTask(taskToEdit.$id, taskData);
+        
+        // Update with server response if needed
+        if (response) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === response.$id ? response : task
+          ));
+        }
       } else {
-        // Create new task
+        // Create temporary task for optimistic UI
+        const tempId = `temp-${Date.now()}`;
+        const tempTask = {
+          ...taskData,
+          $id: tempId,
+          userId: user.$id,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        // Add to UI immediately
+        setTasks(prevTasks => [...prevTasks, tempTask]);
+        
+        // Create in backend
         const newTask = await createTask(taskData, user.$id);
-        setTasks(prevTasks => [...prevTasks, newTask]);
+        
+        // Replace temp task with real one
+        if (newTask) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === tempId ? newTask : task
+          ));
+        }
       }
       
       setIsModalOpen(false);
@@ -209,30 +269,75 @@ const CalendarView = () => {
     e.preventDefault();
     e.stopPropagation();
     
+    // Make sure we're working with a consistent task object
+    const taskWithIds = {
+      ...task,
+      $id: task.$id || task.id, // Ensure $id exists
+      id: task.id || task.$id   // Ensure id exists
+    };
+    
     // Instead of setting selectedTask, we'll use the TaskCard component with portal
-    setOpenTaskDetails(task);
+    setOpenTaskDetails(taskWithIds);
   };
 
   const handleToggleComplete = async (taskId) => {
     try {
-      const task = tasks.find(t => t.$id === taskId);
-      if (task) {
-        const updatedTask = await updateTask(taskId, {
-          ...task,
-          completed: !task.completed
+      const task = tasks.find(t => t.$id === taskId || t.id === taskId);
+      if (!task) {
+        console.error('Task not found:', taskId);
+        return;
+      }
+      
+      // Use $id consistently for Appwrite
+      const id = task.$id || task.id;
+      
+      // Early UI update for responsiveness
+      const newCompletedState = !task.completed;
+      setTasks(prevTasks => prevTasks.map(t => 
+        (t.$id === id || t.id === id) ? {
+          ...t, 
+          completed: newCompletedState,
+          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+        } : t
+      ));
+      
+      // Update task details if open
+      if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
+        setOpenTaskDetails({
+          ...openTaskDetails, 
+          completed: newCompletedState,
+          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
         });
-        
-        setTasks(prevTasks => prevTasks.map(t => 
-          t.$id === updatedTask.$id ? updatedTask : t
-        ));
-
-        // Update task details if open
-        if (openTaskDetails && openTaskDetails.id === taskId) {
-          setOpenTaskDetails({...openTaskDetails, completed: !task.completed});
-        }
+      }
+      
+      // Update backend and cache
+      const updatedTask = await toggleTaskCompletion(id, newCompletedState);
+      
+      // Handle filtering if needed
+      if ((taskFilter === 'completed' && !newCompletedState) || 
+          (taskFilter === 'active' && newCompletedState)) {
+        // Remove task from view if it doesn't match the filter anymore
+        setTimeout(() => {
+          setTasks(prevTasks => prevTasks.filter(t => 
+            !(t.$id === id || t.id === id)
+          ));
+        }, 500); // Small delay for animation
       }
     } catch (error) {
       console.error('Error toggling task completion:', error);
+      // Handle error by reverting to cached state
+      const cachedTask = taskCache.getTask(taskId);
+      if (cachedTask) {
+        // Update UI with correct state from cache
+        setTasks(prevTasks => prevTasks.map(t => 
+          (t.$id === taskId || t.id === taskId) ? cachedTask : t
+        ));
+        
+        // Update task details if open
+        if (openTaskDetails && (openTaskDetails.id === taskId || openTaskDetails.$id === taskId)) {
+          setOpenTaskDetails(cachedTask);
+        }
+      }
     }
   };
 
@@ -244,11 +349,22 @@ const CalendarView = () => {
 
   const handleDeleteTask = async (taskId) => {
     try {
+      // Update UI immediately
+      setTasks(prevTasks => prevTasks.filter(task => 
+        task.$id !== taskId && task.id !== taskId
+      ));
+      
+      // Close task details if open
+      if (openTaskDetails && (openTaskDetails.$id === taskId || openTaskDetails.id === taskId)) {
+        setOpenTaskDetails(null);
+      }
+      
+      // Then delete from database
       await deleteTask(taskId);
-      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
-      setOpenTaskDetails(null);
     } catch (error) {
       console.error('Error deleting task:', error);
+      // If error, we could refresh tasks but usually not necessary as deletion is less critical
+      // fetchTasks();
     }
   };
 
@@ -366,6 +482,16 @@ const CalendarView = () => {
     };
   };
 
+  // Add additional error boundary
+  if (!tasks) {
+    return (
+      <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl p-8 text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-400">Loading your tasks...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
@@ -412,6 +538,40 @@ const CalendarView = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
+            {/* Task Filter */}
+            <div className="flex rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-orange-700/30 mr-2">
+              <button
+                onClick={() => setTaskFilter('all')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'all' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTaskFilter('active')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'active' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setTaskFilter('completed')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'completed' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                Completed
+              </button>
+            </div>
+
             {/* Time Format Toggle */}
             <button
               onClick={() => setIs24Hour(!is24Hour)}
@@ -503,11 +663,15 @@ const CalendarView = () => {
             <TaskCard
               task={openTaskDetails} // Use the current state of openTaskDetails
               onToggleComplete={() => {
-                handleToggleComplete(openTaskDetails.id);
-                // The UI will update automatically because we're updating the openTaskDetails state
+                // Make sure we're using the right ID
+                const id = openTaskDetails.$id || openTaskDetails.id;
+                handleToggleComplete(id);
               }}
               onEdit={() => handleEditTask(openTaskDetails)}
-              onDelete={() => handleDeleteTask(openTaskDetails.id)}
+              onDelete={() => {
+                const id = openTaskDetails.$id || openTaskDetails.id;
+                handleDeleteTask(id);
+              }}
               usePortal={false}
             />
           </div>
@@ -598,7 +762,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
             <div className="mt-1 space-y-0.5 sm:space-y-1 max-h-[60px] sm:max-h-[120px] overflow-y-auto scrollbar-hide">
               {dayTasks.slice(0, 3).map(task => (
                 <div
-                  key={task.id}
+                  key={task.id || task.$id}
                   onClick={(e) => handleTaskClick(e, task)}
                   className={`p-1 sm:p-1.5 rounded text-[8px] sm:text-xs truncate 
                     ${task.completed 

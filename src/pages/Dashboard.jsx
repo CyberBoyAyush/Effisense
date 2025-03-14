@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
-import { getUserTasks, createTask, updateTask, deleteTask } from '../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, refreshTaskCache, taskCache } from '../utils/database';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
@@ -27,6 +27,14 @@ const Dashboard = () => {
       try {
         const user = JSON.parse(localStorage.getItem('loggedInUser'));
         if (user) {
+          // First get tasks from cache for immediate display
+          const cachedTasks = taskCache.tasks;
+          if (cachedTasks.length > 0) {
+            setTasks(cachedTasks);
+            setFilteredTasks(cachedTasks);
+          }
+          
+          // Then fetch latest tasks from backend and update if needed
           const fetchedTasks = await getUserTasks(user.$id);
           setTasks(fetchedTasks);
           setFilteredTasks(fetchedTasks);
@@ -66,21 +74,59 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Save or update a task
+  // Save or update a task with immediate UI update
   const handleSaveTask = async (taskData) => {
     try {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
       if (taskToEdit) {
-        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        // Update existing task
+        // First update UI optimistically
+        const optimisticTask = {
+          ...taskToEdit,
+          ...taskData,
+          updatedAt: new Date().toISOString()
+        };
+        
         setTasks(prevTasks => prevTasks.map(task => 
-          task.$id === updatedTask.$id ? updatedTask : task
+          task.$id === taskToEdit.$id ? optimisticTask : task
         ));
+        
+        // Then send to server
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        
+        // Update with server response if needed
+        if (updatedTask) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === updatedTask.$id ? updatedTask : task
+          ));
+        }
       } else {
+        // Create new task with optimistic UI update
+        const tempId = 'temp-' + Date.now();
+        const optimisticTask = {
+          ...taskData,
+          $id: tempId,
+          userId: user.$id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Add to UI immediately
+        setTasks(prevTasks => [...prevTasks, optimisticTask]);
+        
+        // Send to server
         const newTask = await createTask(taskData, user.$id);
-        setTasks(prevTasks => [...prevTasks, newTask]);
+        
+        // Replace temporary task with real one from server
+        if (newTask) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === tempId ? newTask : task
+          ));
+        }
       }
       setIsModalOpen(false);
+      setTaskToEdit(null);
     } catch (error) {
       console.error('Error saving task:', error);
     }
@@ -111,23 +157,53 @@ const Dashboard = () => {
     }
   };
 
-  // Add task toggle functionality
-  const handleToggleComplete = async (index, isCompleted = false) => {
+  // Improved toggle with better state management
+  const handleToggleComplete = async (task) => {
     try {
-      const taskArray = isCompleted ? completedTasks : queuedTasks;
-      const task = taskArray[index];
+      if (!task || !task.$id) {
+        console.error('Invalid task object:', task);
+        return;
+      }
       
-      if (task?.$id) {
-        const updatedTask = await updateTask(task.$id, { 
-          ...task, 
-          completed: !task.completed 
-        });
-        setTasks(prevTasks => prevTasks.map(t => 
-          t.$id === updatedTask.$id ? updatedTask : t
-        ));
+      // Update UI immediately for better user experience
+      setTasks(prevTasks => prevTasks.map(t => 
+        t.$id === task.$id ? {...t, completed: !task.completed} : t
+      ));
+      
+      // Update local filtered tasks as well
+      setFilteredTasks(prevTasks => prevTasks.map(t => 
+        t.$id === task.$id ? {...t, completed: !task.completed} : t
+      ));
+      
+      // Use the specialized toggle function with the task cache
+      const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
+      
+      // If update fails, the toggleTaskCompletion function will handle fallbacks internally
+      if (!updatedTask) {
+        console.error('Task update failed completely');
+        // The taskCache will still have the correct state, so refresh from there
+        const cachedTask = taskCache.getTask(task.$id);
+        if (cachedTask) {
+          setTasks(prevTasks => prevTasks.map(t => 
+            t.$id === task.$id ? cachedTask : t
+          ));
+          setFilteredTasks(prevTasks => prevTasks.map(t => 
+            t.$id === task.$id ? cachedTask : t
+          ));
+        }
       }
     } catch (error) {
       console.error('Error toggling task completion:', error);
+      // Revert UI change if there's an error, using the cached version
+      const cachedTask = taskCache.getTask(task.$id);
+      if (cachedTask) {
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === task.$id ? cachedTask : t
+        ));
+        setFilteredTasks(prevTasks => prevTasks.map(t => 
+          t.$id === task.$id ? cachedTask : t
+        ));
+      }
     }
   };
 
@@ -259,9 +335,9 @@ const Dashboard = () => {
           ) : (
             <TaskList 
               tasks={queuedTasks} 
-              onEdit={(index) => handleEditTask(index, false)} 
-              onDelete={(index) => handleDeleteTask(index, false)} 
-              onToggleComplete={(index) => handleToggleComplete(index, false)} 
+              onEdit={(task) => handleEditTask(queuedTasks.findIndex(t => t.$id === task.$id), false)}
+              onDelete={(taskId) => handleDeleteTask(taskId)} 
+              onToggleComplete={handleToggleComplete} 
             />
           )}
         </div>
@@ -303,9 +379,9 @@ const Dashboard = () => {
               <div className="opacity-80 hover:opacity-100 transition-opacity duration-300">
                 <TaskList 
                   tasks={completedTasks} 
-                  onEdit={(index) => handleEditTask(index, true)} 
-                  onDelete={(index) => handleDeleteTask(index, true)} 
-                  onToggleComplete={(index) => handleToggleComplete(index, true)} 
+                  onEdit={(task) => handleEditTask(completedTasks.findIndex(t => t.$id === task.$id), true)}
+                  onDelete={(taskId) => handleDeleteTask(taskId)}
+                  onToggleComplete={handleToggleComplete} 
                 />
               </div>
             )
