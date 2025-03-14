@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
+import { createTask, updateTask } from '../../utils/database';
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   // Form fields state
@@ -396,66 +397,48 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submit button clicked");
     
-    // Validate form before submission
     if (!validateForm() || !validateTimeOrder()) {
-      console.log("Validation failed", errors);
-      return;
+        return;
     }
 
     try {
-      // Instead of parsing strings, use the DatePicker Date objects directly
-      if (!startDate || !endDate) {
-        console.error("Date objects are missing:", { startDate, endDate });
-        setErrors({...errors, deadline: "Please select valid dates and times"});
-        return;
-      }
+        const taskData = {
+            title,
+            description,
+            deadline: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            priority,
+            status,
+            category,
+            syncWithGoogle,
+            isRecurring,
+            recurringType: isRecurring ? recurringType : undefined,
+            enableReminders,
+            reminderTime: enableReminders ? reminderTime : undefined
+        };
 
-      // Ensure we have valid Date objects
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.error("Invalid date objects:", { startDate, endDate });
-        setErrors({...errors, deadline: "Invalid date format"});
-        return;
-      }
-
-      console.log("Creating task with dates:", {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
-      });
-
-      const newTask = {
-        title,
-        description,
-        deadline: startDate.toISOString(),
-        endTime: endDate.toISOString(),
-        priority,
-        status,
-        category,
-        syncWithGoogle,
-        isRecurring,
-        recurringType: isRecurring ? recurringType : undefined,
-        enableReminders,
-        reminderTime: enableReminders ? reminderTime : undefined
-      };
-      
-      // Add metadata for recurring instances when rescheduling
-      if (isInstanceReschedule && taskToEdit) {
-        newTask.parentTaskId = taskToEdit.parentTaskId || taskToEdit.id;
-        newTask.isRescheduledInstance = true;
-        newTask.originalDate = taskToEdit.deadline;
-      }
-      
-      console.log("Submitting task:", newTask);
-      onSave(newTask);
-      onClose();
+        // Get current user ID from local storage
+        const user = JSON.parse(localStorage.getItem('loggedInUser'));
+        
+        if (taskToEdit) {
+            // Update existing task
+            const updatedTask = await updateTask(taskToEdit.$id, taskData);
+            onSave(updatedTask);
+        } else {
+            // Create new task
+            const newTask = await createTask(taskData, user.$id);
+            onSave(newTask);
+        }
+        
+        onClose();
     } catch (error) {
-      console.error("Error creating task:", error);
-      setErrors({...errors, general: "Failed to create task: " + error.message});
+        console.error("Error saving task:", error);
+        setErrors({...errors, general: "Failed to save task"});
     }
-  };
+};
 
   // Apply AI suggestion
   const applyAiSuggestion = () => {

@@ -3,8 +3,13 @@ import TaskCard from "./TaskCard";
 import { createPortal } from "react-dom";
 
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
-  // Create a container to track any open task details modals
   const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
+
+  const handleDelete = async (taskId) => {
+    if (onDelete) {
+      onDelete(taskId);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -15,20 +20,19 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
           <p className="text-gray-400 mt-2">Add your first task to get started</p>
         </div>
       ) : (
-        tasks.map((task, index) => (
+        tasks.map((task) => (
           <TaskCard
-            key={task.id || index}
+            key={task.$id}
             task={task}
-            onEdit={() => onEdit(index)}
-            onDelete={() => onDelete(index)}
-            onToggleComplete={() => onToggleComplete(index)}
+            onEdit={() => onEdit(task)}
+            onDelete={() => handleDelete(task.$id)}
+            onToggleComplete={() => onToggleComplete(task)}
             setOpenTaskDetails={setOpenTaskDetails}
             usePortal={true}
           />
         ))
       )}
 
-      {/* Render any open task details using a portal to ensure it renders at the document body level */}
       {openTaskDetails && createPortal(openTaskDetails, document.body)}
     </div>
   );

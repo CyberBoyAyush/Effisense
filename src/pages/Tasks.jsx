@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
 import { createPortal } from "react-dom";
-import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
+import { getUserTasks, createTask, updateTask, deleteTask } from '../utils/database';
 import { 
   FaTasks, FaPlus, FaCheck, FaRegClock, 
   FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
@@ -14,11 +14,25 @@ const Tasks = () => {
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load tasks from localStorage on component mount
+  // Load tasks from Appwrite database
   useEffect(() => {
-    const savedTasks = getTasks();
-    setTasks(savedTasks);
+    const fetchTasks = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('loggedInUser'));
+        if (user) {
+          const fetchedTasks = await getUserTasks(user.$id);
+          setTasks(fetchedTasks);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasks();
   }, []);
 
   // Handle task operations
@@ -27,33 +41,60 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = (taskData) => {
-    if (taskToEdit) {
-      const updatedTasks = updateTask(taskToEdit.id, taskData);
-      setTasks(updatedTasks);
-    } else {
-      const updatedTasks = addTask(taskData);
-      setTasks(updatedTasks);
+  const handleSaveTask = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      if (taskToEdit) {
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === updatedTask.$id ? updatedTask : task
+        ));
+      } else {
+        const newTask = await createTask(taskData, user.$id);
+        setTasks(prevTasks => [...prevTasks, newTask]);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-    setIsModalOpen(false);
   };
 
-  const handleEditTask = (index) => {
-    setTaskToEdit({ ...tasks[index], index });
+  const handleEditTask = (task) => {
+    setTaskToEdit(task);
     setIsModalOpen(true);
   };
 
-  const handleDeleteTask = (index) => {
-    const taskId = tasks[index].id;
-    const updatedTasks = deleteTask(taskId);
-    setTasks(updatedTasks);
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
-  const handleToggleComplete = (index) => {
-    const task = tasks[index];
-    const updatedTasks = updateTask(task.id, { completed: !task.completed });
-    setTasks(updatedTasks);
+  const handleToggleComplete = async (task) => {
+    try {
+      const updatedTask = await updateTask(task.$id, {
+        ...task,
+        completed: !task.completed
+      });
+      setTasks(prevTasks => prevTasks.map(t => 
+        t.$id === updatedTask.$id ? updatedTask : t
+      ));
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   // Get date objects for filters
   const today = new Date();

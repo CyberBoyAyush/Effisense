@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTasks, addTask, updateTask, rescheduleTaskInstance } from '../../utils/taskStorage';
+import { getUserTasks, createTask, updateTask, deleteTask } from '../../utils/database';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -9,47 +9,56 @@ const processTasksForDay = (tasks, date) => {
   return tasks
     .filter(task => {
       const taskDate = new Date(task.deadline);
-      return taskDate.toDateString() === date.toDateString();
+      return taskDate && !isNaN(taskDate) && taskDate.toDateString() === date.toDateString();
     })
     .map(task => {
-      const startTime = new Date(task.deadline);
-      // If endTime exists, use it; otherwise default to 1 hour after start
-      const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
-      
-      // Calculate positioning values with precise minutes
-      const startHour = startTime.getHours();
-      const startMinutes = startTime.getMinutes();
-      const endHour = endTime.getHours();
-      const endMinutes = endTime.getMinutes();
-      
-      // Duration calculations with precise minutes
-      const durationMs = endTime - startTime;
-      const durationMinutes = durationMs / (1000 * 60);
-      const durationHours = durationMinutes / 60;
-      
-      // Format duration for display
-      let durationText;
-      if (durationMinutes < 60) {
-        durationText = `${Math.round(durationMinutes)}m`;
-      } else {
-        const hours = Math.floor(durationHours);
-        const minutes = Math.round(durationMinutes % 60);
-        durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-      }
+      try {
+        const startTime = new Date(task.deadline);
+        // Handle invalid dates and ensure endTime is after startTime
+        const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+        if (endTime < startTime) {
+          endTime.setTime(startTime.getTime() + 60 * 60 * 1000);
+        }
+        
+        // Calculate times safely
+        const startHour = startTime.getHours();
+        const startMinutes = startTime.getMinutes();
+        const endHour = endTime.getHours();
+        const endMinutes = endTime.getMinutes();
+        
+        // Safe duration calculations
+        const durationMs = endTime - startTime;
+        const durationMinutes = Math.max(durationMs / (1000 * 60), 15); // Minimum 15 minutes
+        const durationHours = durationMinutes / 60;
+        
+        // Format duration text safely
+        let durationText = '';
+        if (durationMinutes < 60) {
+          durationText = `${Math.round(durationMinutes)}m`;
+        } else {
+          const hours = Math.floor(durationHours);
+          const minutes = Math.round(durationMinutes % 60);
+          durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
 
-      return {
-        ...task,
-        startTime,
-        endTime,
-        startHour,
-        startMinutes,
-        endHour,
-        endMinutes,
-        durationMinutes,
-        durationHours,
-        durationText
-      };
-    });
+        return {
+          ...task,
+          startTime,
+          endTime,
+          startHour,
+          startMinutes,
+          endHour,
+          endMinutes,
+          durationMinutes,
+          durationHours,
+          durationText
+        };
+      } catch (error) {
+        console.error('Error processing task:', error);
+        return null;
+      }
+    })
+    .filter(Boolean); // Remove any failed processing attempts
 };
 
 // Hour range button component
@@ -82,8 +91,19 @@ const CalendarView = () => {
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
 
   useEffect(() => {
-    const loadedTasks = getTasks();
-    setTasks(loadedTasks);
+    const fetchTasks = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('loggedInUser'));
+        if (user) {
+          const fetchedTasks = await getUserTasks(user.$id);
+          setTasks(fetchedTasks);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchTasks();
   }, []);
 
   // Add CSS styles for calendar positioning
@@ -161,10 +181,28 @@ const CalendarView = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = (taskData) => {
-    const updatedTasks = addTask(taskData);
-    setTasks(updatedTasks);
-    setIsModalOpen(false);
+  const handleSaveTask = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      let updatedTasks;
+      if (taskToEdit) {
+        // Update existing task
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === updatedTask.$id ? updatedTask : task
+        ));
+      } else {
+        // Create new task
+        const newTask = await createTask(taskData, user.$id);
+        setTasks(prevTasks => [...prevTasks, newTask]);
+      }
+      
+      setIsModalOpen(false);
+      setTaskToEdit(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
+    }
   };
 
   const handleTaskClick = (e, task) => {
@@ -175,17 +213,26 @@ const CalendarView = () => {
     setOpenTaskDetails(task);
   };
 
-  const handleToggleComplete = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      const updatedTask = { ...task, completed: !task.completed };
-      const updatedTasks = updateTask(taskId, updatedTask);
-      setTasks(updatedTasks);
-      
-      // If this task is currently being shown in the details view, update it
-      if (openTaskDetails && openTaskDetails.id === taskId) {
-        setOpenTaskDetails(updatedTask);
+  const handleToggleComplete = async (taskId) => {
+    try {
+      const task = tasks.find(t => t.$id === taskId);
+      if (task) {
+        const updatedTask = await updateTask(taskId, {
+          ...task,
+          completed: !task.completed
+        });
+        
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === updatedTask.$id ? updatedTask : t
+        ));
+
+        // Update task details if open
+        if (openTaskDetails && openTaskDetails.id === taskId) {
+          setOpenTaskDetails({...openTaskDetails, completed: !task.completed});
+        }
       }
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
     }
   };
 
@@ -195,9 +242,14 @@ const CalendarView = () => {
     setOpenTaskDetails(null);
   };
 
-  const handleDeleteTask = (taskId) => {
-    // Implement delete task functionality
-    // This would call a deleteTask function from your taskStorage utility
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+      setOpenTaskDetails(null);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
   const handleEditFromPopup = () => {
@@ -206,25 +258,28 @@ const CalendarView = () => {
     setIsModalOpen(true);
   };
 
-  const handleTaskSave = (taskData) => {
-    let updatedTasks;
-    
-    // Handle rescheduling of recurring task instance
-    if (taskToEdit && (taskToEdit.isRecurringInstance || taskToEdit.parentTaskId)) {
-      const instanceId = taskToEdit.id;
-      const newDate = new Date(taskData.deadline);
-      updatedTasks = rescheduleTaskInstance(instanceId, newDate);
-    } 
-    // Regular task edit or new task
-    else if (taskToEdit) {
-      updatedTasks = updateTask(taskToEdit.id, taskData);
-    } else {
-      updatedTasks = addTask(taskData);
+  const handleTaskSave = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      let updatedTasks;
+      if (taskToEdit) {
+        // Update existing task
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === updatedTask.$id ? updatedTask : task
+        ));
+      } else {
+        // Create new task
+        const newTask = await createTask(taskData, user.$id);
+        setTasks(prevTasks => [...prevTasks, newTask]);
+      }
+      
+      setIsModalOpen(false);
+      setTaskToEdit(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-    
-    setTasks(updatedTasks);
-    setIsModalOpen(false);
-    setTaskToEdit(null);
   };
 
   const renderTaskItem = (task, onClick) => {
@@ -965,7 +1020,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   
                   return (
                     <div
-                      key={task.id}
+                      key={task.$id}
                       onClick={(e) => handleTaskClick(e, task)}
                       style={{
                         position: 'absolute',
@@ -994,17 +1049,20 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                           </span>
                         </div>
                         
-                        {/* Show time if there's enough space */}
+                        {/* Fix time display */}
                         {height > 30 && (
                           <div className="text-[10px] opacity-80 mt-0.5">
                             {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {height > 40 && (
                               <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
                             )}
+                            {task.durationText && height > 50 && (
+                              <span className="ml-1">({task.durationText})</span>
+                            )}
                           </div>
                         )}
                         
-                        {/* Quick actions on hover */}
+                        {/* Quick actions */}
                         <div className="hidden group-hover/task:flex absolute top-1 right-1 gap-1">
                           <button className="p-0.5 rounded bg-gray-800/80 text-white hover:bg-gray-700">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

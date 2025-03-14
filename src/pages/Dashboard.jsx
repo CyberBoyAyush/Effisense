@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
-import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
+import { getUserTasks, createTask, updateTask, deleteTask } from '../utils/database';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
@@ -23,9 +23,20 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Load tasks when component mounts
-    const savedTasks = getTasks();
-    setTasks(savedTasks);
-    setFilteredTasks(savedTasks);
+    const fetchTasks = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('loggedInUser'));
+        if (user) {
+          const fetchedTasks = await getUserTasks(user.$id);
+          setTasks(fetchedTasks);
+          setFilteredTasks(fetchedTasks);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchTasks();
 
     // Check authentication
     const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -56,15 +67,23 @@ const Dashboard = () => {
   };
 
   // Save or update a task
-  const handleSaveTask = (taskData) => {
-    if (taskToEdit) {
-      const updatedTasks = updateTask(taskToEdit.id, taskData);
-      setTasks(updatedTasks);
-    } else {
-      const updatedTasks = addTask(taskData);
-      setTasks(updatedTasks);
+  const handleSaveTask = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      if (taskToEdit) {
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === updatedTask.$id ? updatedTask : task
+        ));
+      } else {
+        const newTask = await createTask(taskData, user.$id);
+        setTasks(prevTasks => [...prevTasks, newTask]);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-    setIsModalOpen(false);
   };
 
   // Edit task
@@ -74,33 +93,41 @@ const Dashboard = () => {
     const taskToEdit = taskArray[index];
     
     // Find original task index in the full tasks array
-    const originalIndex = tasks.findIndex(t => t.id === taskToEdit.id);
+    const originalIndex = tasks.findIndex(t => t.$id === taskToEdit.$id);
     setTaskToEdit({ ...tasks[originalIndex], index: originalIndex });
     setIsModalOpen(true);
   };
 
   // Delete task
-  const handleDeleteTask = (index, isCompleted = false) => {
-    // Use the right array based on completed status
-    const taskArray = isCompleted ? completedTasks : queuedTasks;
-    const taskId = taskArray[index].id;
-    
-    const updatedTasks = deleteTask(taskId);
-    setTasks(updatedTasks);
+  const handleDeleteTask = async (index, isCompleted = false) => {
+    try {
+      const taskArray = isCompleted ? completedTasks : queuedTasks;
+      const taskId = taskArray[index].$id;
+      
+      await deleteTask(taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
   // Add task toggle functionality
-  const handleToggleComplete = (index, isCompleted = false) => {
-    // Use the right array based on completed status
-    const taskArray = isCompleted ? completedTasks : queuedTasks;
-    const task = taskArray[index];
-    
-    if (task?.id) {
-      const updatedTasks = updateTask(task.id, { 
-        ...task, 
-        completed: !task.completed 
-      });
-      setTasks(updatedTasks);
+  const handleToggleComplete = async (index, isCompleted = false) => {
+    try {
+      const taskArray = isCompleted ? completedTasks : queuedTasks;
+      const task = taskArray[index];
+      
+      if (task?.$id) {
+        const updatedTask = await updateTask(task.$id, { 
+          ...task, 
+          completed: !task.completed 
+        });
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === updatedTask.$id ? updatedTask : t
+        ));
+      }
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
     }
   };
 

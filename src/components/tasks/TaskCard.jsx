@@ -122,6 +122,16 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     }
   };
 
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    onDelete(task.$id); // Use Appwrite document ID
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    onEdit(task); // Pass entire task object
+  };
+
   return (
     <>
       {/* Main Card - Clickable */}
@@ -218,10 +228,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           {/* Action Buttons */}
           <div className="flex gap-2 w-full sm:w-auto sm:flex-col items-end opacity-60 group-hover:opacity-100 transition-opacity">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
+              onClick={handleEdit}
               className="flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-orange-600/20 text-orange-400 rounded-lg hover:bg-orange-600/30 
                 transition-all duration-200 border border-orange-500/20 flex items-center justify-center gap-2"
               aria-label="Edit task"
@@ -230,10 +237,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
               <span className="sm:sr-only">Edit</span>
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
+              onClick={handleDelete}
               className="flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 
                 transition-all duration-200 border border-red-500/20 flex items-center justify-center gap-2"
               aria-label="Delete task"
