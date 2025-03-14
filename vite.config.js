@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true, // Listen on all local IPs
-    port: 3000,
+    port: 5173,
     open: true, // Open browser on start
   },
 })
