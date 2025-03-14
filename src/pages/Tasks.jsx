@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
 import { createPortal } from "react-dom";
-import { getTasks, addTask, updateTask, deleteTask } from '../utils/taskStorage';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../utils/database';
 import { 
   FaTasks, FaPlus, FaCheck, FaRegClock, 
   FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
@@ -14,12 +14,51 @@ const Tasks = () => {
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load tasks from localStorage on component mount
+  // Load tasks from Appwrite database with efficient filtering and caching
   useEffect(() => {
-    const savedTasks = getTasks();
-    setTasks(savedTasks);
-  }, []);
+    const fetchTasks = async () => {
+      try {
+        setIsLoading(true);
+        const user = JSON.parse(localStorage.getItem('loggedInUser'));
+        if (user) {
+          // First check cache for immediate display
+          if (taskCache.tasks.length > 0) {
+            let filteredTasks;
+            
+            // Apply filter to cached tasks
+            if (filter === 'completed') {
+              filteredTasks = taskCache.tasks.filter(t => t.completed === true);
+              setTasks(filteredTasks);
+            } else if (filter === 'active') {
+              filteredTasks = taskCache.tasks.filter(t => t.completed === false);
+              setTasks(filteredTasks);
+            } else {
+              setTasks(taskCache.tasks);
+            }
+          }
+          
+          // Then fetch fresh data from server
+          let fetchedTasks;
+          if (filter === 'completed') {
+            fetchedTasks = await getCompletedTasks(user.$id);
+          } else if (filter === 'active') {
+            fetchedTasks = await getActiveTasks(user.$id);
+          } else {
+            fetchedTasks = await getUserTasks(user.$id);
+          }
+          setTasks(fetchedTasks);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [filter]); // Re-fetch when filter changes
 
   // Handle task operations
   const handleAddTask = () => {
@@ -27,33 +66,106 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = (taskData) => {
-    if (taskToEdit) {
-      const updatedTasks = updateTask(taskToEdit.id, taskData);
-      setTasks(updatedTasks);
-    } else {
-      const updatedTasks = addTask(taskData);
-      setTasks(updatedTasks);
+  const handleSaveTask = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      if (taskToEdit) {
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        if (updatedTask) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === updatedTask.$id ? updatedTask : task
+          ));
+        }
+      } else {
+        const newTask = await createTask(taskData, user.$id);
+        if (newTask) {
+          setTasks(prevTasks => [...prevTasks, newTask]);
+        }
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving task:', error);
+      // Remove the alert that's causing issues
+      setIsModalOpen(false); // Close modal even on error
     }
-    setIsModalOpen(false);
   };
 
-  const handleEditTask = (index) => {
-    setTaskToEdit({ ...tasks[index], index });
+  const handleEditTask = (task) => {
+    if (!task || !task.$id) {
+      console.error('Invalid task object:', task);
+      return;
+    }
+    setTaskToEdit(task);
     setIsModalOpen(true);
   };
 
-  const handleDeleteTask = (index) => {
-    const taskId = tasks[index].id;
-    const updatedTasks = deleteTask(taskId);
-    setTasks(updatedTasks);
+  const handleDeleteTask = async (taskId) => {
+    if (!taskId) {
+      console.error('Invalid task ID:', taskId);
+      return;
+    }
+    
+    try {
+      const result = await deleteTask(taskId);
+      if (result) {
+        // Only update state if delete was successful
+        setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Remove the alert that's causing issues
+    }
   };
 
-  const handleToggleComplete = (index) => {
-    const task = tasks[index];
-    const updatedTasks = updateTask(task.id, { completed: !task.completed });
-    setTasks(updatedTasks);
+  // Enhanced toggle with local state management
+  const handleToggleComplete = async (task) => {
+    if (!task || !task.$id) {
+      console.error('Invalid task object:', task);
+      return;
+    }
+    
+    try {
+      // Update UI immediately for better user experience
+      setTasks(prevTasks => prevTasks.map(t => 
+        t.$id === task.$id ? {...t, completed: !task.completed} : t
+      ));
+      
+      // Use the specialized toggle function
+      const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
+      
+      // If task should no longer appear in the current filter view, remove it
+      if ((filter === 'completed' && !updatedTask.completed) || 
+          (filter === 'active' && updatedTask.completed)) {
+        setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
+      }
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      // Revert UI change using cache
+      const cachedTask = taskCache.getTask(task.$id);
+      if (cachedTask) {
+        // If the task belongs in the current filter view, show it
+        if ((filter === 'completed' && cachedTask.completed) || 
+            (filter === 'active' && !cachedTask.completed) ||
+            filter === 'all') {
+          setTasks(prevTasks => prevTasks.map(t => 
+            t.$id === task.$id ? cachedTask : t
+          ));
+        } else {
+          // Otherwise remove it from the view
+          setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
+        }
+      }
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   // Get date objects for filters
   const today = new Date();
@@ -94,15 +206,22 @@ const Tasks = () => {
     return isDateEqual(dateStr, weekendStart) || isDateEqual(dateStr, weekendEnd);
   };
 
-  const filteredTasks = {
-    all: tasks,
-    active: tasks.filter(t => !t.completed),
-    completed: tasks.filter(t => t.completed),
-    today: tasks.filter(t => isDateEqual(t.deadline, today)),
-    yesterday: tasks.filter(t => isDateEqual(t.deadline, yesterday)),
-    tomorrow: tasks.filter(t => isDateEqual(t.deadline, tomorrow)),
-    weekend: tasks.filter(t => isWeekend(t.deadline))
-  }[filter];
+  // Use more specialized filter logic in the JSX
+  const filteredTasks = filter === 'all' ? 
+    tasks : 
+    filter === 'completed' ? 
+      tasks.filter(t => t.completed) :
+      filter === 'active' ? 
+        tasks.filter(t => !t.completed) :
+        filter === 'today' ? 
+          tasks.filter(t => isDateEqual(t.deadline, today)) :
+          filter === 'tomorrow' ? 
+            tasks.filter(t => isDateEqual(t.deadline, tomorrow)) :
+            filter === 'weekend' ? 
+              tasks.filter(t => isWeekend(t.deadline)) :
+              filter === 'yesterday' ? 
+                tasks.filter(t => isDateEqual(t.deadline, yesterday)) :
+                tasks;
 
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">

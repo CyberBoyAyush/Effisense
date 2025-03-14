@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getTasks, addTask, updateTask, rescheduleTaskInstance } from '../../utils/taskStorage';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../../utils/database';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -9,47 +9,56 @@ const processTasksForDay = (tasks, date) => {
   return tasks
     .filter(task => {
       const taskDate = new Date(task.deadline);
-      return taskDate.toDateString() === date.toDateString();
+      return taskDate && !isNaN(taskDate) && taskDate.toDateString() === date.toDateString();
     })
     .map(task => {
-      const startTime = new Date(task.deadline);
-      // If endTime exists, use it; otherwise default to 1 hour after start
-      const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
-      
-      // Calculate positioning values with precise minutes
-      const startHour = startTime.getHours();
-      const startMinutes = startTime.getMinutes();
-      const endHour = endTime.getHours();
-      const endMinutes = endTime.getMinutes();
-      
-      // Duration calculations with precise minutes
-      const durationMs = endTime - startTime;
-      const durationMinutes = durationMs / (1000 * 60);
-      const durationHours = durationMinutes / 60;
-      
-      // Format duration for display
-      let durationText;
-      if (durationMinutes < 60) {
-        durationText = `${Math.round(durationMinutes)}m`;
-      } else {
-        const hours = Math.floor(durationHours);
-        const minutes = Math.round(durationMinutes % 60);
-        durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-      }
+      try {
+        const startTime = new Date(task.deadline);
+        // Handle invalid dates and ensure endTime is after startTime
+        const endTime = task.endTime ? new Date(task.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+        if (endTime < startTime) {
+          endTime.setTime(startTime.getTime() + 60 * 60 * 1000);
+        }
+        
+        // Calculate times safely
+        const startHour = startTime.getHours();
+        const startMinutes = startTime.getMinutes();
+        const endHour = endTime.getHours();
+        const endMinutes = endTime.getMinutes();
+        
+        // Safe duration calculations
+        const durationMs = endTime - startTime;
+        const durationMinutes = Math.max(durationMs / (1000 * 60), 15); // Minimum 15 minutes
+        const durationHours = durationMinutes / 60;
+        
+        // Format duration text safely
+        let durationText = '';
+        if (durationMinutes < 60) {
+          durationText = `${Math.round(durationMinutes)}m`;
+        } else {
+          const hours = Math.floor(durationHours);
+          const minutes = Math.round(durationMinutes % 60);
+          durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
 
-      return {
-        ...task,
-        startTime,
-        endTime,
-        startHour,
-        startMinutes,
-        endHour,
-        endMinutes,
-        durationMinutes,
-        durationHours,
-        durationText
-      };
-    });
+        return {
+          ...task,
+          startTime,
+          endTime,
+          startHour,
+          startMinutes,
+          endHour,
+          endMinutes,
+          durationMinutes,
+          durationHours,
+          durationText
+        };
+      } catch (error) {
+        console.error('Error processing task:', error);
+        return null;
+      }
+    })
+    .filter(Boolean); // Remove any failed processing attempts
 };
 
 // Hour range button component
@@ -80,11 +89,46 @@ const CalendarView = () => {
   const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
+  const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'active', 'completed'
 
+  // Improved task fetching with cache prioritization and optimistic updates
+  const fetchTasks = useCallback(async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (!user) return;
+      
+      // First show cached tasks immediately for responsive UX
+      if (taskCache.tasks.length > 0) {
+        let filteredTasks = taskCache.tasks;
+        if (taskFilter === 'completed') {
+          filteredTasks = taskCache.tasks.filter(t => t.completed === true);
+        } else if (taskFilter === 'active') {
+          filteredTasks = taskCache.tasks.filter(t => t.completed === false);
+        }
+        setTasks(filteredTasks);
+      }
+      
+      // Then fetch from server
+      let fetchedTasks;
+      if (taskFilter === 'completed') {
+        fetchedTasks = await getCompletedTasks(user.$id);
+      } else if (taskFilter === 'active') {
+        fetchedTasks = await getActiveTasks(user.$id);
+      } else {
+        fetchedTasks = await getUserTasks(user.$id);
+      }
+      
+      setTasks(fetchedTasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      // Fallback to cache in case of error
+    }
+  }, [taskFilter]);
+  
+  // Use the improved fetchTasks function
   useEffect(() => {
-    const loadedTasks = getTasks();
-    setTasks(loadedTasks);
-  }, []);
+    fetchTasks();
+  }, [fetchTasks, taskFilter]);
 
   // Add CSS styles for calendar positioning
   useEffect(() => {
@@ -161,30 +205,138 @@ const CalendarView = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = (taskData) => {
-    const updatedTasks = addTask(taskData);
-    setTasks(updatedTasks);
-    setIsModalOpen(false);
+  const handleSaveTask = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (!user) return;
+      
+      if (taskToEdit) {
+        // Optimistic update for editing
+        const updatedTaskLocal = {
+          ...taskToEdit,
+          ...taskData,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Update UI immediately
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === taskToEdit.$id ? updatedTaskLocal : task
+        ));
+        
+        // Update backend
+        const response = await updateTask(taskToEdit.$id, taskData);
+        
+        // Update with server response if needed
+        if (response) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === response.$id ? response : task
+          ));
+        }
+      } else {
+        // Create temporary task for optimistic UI
+        const tempId = `temp-${Date.now()}`;
+        const tempTask = {
+          ...taskData,
+          $id: tempId,
+          userId: user.$id,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        // Add to UI immediately
+        setTasks(prevTasks => [...prevTasks, tempTask]);
+        
+        // Create in backend
+        const newTask = await createTask(taskData, user.$id);
+        
+        // Replace temp task with real one
+        if (newTask) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === tempId ? newTask : task
+          ));
+        }
+      }
+      
+      setIsModalOpen(false);
+      setTaskToEdit(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
+    }
   };
 
   const handleTaskClick = (e, task) => {
     e.preventDefault();
     e.stopPropagation();
     
+    // Make sure we're working with a consistent task object
+    const taskWithIds = {
+      ...task,
+      $id: task.$id || task.id, // Ensure $id exists
+      id: task.id || task.$id   // Ensure id exists
+    };
+    
     // Instead of setting selectedTask, we'll use the TaskCard component with portal
-    setOpenTaskDetails(task);
+    setOpenTaskDetails(taskWithIds);
   };
 
-  const handleToggleComplete = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      const updatedTask = { ...task, completed: !task.completed };
-      const updatedTasks = updateTask(taskId, updatedTask);
-      setTasks(updatedTasks);
+  const handleToggleComplete = async (taskId) => {
+    try {
+      const task = tasks.find(t => t.$id === taskId || t.id === taskId);
+      if (!task) {
+        console.error('Task not found:', taskId);
+        return;
+      }
       
-      // If this task is currently being shown in the details view, update it
-      if (openTaskDetails && openTaskDetails.id === taskId) {
-        setOpenTaskDetails(updatedTask);
+      // Use $id consistently for Appwrite
+      const id = task.$id || task.id;
+      
+      // Early UI update for responsiveness
+      const newCompletedState = !task.completed;
+      setTasks(prevTasks => prevTasks.map(t => 
+        (t.$id === id || t.id === id) ? {
+          ...t, 
+          completed: newCompletedState,
+          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+        } : t
+      ));
+      
+      // Update task details if open
+      if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
+        setOpenTaskDetails({
+          ...openTaskDetails, 
+          completed: newCompletedState,
+          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+        });
+      }
+      
+      // Update backend and cache
+      const updatedTask = await toggleTaskCompletion(id, newCompletedState);
+      
+      // Handle filtering if needed
+      if ((taskFilter === 'completed' && !newCompletedState) || 
+          (taskFilter === 'active' && newCompletedState)) {
+        // Remove task from view if it doesn't match the filter anymore
+        setTimeout(() => {
+          setTasks(prevTasks => prevTasks.filter(t => 
+            !(t.$id === id || t.id === id)
+          ));
+        }, 500); // Small delay for animation
+      }
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      // Handle error by reverting to cached state
+      const cachedTask = taskCache.getTask(taskId);
+      if (cachedTask) {
+        // Update UI with correct state from cache
+        setTasks(prevTasks => prevTasks.map(t => 
+          (t.$id === taskId || t.id === taskId) ? cachedTask : t
+        ));
+        
+        // Update task details if open
+        if (openTaskDetails && (openTaskDetails.id === taskId || openTaskDetails.$id === taskId)) {
+          setOpenTaskDetails(cachedTask);
+        }
       }
     }
   };
@@ -195,9 +347,25 @@ const CalendarView = () => {
     setOpenTaskDetails(null);
   };
 
-  const handleDeleteTask = (taskId) => {
-    // Implement delete task functionality
-    // This would call a deleteTask function from your taskStorage utility
+  const handleDeleteTask = async (taskId) => {
+    try {
+      // Update UI immediately
+      setTasks(prevTasks => prevTasks.filter(task => 
+        task.$id !== taskId && task.id !== taskId
+      ));
+      
+      // Close task details if open
+      if (openTaskDetails && (openTaskDetails.$id === taskId || openTaskDetails.id === taskId)) {
+        setOpenTaskDetails(null);
+      }
+      
+      // Then delete from database
+      await deleteTask(taskId);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // If error, we could refresh tasks but usually not necessary as deletion is less critical
+      // fetchTasks();
+    }
   };
 
   const handleEditFromPopup = () => {
@@ -206,25 +374,28 @@ const CalendarView = () => {
     setIsModalOpen(true);
   };
 
-  const handleTaskSave = (taskData) => {
-    let updatedTasks;
-    
-    // Handle rescheduling of recurring task instance
-    if (taskToEdit && (taskToEdit.isRecurringInstance || taskToEdit.parentTaskId)) {
-      const instanceId = taskToEdit.id;
-      const newDate = new Date(taskData.deadline);
-      updatedTasks = rescheduleTaskInstance(instanceId, newDate);
-    } 
-    // Regular task edit or new task
-    else if (taskToEdit) {
-      updatedTasks = updateTask(taskToEdit.id, taskData);
-    } else {
-      updatedTasks = addTask(taskData);
+  const handleTaskSave = async (taskData) => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      let updatedTasks;
+      if (taskToEdit) {
+        // Update existing task
+        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === updatedTask.$id ? updatedTask : task
+        ));
+      } else {
+        // Create new task
+        const newTask = await createTask(taskData, user.$id);
+        setTasks(prevTasks => [...prevTasks, newTask]);
+      }
+      
+      setIsModalOpen(false);
+      setTaskToEdit(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-    
-    setTasks(updatedTasks);
-    setIsModalOpen(false);
-    setTaskToEdit(null);
   };
 
   const renderTaskItem = (task, onClick) => {
@@ -311,6 +482,16 @@ const CalendarView = () => {
     };
   };
 
+  // Add additional error boundary
+  if (!tasks) {
+    return (
+      <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl p-8 text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-400">Loading your tasks...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm border border-orange-800/30 rounded-2xl overflow-hidden">
       {/* Header with improved styling */}
@@ -357,6 +538,40 @@ const CalendarView = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
+            {/* Task Filter */}
+            <div className="flex rounded-lg bg-gray-800/70 p-0.5 sm:p-1 border border-orange-700/30 mr-2">
+              <button
+                onClick={() => setTaskFilter('all')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'all' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTaskFilter('active')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'active' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setTaskFilter('completed')}
+                className={`px-2 py-1 sm:px-3 sm:py-1 text-xs font-medium rounded-md transition-all duration-200
+                  ${taskFilter === 'completed' 
+                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/10' 
+                    : 'text-gray-400 hover:text-gray-200'
+                  }`}
+              >
+                Completed
+              </button>
+            </div>
+
             {/* Time Format Toggle */}
             <button
               onClick={() => setIs24Hour(!is24Hour)}
@@ -448,11 +663,15 @@ const CalendarView = () => {
             <TaskCard
               task={openTaskDetails} // Use the current state of openTaskDetails
               onToggleComplete={() => {
-                handleToggleComplete(openTaskDetails.id);
-                // The UI will update automatically because we're updating the openTaskDetails state
+                // Make sure we're using the right ID
+                const id = openTaskDetails.$id || openTaskDetails.id;
+                handleToggleComplete(id);
               }}
               onEdit={() => handleEditTask(openTaskDetails)}
-              onDelete={() => handleDeleteTask(openTaskDetails.id)}
+              onDelete={() => {
+                const id = openTaskDetails.$id || openTaskDetails.id;
+                handleDeleteTask(id);
+              }}
               usePortal={false}
             />
           </div>
@@ -543,7 +762,7 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
             <div className="mt-1 space-y-0.5 sm:space-y-1 max-h-[60px] sm:max-h-[120px] overflow-y-auto scrollbar-hide">
               {dayTasks.slice(0, 3).map(task => (
                 <div
-                  key={task.id}
+                  key={task.id || task.$id}
                   onClick={(e) => handleTaskClick(e, task)}
                   className={`p-1 sm:p-1.5 rounded text-[8px] sm:text-xs truncate 
                     ${task.completed 
@@ -965,7 +1184,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   
                   return (
                     <div
-                      key={task.id}
+                      key={task.$id}
                       onClick={(e) => handleTaskClick(e, task)}
                       style={{
                         position: 'absolute',
@@ -994,17 +1213,20 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                           </span>
                         </div>
                         
-                        {/* Show time if there's enough space */}
+                        {/* Fix time display */}
                         {height > 30 && (
                           <div className="text-[10px] opacity-80 mt-0.5">
                             {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {height > 40 && (
                               <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
                             )}
+                            {task.durationText && height > 50 && (
+                              <span className="ml-1">({task.durationText})</span>
+                            )}
                           </div>
                         )}
                         
-                        {/* Quick actions on hover */}
+                        {/* Quick actions */}
                         <div className="hidden group-hover/task:flex absolute top-1 right-1 gap-1">
                           <button className="p-0.5 rounded bg-gray-800/80 text-white hover:bg-gray-700">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

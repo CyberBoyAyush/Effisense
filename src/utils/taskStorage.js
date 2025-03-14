@@ -113,36 +113,49 @@ export const updateTask = (taskId, updatedData) => {
   
   if (taskIndex !== -1) {
     // Handle recurring instance updates
-    if (updatedData.isRecurringInstance) {
+    if (tasks[taskIndex].isRecurringInstance || updatedData.isRecurringInstance) {
       const instanceId = taskId;
-      const parentId = updatedData.parentTaskId;
+      const parentId = tasks[taskIndex].parentTaskId || updatedData.parentTaskId;
       
       // If completing a recurring instance
       if (updatedData.completed) {
         // Store completed instance separately
         const completedInstance = {
+          ...tasks[taskIndex],
           ...updatedData,
           id: instanceId,
-          completed: true,
           parentTaskId: parentId
         };
         
-        // Add completed instance to tasks array
-        tasks.push(completedInstance);
+        // Add completed instance to tasks array or update existing
+        const existingInstanceIndex = tasks.findIndex(t => t.id === instanceId);
+        if (existingInstanceIndex !== -1) {
+          tasks[existingInstanceIndex] = completedInstance;
+        } else {
+          tasks.push(completedInstance);
+        }
+      } 
+      // If un-completing, just update the status
+      else if (updatedData.hasOwnProperty('completed') && !updatedData.completed) {
+        tasks[taskIndex] = {
+          ...tasks[taskIndex],
+          ...updatedData
+        };
       }
     } 
     // Regular task update
     else {
       tasks[taskIndex] = {
         ...tasks[taskIndex],
-        ...updatedData
+        ...updatedData,
+        updatedAt: new Date().toISOString() // Always update the timestamp
       };
     }
     
     localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
   }
   
-  return getTasks();
+  return tasks[taskIndex] || null; // Return the updated task or null if not found
 };
 
 // Delete a task

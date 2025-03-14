@@ -5,6 +5,7 @@ import {
   FaEdit, FaTrashAlt, FaExclamationCircle, FaTags, FaLayerGroup,
   FaRecycle, FaBullhorn
 } from "react-icons/fa";
+import { toggleTaskCompletion, taskCache } from "../../utils/database"; // Import the specialized function and cache
 
 const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails, usePortal = false }) => {
   const [showDetails, setShowDetails] = useState(false);
@@ -102,23 +103,43 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           task={task} 
           onClose={() => setOpenTaskDetails(null)} 
           onEdit={onEdit} 
-          onToggleComplete={() => {
-            onToggleComplete();
-            // Force re-render with updated task
-            setOpenTaskDetails(
-              <TaskDetailsModal 
-                task={{...task, completed: !task.completed}} 
-                onClose={() => setOpenTaskDetails(null)} 
-                onEdit={onEdit} 
-                onToggleComplete={onToggleComplete}
-              />
-            );
-          }}
+          onToggleComplete={() => handleToggleComplete()}
         />
       );
     } else {
       // Standard behavior - toggle local state
       setShowDetails(true);
+    }
+  };
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    onDelete(task.$id); // Use Appwrite document ID
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    onEdit(task); // Pass entire task object
+  };
+  
+  // Enhanced toggle handler with local state update for immediate feedback
+  const handleToggleComplete = async (e) => {
+    if (e) e.stopPropagation();
+    
+    try {
+      // Get the current task state
+      const currentState = task.completed;
+      
+      // Call the parent component's toggle handler for UI update
+      onToggleComplete(task);
+      
+      // Also update the local cache directly to ensure consistency
+      taskCache.updateTask(task.$id, { 
+        completed: !currentState,
+        ...((!currentState) ? { completedAt: new Date().toISOString() } : {})
+      });
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
     }
   };
 
@@ -143,10 +164,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           <div className="flex items-start gap-3 flex-1 w-full">
             {/* Checkbox */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleComplete();
-              }}
+              onClick={(e) => handleToggleComplete(e)}
               className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
               aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
             >
@@ -218,10 +236,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           {/* Action Buttons */}
           <div className="flex gap-2 w-full sm:w-auto sm:flex-col items-end opacity-60 group-hover:opacity-100 transition-opacity">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
+              onClick={handleEdit}
               className="flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-orange-600/20 text-orange-400 rounded-lg hover:bg-orange-600/30 
                 transition-all duration-200 border border-orange-500/20 flex items-center justify-center gap-2"
               aria-label="Edit task"
@@ -230,10 +245,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
               <span className="sm:sr-only">Edit</span>
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
+              onClick={handleDelete}
               className="flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 
                 transition-all duration-200 border border-red-500/20 flex items-center justify-center gap-2"
               aria-label="Delete task"
@@ -253,7 +265,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
               task={task} 
               onClose={() => setShowDetails(false)}
               onEdit={onEdit}
-              onToggleComplete={onToggleComplete}
+              onToggleComplete={handleToggleComplete}
             />
           )}
         </AnimatePresence>
@@ -269,11 +281,6 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
   const priorityDisplay = getPriorityDisplay(task);
   const categoryDisplay = getCategoryDisplay(task);
   const isOverdue = getDeadlineStatus(task) === "overdue" && !task.completed;
-  
-  // Prepare a handler for toggling completion that updates UI immediately
-  const handleToggleComplete = () => {
-    onToggleComplete();
-  };
   
   return (
     <motion.div 
@@ -297,7 +304,7 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
             <div className="flex items-center gap-4 flex-1">
               {/* Checkbox */}
               <button
-                onClick={handleToggleComplete}
+                onClick={onToggleComplete}
                 className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200
                   ${task.completed 
                     ? 'text-green-500' 
@@ -450,7 +457,7 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
             <button
               onClick={() => {
                 onClose();
-                onEdit();
+                onEdit(task);
               }}
               className="px-4 py-2 bg-orange-600/20 text-orange-400 rounded-lg hover:bg-orange-600/30 
                 transition-all duration-200 border border-orange-500/20 flex items-center gap-2"
