@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle } from "react-icons/fa";
 import { FiX, FiAlertTriangle } from "react-icons/fi";
 import { FaCalendarAlt } from "react-icons/fa";
+import { login, resetPassword } from '../utils/appwrite';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,76 +18,48 @@ const Login = () => {
   const [showResetForm, setShowResetForm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  // Simulated login function with loading state
+  // Updated login function with Appwrite
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Get users from local storage
-      const users = JSON.parse(localStorage.getItem("users")) || [];
-      
-      // Check if user exists
-      const user = users.find((user) => user.email === email && user.password === password);
-      
+      const user = await login(email, password);
       if (user) {
         localStorage.setItem("loggedInUser", JSON.stringify(user));
-        navigate("/dashboard"); // Redirect to Dashboard on success
-      } else {
-        setError("Invalid email or password.");
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError("An error occurred during login.");
+      setError(err.message || "Invalid email or password.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Simulated Google OAuth login
-  const handleGoogleLogin = async () => {
-    setError("");
-    setIsLoading(true);
-
-    try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1200));
-
-      // Create a mock Google user
-      const googleUser = {
-        name: "Google User",
-        email: "user@gmail.com",
-        avatar: "https://ui-avatars.com/api/?name=Google+User&background=random"
-      };
-
-      localStorage.setItem("loggedInUser", JSON.stringify(googleUser));
-      navigate("/dashboard");
-    } catch (err) {
-      setError("Google login failed. Please try again.");
-      setIsLoading(false);
-    }
+  // Disable Google login and show coming soon message
+  const handleGoogleLogin = () => {
+    setError("Google OAuth login coming soon!");
   };
 
-  // Simulated password reset
+  // Updated password reset with Appwrite
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setResetSuccess(true);
-    setIsLoading(false);
-    
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setShowResetForm(false);
-      setResetSuccess(false);
-      setResetEmail("");
-    }, 3000);
+    try {
+      await resetPassword(resetEmail);
+      setResetSuccess(true);
+      setTimeout(() => {
+        setShowResetForm(false);
+        setResetSuccess(false);
+        setResetEmail("");
+      }, 3000);
+    } catch (err) {
+      setError(err.message || "Failed to send reset email.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -272,17 +245,11 @@ const Login = () => {
                 {/* Google Login Button */}
                 <motion.button
                   onClick={handleGoogleLogin}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-3 mb-4 sm:mb-6 px-4 py-2.5 sm:py-3 bg-gray-700/70 hover:bg-gray-700 border border-gray-600 text-white rounded-xl transition-all duration-200 text-sm"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={true}
+                  className="w-full flex items-center justify-center gap-3 mb-4 sm:mb-6 px-4 py-2.5 sm:py-3 bg-gray-700/50 border border-gray-600 text-gray-400 rounded-xl transition-all duration-200 text-sm cursor-not-allowed"
                 >
-                  {isLoading ? (
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <FaGoogle className="text-white text-sm sm:text-base" />
-                  )}
-                  <span>Continue with Google</span>
+                  <FaGoogle className="text-gray-400 text-sm sm:text-base" />
+                  <span>Google OAuth Coming Soon</span>
                 </motion.button>
                 
                 {/* Divider */}

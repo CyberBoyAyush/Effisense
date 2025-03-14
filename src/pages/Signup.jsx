@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle, FaUser, FaCheckCircle } from "react-icons/fa";
 import { FiX, FiAlertTriangle } from "react-icons/fi";
 import { FaCalendarAlt } from "react-icons/fa";
+import { createAccount } from '../utils/appwrite';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const Signup = () => {
   const passwordStrength = validatePassword(password);
   const passwordStrengthScore = Object.values(passwordStrength).filter(Boolean).length;
   
-  // Generate password strength bar
+  // Generate password strength text
   const getPasswordStrengthText = () => {
     if (password.length === 0) return "";
     if (passwordStrengthScore < 2) return "Weak";
@@ -73,18 +74,16 @@ const Signup = () => {
     setStep(2);
   };
 
-  // Simulated signup function
+  // Updated signup function with Appwrite
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
     
-    // Basic validation
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
     
-    // Check password strength
     if (passwordStrengthScore < 3) {
       setError("Please use a stronger password");
       return;
@@ -92,58 +91,25 @@ const Signup = () => {
     
     setIsLoading(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Get existing users
-    const users = JSON.parse(localStorage.getItem("users")) || [];
-
-    // Check if email is already registered
-    if (users.find((user) => user.email === email)) {
-      setError("Email already exists. Please log in.");
+    try {
+      await createAccount(email, password, name);
+      setSuccess("Account created successfully!");
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
+    } catch (err) {
+      if (err.code === 409) {
+        setError("Email already exists. Please log in.");
+      } else {
+        setError(err.message || "Failed to create account.");
+      }
       setIsLoading(false);
-      return;
     }
-
-    // Create new user
-    const newUser = { name, email, password };
-    users.push(newUser);
-
-    // Save user to local storage
-    localStorage.setItem("users", JSON.stringify(users));
-    localStorage.setItem("loggedInUser", JSON.stringify(newUser));
-    
-    setSuccess("Account created successfully!");
-
-    // Simulate redirect delay
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1500);
   };
 
-  // Simulated Google OAuth signup
-  const handleGoogleSignup = async () => {
-    setError("");
-    setIsLoading(true);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    // Create a mock Google user
-    const googleUser = {
-      name: "Google User",
-      email: "user@gmail.com",
-      avatar: "https://ui-avatars.com/api/?name=Google+User&background=random"
-    };
-
-    localStorage.setItem("loggedInUser", JSON.stringify(googleUser));
-    
-    setSuccess("Account created successfully!");
-
-    // Simulate redirect delay
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1000);
+  // Disable Google signup and show coming soon message 
+  const handleGoogleSignup = () => {
+    setError("Google OAuth signup coming soon!");
   };
 
   return (
@@ -301,17 +267,11 @@ const Signup = () => {
           {!success && (
             <motion.button
               onClick={handleGoogleSignup}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 mb-6 px-6 py-3 bg-gray-700/70 hover:bg-gray-700 border border-gray-600 text-white rounded-xl transition-all duration-200"
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              disabled={true}
+              className="w-full flex items-center justify-center gap-3 mb-6 px-6 py-3 bg-gray-700/50 border border-gray-600 text-gray-400 rounded-xl transition-all duration-200 cursor-not-allowed"
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
-              ) : (
-                <FaGoogle className="text-white" />
-              )}
-              <span>Sign up with Google</span>
+              <FaGoogle className="text-gray-400" />
+              <span>Google OAuth Coming Soon</span>
             </motion.button>
           )}
           
