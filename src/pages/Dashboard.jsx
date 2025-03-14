@@ -81,7 +81,6 @@ const Dashboard = () => {
       
       if (taskToEdit) {
         // Update existing task
-        // First update UI optimistically
         const optimisticTask = {
           ...taskToEdit,
           ...taskData,
@@ -92,37 +91,24 @@ const Dashboard = () => {
           task.$id === taskToEdit.$id ? optimisticTask : task
         ));
         
-        // Then send to server
         const updatedTask = await updateTask(taskToEdit.$id, taskData);
         
-        // Update with server response if needed
         if (updatedTask) {
           setTasks(prevTasks => prevTasks.map(task => 
             task.$id === updatedTask.$id ? updatedTask : task
           ));
         }
       } else {
-        // Create new task with optimistic UI update
-        const tempId = 'temp-' + Date.now();
-        const optimisticTask = {
-          ...taskData,
-          $id: tempId,
-          userId: user.$id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        // Create new task
+        const { $id, ...taskDataWithoutId } = taskData;
         
-        // Add to UI immediately
-        setTasks(prevTasks => [...prevTasks, optimisticTask]);
+        // Send to server first
+        const newTask = await createTask(taskDataWithoutId, user.$id);
         
-        // Send to server
-        const newTask = await createTask(taskData, user.$id);
-        
-        // Replace temporary task with real one from server
         if (newTask) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === tempId ? newTask : task
-          ));
+          // Only update UI after server confirmation
+          setTasks(prevTasks => [...prevTasks, newTask]);
+          setFilteredTasks(prevTasks => [...prevTasks, newTask]);
         }
       }
       setIsModalOpen(false);
@@ -144,14 +130,17 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Delete task
-  const handleDeleteTask = async (index, isCompleted = false) => {
+  // Delete task handler
+  const handleDeleteTask = async (taskToDelete) => {
     try {
-      const taskArray = isCompleted ? completedTasks : queuedTasks;
-      const taskId = taskArray[index].$id;
-      
-      await deleteTask(taskId);
-      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+      if (!taskToDelete || !taskToDelete.$id) {
+        console.error('Invalid task object:', taskToDelete);
+        return;
+      }
+
+      await deleteTask(taskToDelete.$id);
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskToDelete.$id));
+      setFilteredTasks(prevTasks => prevTasks.filter(task => task.$id !== taskToDelete.$id));
     } catch (error) {
       console.error('Error deleting task:', error);
     }
@@ -336,7 +325,7 @@ const Dashboard = () => {
             <TaskList 
               tasks={queuedTasks} 
               onEdit={(task) => handleEditTask(queuedTasks.findIndex(t => t.$id === task.$id), false)}
-              onDelete={(taskId) => handleDeleteTask(taskId)} 
+              onDelete={handleDeleteTask} 
               onToggleComplete={handleToggleComplete} 
             />
           )}
@@ -380,7 +369,7 @@ const Dashboard = () => {
                 <TaskList 
                   tasks={completedTasks} 
                   onEdit={(task) => handleEditTask(completedTasks.findIndex(t => t.$id === task.$id), true)}
-                  onDelete={(taskId) => handleDeleteTask(taskId)}
+                  onDelete={handleDeleteTask}
                   onToggleComplete={handleToggleComplete} 
                 />
               </div>

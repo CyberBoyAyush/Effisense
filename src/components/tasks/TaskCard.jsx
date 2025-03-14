@@ -112,9 +112,8 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     }
   };
 
-  const handleDelete = async (e) => {
-    e.stopPropagation();
-    onDelete(task.$id); // Use Appwrite document ID
+  const handleDelete = () => {
+    onDelete(task);
   };
 
   const handleEdit = (e) => {

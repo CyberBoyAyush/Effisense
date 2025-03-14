@@ -6,10 +6,8 @@ import { taskCache } from "../../utils/database";
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
   const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
 
-  const handleDelete = async (taskId) => {
-    if (onDelete) {
-      onDelete(taskId);
-    }
+  const handleDelete = (task) => {
+    onDelete(task);
   };
 
   const handleToggleComplete = async (task) => {
@@ -26,7 +24,7 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {tasks.length === 0 ? (
         <div className="text-center py-12 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-orange-800/30">
           <div className="text-4xl mb-3">📝</div>
@@ -36,10 +34,10 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
       ) : (
         tasks.map((task) => (
           <TaskCard
-            key={task.$id}
+            key={task.$id || task.createdAt}
             task={task}
             onEdit={() => onEdit(task)}
-            onDelete={() => handleDelete(task.$id)}
+            onDelete={() => handleDelete(task)}
             onToggleComplete={() => handleToggleComplete(task)}
             setOpenTaskDetails={setOpenTaskDetails}
             usePortal={true}
