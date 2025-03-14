@@ -1,5 +1,6 @@
 import { databases } from './appwrite';
 import { ID, Query } from 'appwrite';
+import { account } from './appwrite';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const COLLECTION_ID = import.meta.env.VITE_APPWRITE_TASKS_COLLECTION_ID;
@@ -377,3 +378,14 @@ export const refreshTaskCache = async (userId) => {
 
 // Export the cache for direct access if needed
 export const taskCache = localTaskCache;
+
+// Add this new function
+export const updateUserName = async (userId, name) => {
+  try {
+    const updatedUser = await account.updateName(name);
+    return updatedUser;
+  } catch (error) {
+    console.error('Error updating user name:', error);
+    throw error;
+  }
+};

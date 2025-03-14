@@ -133,8 +133,7 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                       
                       {/* Account Actions */}
                       <div className="py-1 px-2 border-t border-gray-700/60">
-                        <NavLink to="/profile" icon={<FaUserCog />} label="Account Settings" />
-                        <NavLink to="/settings" icon={<FaCog />} label="Preferences" />
+                        <NavLink to="/settings" icon={<FaUserCog />} label="Account Settings" />
                       </div>
                       
                       {/* Logout Button */}
