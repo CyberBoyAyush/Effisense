@@ -417,7 +417,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             isRecurring,
             recurringType: isRecurring ? recurringType : undefined,
             enableReminders,
-            reminderTime: enableReminders ? reminderTime : undefined
+            // Convert reminderTime to integer before sending to database
+            reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined
         };
 
         // Get current user ID from local storage
