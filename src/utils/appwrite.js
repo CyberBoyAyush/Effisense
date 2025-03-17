@@ -80,3 +80,40 @@ export const resetPassword = async (email) => {
         throw error;
     }
 };
+
+export const confirmPasswordReset = async (userId, secret, newPassword) => {
+  try {
+    // We'll simplify the validation and defer to Appwrite's built-in validation
+    // Only perform basic length check client-side
+    if (newPassword.length < 8) {
+      throw { code: 400, message: "Password must be at least 8 characters long" };
+    }
+
+    // Call Appwrite password recovery API
+    // We need to pass the same password twice (for new password and password confirmation)
+    await account.updateRecovery(
+      userId,
+      secret,
+      newPassword,
+      newPassword
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Password reset error:', error);
+    
+    // Better error handling for Appwrite specific errors
+    if (error.code === 400) {
+      // Parse Appwrite's error message to provide more specific feedback
+      if (error.message.includes('password')) {
+        throw { 
+          code: 400, 
+          message: "Password must be at least 8 characters and include a mix of characters"
+        };
+      }
+    }
+    
+    // Pass through the original error if not handled above
+    throw error;
+  }
+};
