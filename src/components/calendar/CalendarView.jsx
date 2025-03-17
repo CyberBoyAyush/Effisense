@@ -99,12 +99,15 @@ const CalendarView = () => {
       
       // First show cached tasks immediately for responsive UX
       if (taskCache.tasks.length > 0) {
-        let filteredTasks = taskCache.tasks;
+        let filteredTasks = [...taskCache.tasks]; // Create a copy to avoid mutating the cache
+        
+        // Apply filters to cached tasks
         if (taskFilter === 'completed') {
-          filteredTasks = taskCache.tasks.filter(t => t.completed === true);
+          filteredTasks = filteredTasks.filter(t => t.completed === true);
         } else if (taskFilter === 'active') {
-          filteredTasks = taskCache.tasks.filter(t => t.completed === false);
+          filteredTasks = filteredTasks.filter(t => t.completed === false);
         }
+        
         setTasks(filteredTasks);
       }
       
@@ -118,10 +121,31 @@ const CalendarView = () => {
         fetchedTasks = await getUserTasks(user.$id);
       }
       
-      setTasks(fetchedTasks);
+      if (fetchedTasks) {
+        // Double-check the filter on the fetched tasks to ensure consistency
+        if (taskFilter === 'completed') {
+          fetchedTasks = fetchedTasks.filter(t => t.completed === true);
+        } else if (taskFilter === 'active') {
+          fetchedTasks = fetchedTasks.filter(t => t.completed === false);
+        }
+        
+        setTasks(fetchedTasks);
+      }
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      // Fallback to cache in case of error
+      // Fallback to filtered cache in case of error
+      if (taskCache.tasks.length > 0) {
+        let fallbackTasks = [...taskCache.tasks];
+        
+        // Apply filters to fallback tasks
+        if (taskFilter === 'completed') {
+          fallbackTasks = fallbackTasks.filter(t => t.completed === true);
+        } else if (taskFilter === 'active') {
+          fallbackTasks = fallbackTasks.filter(t => t.completed === false);
+        }
+        
+        setTasks(fallbackTasks);
+      }
     }
   }, [taskFilter]);
   
@@ -291,53 +315,48 @@ const CalendarView = () => {
       // Use $id consistently for Appwrite
       const id = task.$id || task.id;
       
-      // Early UI update for responsiveness
+      // Calculate the new completed state
       const newCompletedState = !task.completed;
-      setTasks(prevTasks => prevTasks.map(t => 
-        (t.$id === id || t.id === id) ? {
-          ...t, 
-          completed: newCompletedState,
-          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
-        } : t
-      ));
       
-      // Update task details if open
-      if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
-        setOpenTaskDetails({
-          ...openTaskDetails, 
-          completed: newCompletedState,
-          ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
-        });
-      }
+      // Check if task should be removed from current view based on filter
+      const shouldRemoveFromView = 
+        (taskFilter === 'completed' && !newCompletedState) || 
+        (taskFilter === 'active' && newCompletedState);
       
-      // Update backend and cache
-      const updatedTask = await toggleTaskCompletion(id, newCompletedState);
-      
-      // Handle filtering if needed
-      if ((taskFilter === 'completed' && !newCompletedState) || 
-          (taskFilter === 'active' && newCompletedState)) {
-        // Remove task from view if it doesn't match the filter anymore
-        setTimeout(() => {
-          setTasks(prevTasks => prevTasks.filter(t => 
-            !(t.$id === id || t.id === id)
-          ));
-        }, 500); // Small delay for animation
-      }
-    } catch (error) {
-      console.error('Error toggling task completion:', error);
-      // Handle error by reverting to cached state
-      const cachedTask = taskCache.getTask(taskId);
-      if (cachedTask) {
-        // Update UI with correct state from cache
+      if (shouldRemoveFromView) {
+        // Remove task from view immediately if it doesn't match filter
+        setTasks(prevTasks => prevTasks.filter(t => t.$id !== id && t.id !== id));
+        
+        // Close task details if open
+        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
+          setOpenTaskDetails(null);
+        }
+      } else {
+        // Update the task state in the current view
         setTasks(prevTasks => prevTasks.map(t => 
-          (t.$id === taskId || t.id === taskId) ? cachedTask : t
+          (t.$id === id || t.id === id) ? {
+            ...t, 
+            completed: newCompletedState,
+            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+          } : t
         ));
         
         // Update task details if open
-        if (openTaskDetails && (openTaskDetails.id === taskId || openTaskDetails.$id === taskId)) {
-          setOpenTaskDetails(cachedTask);
+        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
+          setOpenTaskDetails({
+            ...openTaskDetails, 
+            completed: newCompletedState,
+            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+          });
         }
       }
+      
+      // Update backend and cache
+      await toggleTaskCompletion(id, newCompletedState);
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      // On error, refresh tasks to ensure consistency
+      fetchTasks();
     }
   };
 
@@ -378,17 +397,32 @@ const CalendarView = () => {
     try {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
-      let updatedTasks;
+      let updatedResult;
       if (taskToEdit) {
         // Update existing task
-        const updatedTask = await updateTask(taskToEdit.$id, taskData);
-        setTasks(prevTasks => prevTasks.map(task => 
-          task.$id === updatedTask.$id ? updatedTask : task
-        ));
+        updatedResult = await updateTask(taskToEdit.$id, taskData);
+        
+        // Check if the updated task still matches current filter
+        const stillMatchesFilter = 
+          taskFilter === 'all' || 
+          (taskFilter === 'completed' && updatedResult.completed === true) ||
+          (taskFilter === 'active' && updatedResult.completed === false);
+        
+        if (stillMatchesFilter) {
+          setTasks(prevTasks => prevTasks.map(task => 
+            task.$id === updatedResult.$id ? updatedResult : task
+          ));
+        } else {
+          setTasks(prevTasks => prevTasks.filter(task => task.$id !== updatedResult.$id));
+        }
       } else {
         // Create new task
         const newTask = await createTask(taskData, user.$id);
-        setTasks(prevTasks => [...prevTasks, newTask]);
+        
+        // New tasks are always active, so only add to view if not filtered to completed
+        if (taskFilter !== 'completed') {
+          setTasks(prevTasks => [...prevTasks, newTask]);
+        }
       }
       
       setIsModalOpen(false);

@@ -6,7 +6,7 @@ import Footer from "./components/layout/Footer";
 
 const App = () => {
   const location = useLocation();
-  const isPublicPage = ['/', '/login', '/signup'].includes(location.pathname);
+  const isPublicPage = ['/', '/login', '/signup', '/reset-password'].includes(location.pathname);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (isPublicPage) {

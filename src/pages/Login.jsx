@@ -1,13 +1,14 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle, FaCheckCircle } from "react-icons/fa";
 import { FiX, FiAlertTriangle } from "react-icons/fi";
 import { FaCalendarAlt } from "react-icons/fa";
 import { login, resetPassword } from '../utils/appwrite';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,6 +18,16 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [showResetForm, setShowResetForm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Check for success message from reset password page
+  useEffect(() => {
+    if (location.state?.successMessage) {
+      setSuccessMessage(location.state.successMessage);
+      // Clear the state to prevent showing the message again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Updated login function with Appwrite
   const handleLogin = async (e) => {
@@ -211,6 +222,21 @@ const Login = () => {
                 >
                   <FiX className="w-4 h-4" />
                 </button>
+              </motion.div>
+            )}
+            
+            {successMessage && (
+              <motion.div 
+                className="mb-4 sm:mb-6 bg-green-500/10 border border-green-500/50 text-green-400 px-3 sm:px-4 py-2 sm:py-3 rounded-lg"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-center gap-2">
+                  <FaCheckCircle className="text-green-400" />
+                  <p className="text-xs sm:text-sm">{successMessage}</p>
+                </div>
               </motion.div>
             )}
             
