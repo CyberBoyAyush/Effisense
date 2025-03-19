@@ -81,34 +81,28 @@ const Dashboard = () => {
       
       if (taskToEdit) {
         // Update existing task
-        const optimisticTask = {
-          ...taskToEdit,
-          ...taskData,
-          updatedAt: new Date().toISOString()
-        };
-        
-        setTasks(prevTasks => prevTasks.map(task => 
-          task.$id === taskToEdit.$id ? optimisticTask : task
-        ));
-        
-        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
         
         if (updatedTask) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === updatedTask.$id ? updatedTask : task
-          ));
+          // Single state update to prevent race conditions
+          setTasks(prevTasks => {
+            const newTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
+            return [...newTasks, updatedTask];
+          });
         }
       } else {
         // Create new task
-        const { $id, ...taskDataWithoutId } = taskData;
-        
-        // Send to server first
-        const newTask = await createTask(taskDataWithoutId, user.$id);
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const newTask = await createTask(cleanedData, user.$id);
         
         if (newTask) {
-          // Only update UI after server confirmation
-          setTasks(prevTasks => [...prevTasks, newTask]);
-          setFilteredTasks(prevTasks => [...prevTasks, newTask]);
+          // Add new task without causing duplicates
+          setTasks(prevTasks => {
+            // Ensure no task with this ID exists
+            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
+            return [...uniqueTasks, newTask];
+          });
         }
       }
       setIsModalOpen(false);
@@ -154,44 +148,30 @@ const Dashboard = () => {
         return;
       }
       
-      // Update UI immediately for better user experience
-      setTasks(prevTasks => prevTasks.map(t => 
-        t.$id === task.$id ? {...t, completed: !task.completed} : t
-      ));
+      // Single state update for optimistic UI
+      setTasks(prevTasks => {
+        const updatedTasks = prevTasks.filter(t => t.$id !== task.$id);
+        return [...updatedTasks, { ...task, completed: !task.completed }];
+      });
       
-      // Update local filtered tasks as well
-      setFilteredTasks(prevTasks => prevTasks.map(t => 
-        t.$id === task.$id ? {...t, completed: !task.completed} : t
-      ));
-      
-      // Use the specialized toggle function with the task cache
       const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
       
-      // If update fails, the toggleTaskCompletion function will handle fallbacks internally
-      if (!updatedTask) {
-        console.error('Task update failed completely');
-        // The taskCache will still have the correct state, so refresh from there
-        const cachedTask = taskCache.getTask(task.$id);
-        if (cachedTask) {
-          setTasks(prevTasks => prevTasks.map(t => 
-            t.$id === task.$id ? cachedTask : t
-          ));
-          setFilteredTasks(prevTasks => prevTasks.map(t => 
-            t.$id === task.$id ? cachedTask : t
-          ));
-        }
+      if (updatedTask) {
+        // Update with server response
+        setTasks(prevTasks => {
+          const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
+          return [...filteredTasks, updatedTask];
+        });
       }
     } catch (error) {
       console.error('Error toggling task completion:', error);
-      // Revert UI change if there's an error, using the cached version
+      // Revert to cached state on error
       const cachedTask = taskCache.getTask(task.$id);
       if (cachedTask) {
-        setTasks(prevTasks => prevTasks.map(t => 
-          t.$id === task.$id ? cachedTask : t
-        ));
-        setFilteredTasks(prevTasks => prevTasks.map(t => 
-          t.$id === task.$id ? cachedTask : t
-        ));
+        setTasks(prevTasks => {
+          const revertedTasks = prevTasks.filter(t => t.$id !== task.$id);
+          return [...revertedTasks, cachedTask];
+        });
       }
     }
   };
