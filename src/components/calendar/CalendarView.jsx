@@ -1005,6 +1005,9 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                 
                 // Calculate positions for each task with PRECISE timing
                 return Object.values(taskGroups).map(({ task }) => {
+                  // Ensure we have a unique key using $id or id with a prefix
+                  const uniqueKey = `task-${task.$id || task.id}`;
+                  
                   const taskStyles = getTaskStyles(task);
                   
                   // Calculate position with PRECISE MEASUREMENTS
@@ -1019,7 +1022,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   
                   return (
                     <div 
-                      key={task.id}
+                      key={uniqueKey}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTaskClick(e, task);
@@ -1430,6 +1433,8 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 
                 // Calculate accurate positions for each task
                 return Object.values(taskGroups).map(({ task }) => {
+                  // Create a unique key using both task ID and any unique properties
+                  const uniqueKey = `day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`;
                   const taskStyles = getTaskStyles(task);
                   
                   // Calculate position with PRECISE MEASUREMENTS
@@ -1444,7 +1449,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
 
                   return (
                     <div 
-                      key={task.id}
+                      key={uniqueKey}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTaskClick(e, task);
@@ -1572,7 +1577,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
             
             return (
               <div
-                key={task.id}
+                key={`day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`}
                 onClick={(e) => handleTaskClick(e, task)}
                 style={{
                   position: 'absolute',
