@@ -71,22 +71,30 @@ const Tasks = () => {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
       if (taskToEdit) {
-        const updatedTask = await updateTask(taskToEdit.$id, taskData);
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
+        
         if (updatedTask) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === updatedTask.$id ? updatedTask : task
-          ));
+          setTasks(prevTasks => {
+            // Remove old version and add updated version
+            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
+            return [...filteredTasks, updatedTask];
+          });
         }
       } else {
-        // Remove $id from taskData
-        const { $id, ...taskDataWithoutId } = taskData;
+        // Remove system fields from new task data
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
         
         // Create task on server first
-        const newTask = await createTask(taskDataWithoutId, user.$id);
+        const newTask = await createTask(cleanedData, user.$id);
         
         if (newTask) {
-          // Only update UI after server confirmation
-          setTasks(prevTasks => [...prevTasks, newTask]);
+          // Ensure no duplicates when adding to state
+          setTasks(prevTasks => {
+            // Filter out any potential duplicates first
+            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
+            return [...uniqueTasks, newTask];
+          });
         }
       }
       setIsModalOpen(false);

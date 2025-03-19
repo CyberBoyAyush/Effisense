@@ -399,17 +399,14 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm() || !validateTimeOrder()) {
-        return;
-    }
 
     try {
+        // Prepare task data while removing system fields
         const taskData = {
             title,
             description,
             deadline: startDate.toISOString(),
-            endTime: endDate.toISOString(),
+            endTime: endDate ? endDate.toISOString() : undefined,
             priority,
             status,
             category,
@@ -417,24 +414,18 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             isRecurring,
             recurringType: isRecurring ? recurringType : undefined,
             enableReminders,
-            // Convert reminderTime to integer before sending to database
-            reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined
+            reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined,
+            duration
         };
 
-        // Get current user ID from local storage
-        const user = JSON.parse(localStorage.getItem('loggedInUser'));
-        
-        if (taskToEdit) {
-            // Update existing task
-            const updatedTask = await updateTask(taskToEdit.$id, taskData);
-            onSave(updatedTask);
-        } else {
-            // Create new task
-            const newTask = await createTask(taskData, user.$id);
-            onSave(newTask);
-        }
-        
-        onClose();
+        // Remove any nullish values
+        Object.keys(taskData).forEach(key => {
+            if (taskData[key] === undefined || taskData[key] === null) {
+                delete taskData[key];
+            }
+        });
+
+        onSave(taskData);
     } catch (error) {
         console.error("Error saving task:", error);
         setErrors({...errors, general: "Failed to save task"});

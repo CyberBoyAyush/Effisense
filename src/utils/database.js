@@ -68,10 +68,38 @@ const localTaskCache = {
 // Initialize the cache
 localTaskCache.initialize();
 
+// Define valid fields that match Appwrite schema
+const VALID_TASK_FIELDS = [
+    'title',
+    'description',
+    'deadline',
+    'endTime',
+    'priority',
+    'status',
+    'category',
+    'userId',
+    'syncWithGoogle',
+    'isRecurring',
+    'recurringType',
+    'enableReminders',
+    'reminderTime',
+    'createdAt',
+    'updatedAt'
+];
+
 export const createTask = async (taskData, userId) => {
     try {
+        const { $id, $databaseId, $collectionId, $createdAt, $updatedAt, duration, ...dirtyData } = taskData;
+
+        const cleanData = Object.keys(dirtyData).reduce((acc, key) => {
+            if (VALID_TASK_FIELDS.includes(key)) {
+                acc[key] = dirtyData[key];
+            }
+            return acc;
+        }, {});
+
         const task = {
-            ...taskData,
+            ...cleanData,
             userId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -84,8 +112,10 @@ export const createTask = async (taskData, userId) => {
             task
         );
 
-        // Add to local cache
-        localTaskCache.addTask(response);
+        // Add to local cache only after successful creation
+        if (response) {
+            localTaskCache.addTask(response);
+        }
         
         return response;
     } catch (error) {

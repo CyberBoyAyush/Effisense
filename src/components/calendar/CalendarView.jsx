@@ -235,55 +235,36 @@ const CalendarView = () => {
       if (!user) return;
       
       if (taskToEdit) {
-        // Optimistic update for editing
-        const updatedTaskLocal = {
-          ...taskToEdit,
-          ...taskData,
-          updatedAt: new Date().toISOString()
-        };
+        // Update existing task
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
         
-        // Update UI immediately
-        setTasks(prevTasks => prevTasks.map(task => 
-          task.$id === taskToEdit.$id ? updatedTaskLocal : task
-        ));
-        
-        // Update backend
-        const response = await updateTask(taskToEdit.$id, taskData);
-        
-        // Update with server response if needed
-        if (response) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === response.$id ? response : task
-          ));
+        if (updatedTask) {
+          // Replace existing task with updated version
+          setTasks(prevTasks => {
+            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
+            return [...filteredTasks, updatedTask];
+          });
         }
       } else {
-        // Create temporary task for optimistic UI
-        const tempId = `temp-${Date.now()}`;
-        const tempTask = {
-          ...taskData,
-          $id: tempId,
-          userId: user.$id,
-          completed: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        // Create new task
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
         
-        // Add to UI immediately
-        setTasks(prevTasks => [...prevTasks, tempTask]);
+        // Create in backend first
+        const newTask = await createTask(cleanedData, user.$id);
         
-        // Create in backend
-        const newTask = await createTask(taskData, user.$id);
-        
-        // Replace temp task with real one
         if (newTask) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === tempId ? newTask : task
-          ));
+          // Add to state ensuring no duplicates
+          setTasks(prevTasks => {
+            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
+            return [...uniqueTasks, newTask];
+          });
         }
       }
       
       setIsModalOpen(false);
       setTaskToEdit(null);
+      setSelectedDate(null);
     } catch (error) {
       console.error('Error saving task:', error);
     }
@@ -397,31 +378,27 @@ const CalendarView = () => {
     try {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
-      let updatedResult;
       if (taskToEdit) {
         // Update existing task
-        updatedResult = await updateTask(taskToEdit.$id, taskData);
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
         
-        // Check if the updated task still matches current filter
-        const stillMatchesFilter = 
-          taskFilter === 'all' || 
-          (taskFilter === 'completed' && updatedResult.completed === true) ||
-          (taskFilter === 'active' && updatedResult.completed === false);
-        
-        if (stillMatchesFilter) {
-          setTasks(prevTasks => prevTasks.map(task => 
-            task.$id === updatedResult.$id ? updatedResult : task
-          ));
-        } else {
-          setTasks(prevTasks => prevTasks.filter(task => task.$id !== updatedResult.$id));
+        if (updatedTask) {
+          setTasks(prevTasks => {
+            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
+            return [...filteredTasks, updatedTask];
+          });
         }
       } else {
         // Create new task
-        const newTask = await createTask(taskData, user.$id);
+        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        const newTask = await createTask(cleanedData, user.$id);
         
-        // New tasks are always active, so only add to view if not filtered to completed
-        if (taskFilter !== 'completed') {
-          setTasks(prevTasks => [...prevTasks, newTask]);
+        if (newTask) {
+          setTasks(prevTasks => {
+            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
+            return [...uniqueTasks, newTask];
+          });
         }
       }
       
@@ -1028,6 +1005,9 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                 
                 // Calculate positions for each task with PRECISE timing
                 return Object.values(taskGroups).map(({ task }) => {
+                  // Ensure we have a unique key using $id or id with a prefix
+                  const uniqueKey = `task-${task.$id || task.id}`;
+                  
                   const taskStyles = getTaskStyles(task);
                   
                   // Calculate position with PRECISE MEASUREMENTS
@@ -1042,7 +1022,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                   
                   return (
                     <div 
-                      key={task.id}
+                      key={uniqueKey}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTaskClick(e, task);
@@ -1453,6 +1433,8 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                 
                 // Calculate accurate positions for each task
                 return Object.values(taskGroups).map(({ task }) => {
+                  // Create a unique key using both task ID and any unique properties
+                  const uniqueKey = `day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`;
                   const taskStyles = getTaskStyles(task);
                   
                   // Calculate position with PRECISE MEASUREMENTS
@@ -1467,7 +1449,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
 
                   return (
                     <div 
-                      key={task.id}
+                      key={uniqueKey}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTaskClick(e, task);
@@ -1595,7 +1577,7 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
             
             return (
               <div
-                key={task.id}
+                key={`day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`}
                 onClick={(e) => handleTaskClick(e, task)}
                 style={{
                   position: 'absolute',
