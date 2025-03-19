@@ -8,8 +8,10 @@ import {
   FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
   FaUmbrellaBeach, FaHistory
 } from "react-icons/fa";
+import { useToast } from '../contexts/ToastContext';
 
 const Tasks = () => {
+  const { addToast } = useToast();
   const [filter, setFilter] = useState('all');
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,8 +100,10 @@ const Tasks = () => {
         }
       }
       setIsModalOpen(false);
+      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
     } catch (error) {
       console.error('Error saving task:', error);
+      addToast('Failed to save task. Please try again.', 'error');
       setIsModalOpen(false);
     }
   };
@@ -124,9 +128,11 @@ const Tasks = () => {
       if (result) {
         // Only update state if delete was successful
         setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
+        addToast('Task deleted successfully!', 'success');
       }
     } catch (error) {
       console.error('Error deleting task:', error);
+      addToast('Failed to delete task. Please try again.', 'error');
     }
   };
 
@@ -151,8 +157,14 @@ const Tasks = () => {
           (filter === 'active' && updatedTask.completed)) {
         setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
       }
+      if (task.completed) {
+        addToast('Task marked as incomplete!', 'success');
+      } else {
+        addToast('Task marked as complete!', 'success');
+      }
     } catch (error) {
       console.error('Error toggling task completion:', error);
+      addToast('Failed to update task status. Please try again.', 'error');
       // Revert UI change using cache
       const cachedTask = taskCache.getTask(task.$id);
       if (cachedTask) {

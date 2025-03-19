@@ -9,9 +9,11 @@ import {
   FaExclamationCircle, FaFilter, FaAngleDown,
   FaEye, FaEyeSlash, FaInbox, FaRegClock
 } from "react-icons/fa";
+import { useToast } from '../contexts/ToastContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
@@ -107,8 +109,10 @@ const Dashboard = () => {
       }
       setIsModalOpen(false);
       setTaskToEdit(null);
+      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
     } catch (error) {
       console.error('Error saving task:', error);
+      addToast('Failed to save task. Please try again.', 'error');
     }
   };
 
@@ -135,8 +139,10 @@ const Dashboard = () => {
       await deleteTask(taskToDelete.$id);
       setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskToDelete.$id));
       setFilteredTasks(prevTasks => prevTasks.filter(task => task.$id !== taskToDelete.$id));
+      addToast('Task deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting task:', error);
+      addToast('Failed to delete task. Please try again.', 'error');
     }
   };
 
@@ -163,8 +169,10 @@ const Dashboard = () => {
           return [...filteredTasks, updatedTask];
         });
       }
+      addToast(task.completed ? 'Task marked as incomplete!' : 'Task marked as complete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
+      addToast('Failed to update task status. Please try again.', 'error');
       // Revert to cached state on error
       const cachedTask = taskCache.getTask(task.$id);
       if (cachedTask) {

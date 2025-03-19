@@ -3,6 +3,7 @@ import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion,
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
+import { useToast } from '../../contexts/ToastContext';
 
 // Helper function to process tasks for calendar views - moved outside of any component
 const processTasksForDay = (tasks, date) => {
@@ -79,6 +80,7 @@ const HourRangeButton = ({ label, range, setRange, current }) => {
 };
 
 const CalendarView = () => {
+  const { addToast } = useToast();
   const [view, setView] = useState('month'); // 'month', 'week', 'day'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState([]);
@@ -265,8 +267,10 @@ const CalendarView = () => {
       setIsModalOpen(false);
       setTaskToEdit(null);
       setSelectedDate(null);
+      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
     } catch (error) {
       console.error('Error saving task:', error);
+      addToast('Failed to save task. Please try again.', 'error');
     }
   };
 
@@ -334,8 +338,10 @@ const CalendarView = () => {
       
       // Update backend and cache
       await toggleTaskCompletion(id, newCompletedState);
+      addToast(newCompletedState ? 'Task marked as complete!' : 'Task marked as incomplete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
+      addToast('Failed to update task status. Please try again.', 'error');
       // On error, refresh tasks to ensure consistency
       fetchTasks();
     }
@@ -361,8 +367,10 @@ const CalendarView = () => {
       
       // Then delete from database
       await deleteTask(taskId);
+      addToast('Task deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting task:', error);
+      addToast('Failed to delete task. Please try again.', 'error');
       // If error, we could refresh tasks but usually not necessary as deletion is less critical
       // fetchTasks();
     }
@@ -404,8 +412,10 @@ const CalendarView = () => {
       
       setIsModalOpen(false);
       setTaskToEdit(null);
+      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
     } catch (error) {
       console.error('Error saving task:', error);
+      addToast('Failed to save task. Please try again.', 'error');
     }
   };
 
