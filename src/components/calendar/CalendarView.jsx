@@ -267,52 +267,30 @@ const CalendarView = () => {
         return;
       }
       
-      // Use $id consistently for Appwrite
       const id = task.$id || task.id;
+      const isCurrentlyCompleted = task.status === 'completed';
+      const newCompletedState = !isCurrentlyCompleted;
       
-      // Calculate the new completed state
-      const newCompletedState = !task.completed;
+      // Update backend first
+      const updatedTask = await toggleTaskCompletion(id, newCompletedState);
       
-      // Check if task should be removed from current view based on filter
-      const shouldRemoveFromView = 
-        (taskFilter === 'completed' && !newCompletedState) || 
-        (taskFilter === 'active' && newCompletedState);
-      
-      if (shouldRemoveFromView) {
-        // Remove task from view immediately if it doesn't match filter
-        setTasks(prevTasks => prevTasks.filter(t => t.$id !== id && t.id !== id));
-        
-        // Close task details if open
-        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
-          setOpenTaskDetails(null);
-        }
-      } else {
-        // Update the task state in the current view
+      if (updatedTask) {
+        // Update tasks state with the response from backend
         setTasks(prevTasks => prevTasks.map(t => 
-          (t.$id === id || t.id === id) ? {
-            ...t, 
-            completed: newCompletedState,
-            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+          t.$id === id ? {
+            ...t,
+            status: updatedTask.status,
+            completedAt: updatedTask.completedAt,
+            updatedAt: updatedTask.updatedAt
           } : t
         ));
         
-        // Update task details if open
-        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
-          setOpenTaskDetails({
-            ...openTaskDetails, 
-            completed: newCompletedState,
-            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
-          });
-        }
+        addToast(newCompletedState ? 'Task marked as complete!' : 'Task marked as incomplete!', 'success');
       }
-      
-      // Update backend and cache
-      await toggleTaskCompletion(id, newCompletedState);
-      addToast(newCompletedState ? 'Task marked as complete!' : 'Task marked as incomplete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // On error, refresh tasks to ensure consistency
+      // Refresh tasks to ensure consistency
       fetchTasks();
     }
   };
@@ -397,7 +375,7 @@ const CalendarView = () => {
         key={task.id}
         onClick={(e) => onClick(e, task)}
         className={`text-xs p-1.5 rounded mb-1
-          ${task.completed 
+          ${task.status === 'completed'
             ? 'bg-green-500/20 text-green-300 opacity-70' 
             : isRecurring 
               ? 'bg-orange-500/20 text-orange-300 border-l-2 border-orange-500' 
@@ -405,9 +383,11 @@ const CalendarView = () => {
           }
           hover:bg-opacity-40 cursor-pointer flex items-center gap-1`}
       >
-        {task.completed && <span>✓</span>}
+        {task.status === 'completed' && <span>✓</span>}
         {isRecurring && <span className="text-[9px]">🔄</span>}
-        {task.title}
+        <span className={task.status === 'completed' ? 'line-through' : ''}>
+          {task.title}
+        </span>
       </div>
     );
   };
@@ -764,7 +744,9 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                   <div className="flex items-center gap-1">
                     <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0 
                       ${task.completed ? 'bg-green-400' : 'bg-orange-400'}`}></div>
-                    <span className="truncate">{task.title}</span>
+                    <span className={`truncate ${task.completed ? 'line-through text-gray-500 decoration-2' : ''}`}>
+                      {task.title}
+                    </span>
                     {task.completed && <span className="text-green-300 ml-1">✓</span>}
                   </div>
                 </div>
@@ -1022,7 +1004,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                         {task.completed && (
                           <span className="text-[10px] text-green-300">✓</span>
                         )}
-                        <span className={`text-xs font-medium truncate ${task.completed ? 'text-gray-300' : ''}`}>
+                        <span className={`text-xs font-medium truncate leading-tight ${taskStyles.completedStyles}`}>
                           {task.title}
                         </span>
                       </div>
@@ -1196,9 +1178,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                           {task.completed && (
                             <span className="text-[10px] text-green-300 pt-0.5 font-bold">✓</span>
                           )}
-                          <span className={`text-xs font-medium truncate leading-tight ${
-                            task.completed ? 'text-gray-400' : ''
-                          }`}>
+                          <span className={`text-xs font-medium truncate leading-tight ${taskStyles.completedStyles}`}>
                             {task.title}
                           </span>
                         </div>
@@ -1443,7 +1423,9 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                     >
                       <div className="flex items-center gap-1">
                         {task.completed && <span className="text-[10px]">✓</span>}
-                        <span className="text-xs font-medium truncate">{task.title}</span>
+                        <span className={`text-xs font-medium truncate ${taskStyles.completedStyles}`}>
+                          {task.title}
+                        </span>
                       </div>
                       
                       {heightValue > 28 && (
@@ -1614,17 +1596,19 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
 
 // Helper function to get styling for tasks based on category/completion status - Updated for GCal style
 const getTaskStyles = (task) => {
-  if (task.status === 'completed') {
+  if (task.status === 'completed' || task.completed) {
     return { 
-      bgColor: 'bg-gray-800/70 border border-green-500/30', 
-      textColor: 'text-gray-300'
+      bgColor: 'bg-gray-900/50 border border-gray-600/30', 
+      textColor: 'text-gray-500',
+      completedStyles: 'opacity-75 line-through decoration-gray-500 decoration-2'
     };
   }
   
   if (task.status === 'in_progress') {
     return {
       bgColor: 'bg-amber-500/15 border border-amber-500/40',
-      textColor: 'text-amber-200'
+      textColor: 'text-amber-200',
+      completedStyles: ''
     };
   }
   
@@ -1633,22 +1617,26 @@ const getTaskStyles = (task) => {
     case 'work':
       return { 
         bgColor: 'bg-blue-500/15 border border-blue-500/40', 
-        textColor: 'text-blue-200' 
+        textColor: 'text-blue-200',
+        completedStyles: '' 
       };
     case 'personal':
       return { 
         bgColor: 'bg-purple-500/15 border border-purple-500/40', 
-        textColor: 'text-purple-200' 
+        textColor: 'text-purple-200',
+        completedStyles: '' 
       };
     case 'health':
       return { 
         bgColor: 'bg-green-500/15 border border-green-500/40', 
-        textColor: 'text-green-200' 
+        textColor: 'text-green-200',
+        completedStyles: '' 
       };
     default:
       return { 
         bgColor: 'bg-orange-500/15 border border-orange-500/40', 
-        textColor: 'text-orange-200' 
+        textColor: 'text-orange-200',
+        completedStyles: '' 
       };
   }
 };

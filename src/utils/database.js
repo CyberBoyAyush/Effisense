@@ -21,7 +21,8 @@ const VALID_TASK_FIELDS = [
     'enableReminders',
     'reminderTime',
     'createdAt',
-    'updatedAt'
+    'updatedAt',
+    'completedAt'  // Add completedAt to valid fields
 ];
 
 export const createTask = async (taskData, userId) => {
@@ -123,24 +124,28 @@ export const updateTask = async (taskId, taskData) => {
 
 export const toggleTaskCompletion = async (taskId, isCompleted) => {
     try {
+        const timestamp = new Date().toISOString();
         const taskUpdate = {
             status: isCompleted ? 'completed' : 'pending',
-            updatedAt: new Date().toISOString()
+            completedAt: isCompleted ? timestamp : null,
+            updatedAt: timestamp
         };
 
-        return await databases.updateDocument(
+        const updatedTask = await databases.updateDocument(
             DATABASE_ID,
             COLLECTION_ID,
             taskId,
             taskUpdate
         );
+
+        return updatedTask;
     } catch (error) {
         console.error('Appwrite service error:', error);
         throw error;
     }
 };
 
-// Helper function to check if a task is completed
+// Update helper function to use status consistently
 export const isTaskCompleted = (task) => {
     return task.status === 'completed';
 };

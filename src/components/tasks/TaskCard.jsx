@@ -126,8 +126,9 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     if (e) e.stopPropagation();
     
     try {
-      // Call the parent component's toggle handler for UI update
-      onToggleComplete(task);
+      const isCompleted = task.status === 'completed';
+      // Pass both the task and the new completion state
+      await onToggleComplete(task, !isCompleted);
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
@@ -142,7 +143,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           ${isOverdue 
             ? 'border-red-500/40 hover:border-red-500/60' 
             : task.completed 
-              ? 'border-green-500/30 hover:border-green-500/40 opacity-80' 
+              ? 'bg-gray-900/50 border-gray-600/30 hover:border-gray-600/50' 
               : 'border-gray-700/50 hover:border-orange-500/50'
           }`}
         onClick={handleCardClick}
@@ -155,26 +156,31 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
             {/* Checkbox */}
             <button
               onClick={(e) => handleToggleComplete(e)}
-              className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+              className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
               aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
             >
-              {task.completed ? (
+              {task.status === 'completed' ? (
                 <FaRegCheckCircle className="w-6 h-6 text-green-500" />
               ) : (
-                <FaRegCircle className="w-6 h-6 text-gray-500 group-hover:text-orange-500 transition-colors" />
+                <FaRegCircle className="w-6 h-6 text-gray-500 hover:text-orange-500 transition-colors" />
               )}
             </button>
             
             <div className="space-y-2 min-w-0 flex-1">
-              {/* Title */}
-              <h3 className={`text-base sm:text-lg font-semibold group-hover:text-orange-400 transition-colors truncate
-                ${task.completed ? 'text-gray-400 line-through' : 'text-white'}`}>
+              {/* Title with enhanced completed styling */}
+              <h3 className={`text-base sm:text-lg font-semibold transition-all duration-200
+                ${task.status === 'completed'
+                  ? 'text-gray-500 line-through decoration-gray-500 decoration-2' 
+                  : 'text-white group-hover:text-orange-400'}`}
+              >
                 {task.title}
               </h3>
               
-              {/* Description - Show truncated on card */}
+              {/* Description with enhanced completed styling */}
               {task.description && (
-                <p className="text-gray-400 text-sm sm:text-base line-clamp-2">
+                <p className={`text-gray-400 text-sm sm:text-base line-clamp-2
+                  ${task.completed ? 'line-through decoration-gray-500 opacity-50' : ''}`}
+                >
                   {task.description}
                 </p>
               )}
