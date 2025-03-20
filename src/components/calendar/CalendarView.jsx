@@ -44,6 +44,8 @@ const processTasksForDay = (tasks, date) => {
 
         return {
           ...task,
+          completed: task.status === 'completed',
+          inProgress: task.status === 'in_progress',
           startTime,
           endTime,
           startHour,
@@ -110,16 +112,7 @@ const CalendarView = () => {
         fetchedTasks = await getUserTasks(user.$id);
       }
       
-      if (fetchedTasks) {
-        // Apply filters to fetched tasks
-        if (taskFilter === 'completed') {
-          fetchedTasks = fetchedTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          fetchedTasks = fetchedTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(fetchedTasks);
-      }
+      setTasks(fetchedTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       setTasks([]);
@@ -1621,10 +1614,17 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
 
 // Helper function to get styling for tasks based on category/completion status - Updated for GCal style
 const getTaskStyles = (task) => {
-  if (task.completed) {
+  if (task.status === 'completed') {
     return { 
       bgColor: 'bg-gray-800/70 border border-green-500/30', 
       textColor: 'text-gray-300'
+    };
+  }
+  
+  if (task.status === 'in_progress') {
+    return {
+      bgColor: 'bg-amber-500/15 border border-amber-500/40',
+      textColor: 'text-amber-200'
     };
   }
   

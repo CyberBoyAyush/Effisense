@@ -170,7 +170,7 @@ export const getActiveTasks = async (userId) => {
             COLLECTION_ID,
             [
                 Query.equal('userId', userId),
-                Query.equal('status', 'pending')
+                Query.notEqual('status', 'completed') // This will get both 'pending' and 'in_progress'
             ]
         );
         

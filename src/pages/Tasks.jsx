@@ -207,7 +207,7 @@ const Tasks = () => {
     filter === 'completed' ? 
       tasks.filter(t => t.status === 'completed') :
       filter === 'active' ? 
-        tasks.filter(t => t.status !== 'completed') :
+        tasks.filter(t => t.status !== 'completed') : // Include both pending and in_progress
         filter === 'today' ? 
           tasks.filter(t => isDateEqual(t.deadline, today)) :
           filter === 'tomorrow' ? 
