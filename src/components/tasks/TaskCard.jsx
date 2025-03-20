@@ -126,9 +126,11 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     if (e) e.stopPropagation();
     
     try {
-      const isCompleted = task.status === 'completed';
-      // Pass both the task and the new completion state
-      await onToggleComplete(task, !isCompleted);
+      const isCurrentlyCompleted = task.status === 'completed';
+      if (onToggleComplete) {
+        // Pass the full task object for backend update
+        await onToggleComplete(task, !isCurrentlyCompleted);
+      }
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
@@ -157,7 +159,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
             <button
               onClick={(e) => handleToggleComplete(e)}
               className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
-              aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+              aria-label={task.status === 'completed' ? "Mark as incomplete" : "Mark as complete"}
             >
               {task.status === 'completed' ? (
                 <FaRegCheckCircle className="w-6 h-6 text-green-500" />
@@ -302,12 +304,12 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
               <button
                 onClick={onToggleComplete}
                 className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200
-                  ${task.completed 
+                  ${task.status === 'completed' 
                     ? 'text-green-500' 
                     : 'text-gray-400 hover:text-orange-500'
                   }`}
               >
-                {task.completed ? (
+                {task.status === 'completed' ? (
                   <FaRegCheckCircle className="w-6 h-6" />
                 ) : (
                   <FaRegCircle className="w-6 h-6" />
