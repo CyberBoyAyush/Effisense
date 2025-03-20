@@ -33,8 +33,8 @@ const Settings = () => {
           const tasks = await getUserTasks(userData.$id);
           setTaskStats({
             total: tasks.length,
-            completed: tasks.filter(t => t.completed).length,
-            pending: tasks.filter(t => !t.completed).length
+            completed: tasks.filter(t => t.status === 'completed').length,
+            pending: tasks.filter(t => t.status !== 'completed').length
           });
         }
       } catch (error) {
