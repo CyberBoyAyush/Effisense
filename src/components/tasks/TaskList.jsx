@@ -1,7 +1,6 @@
-import React from "react";
-import TaskCard from "./TaskCard";
-import { createPortal } from "react-dom";
-import { taskCache } from "../../utils/database";
+import React from 'react';
+import TaskCard from './TaskCard';
+import { createPortal } from 'react-dom';
 
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
   const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
@@ -12,14 +11,7 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
 
   const handleToggleComplete = async (task) => {
     if (onToggleComplete) {
-      // Get a consistent task object with proper IDs
-      const taskToToggle = task.$id ? task : taskCache.getTask(task.id);
-      if (taskToToggle) {
-        onToggleComplete(taskToToggle);
-      } else {
-        // Fallback if task isn't in cache
-        onToggleComplete(task);
-      }
+      onToggleComplete(task);
     }
   };
 

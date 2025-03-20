@@ -5,7 +5,7 @@ import {
   FaEdit, FaTrashAlt, FaExclamationCircle, FaTags, FaLayerGroup,
   FaRecycle, FaBullhorn
 } from "react-icons/fa";
-import { toggleTaskCompletion, taskCache } from "../../utils/database"; // Import the specialized function and cache
+import { toggleTaskCompletion } from "../../utils/database"; // Import the specialized function
 
 const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails, usePortal = false }) => {
   const [showDetails, setShowDetails] = useState(false);
@@ -121,22 +121,13 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     onEdit(task); // Pass entire task object
   };
   
-  // Enhanced toggle handler with local state update for immediate feedback
+  // Enhanced toggle handler - removed taskCache dependency
   const handleToggleComplete = async (e) => {
     if (e) e.stopPropagation();
     
     try {
-      // Get the current task state
-      const currentState = task.completed;
-      
       // Call the parent component's toggle handler for UI update
       onToggleComplete(task);
-      
-      // Also update the local cache directly to ensure consistency
-      taskCache.updateTask(task.$id, { 
-        completed: !currentState,
-        ...((!currentState) ? { completedAt: new Date().toISOString() } : {})
-      });
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
@@ -331,7 +322,7 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
               className="p-2 text-gray-400 hover:text-orange-400 rounded-lg hover:bg-gray-700/50 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" />
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
               </svg>
             </button>
           </div>

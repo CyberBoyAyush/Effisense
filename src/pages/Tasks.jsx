@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
 import { createPortal } from "react-dom";
-import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks } from '../utils/database';
 import { 
   FaTasks, FaPlus, FaCheck, FaRegClock, 
   FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
@@ -25,23 +25,6 @@ const Tasks = () => {
         setIsLoading(true);
         const user = JSON.parse(localStorage.getItem('loggedInUser'));
         if (user) {
-          // First check cache for immediate display
-          if (taskCache.tasks.length > 0) {
-            let filteredTasks;
-            
-            // Apply filter to cached tasks
-            if (filter === 'completed') {
-              filteredTasks = taskCache.tasks.filter(t => t.completed === true);
-              setTasks(filteredTasks);
-            } else if (filter === 'active') {
-              filteredTasks = taskCache.tasks.filter(t => t.completed === false);
-              setTasks(filteredTasks);
-            } else {
-              setTasks(taskCache.tasks);
-            }
-          }
-          
-          // Then fetch fresh data from server
           let fetchedTasks;
           if (filter === 'completed') {
             fetchedTasks = await getCompletedTasks(user.$id);
@@ -78,33 +61,24 @@ const Tasks = () => {
         
         if (updatedTask) {
           setTasks(prevTasks => {
-            // Remove old version and add updated version
             const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
             return [...filteredTasks, updatedTask];
           });
         }
       } else {
-        // Remove system fields from new task data
         const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        
-        // Create task on server first
         const newTask = await createTask(cleanedData, user.$id);
         
         if (newTask) {
-          // Ensure no duplicates when adding to state
-          setTasks(prevTasks => {
-            // Filter out any potential duplicates first
-            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
-            return [...uniqueTasks, newTask];
-          });
+          setTasks(prevTasks => [...prevTasks, newTask]);
         }
       }
       setIsModalOpen(false);
+      setTaskToEdit(null);
       addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
     } catch (error) {
       console.error('Error saving task:', error);
       addToast('Failed to save task. Please try again.', 'error');
-      setIsModalOpen(false);
     }
   };
 
@@ -117,19 +91,11 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteTask = async (task) => {
-    if (!task || !task.$id) {
-      console.error('Invalid task object:', task);
-      return;
-    }
-    
+  const handleDeleteTask = async (taskId) => {
     try {
-      const result = await deleteTask(task.$id);
-      if (result) {
-        // Only update state if delete was successful
-        setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
-        addToast('Task deleted successfully!', 'success');
-      }
+      await deleteTask(taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+      addToast('Task deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting task:', error);
       addToast('Failed to delete task. Please try again.', 'error');
@@ -137,49 +103,23 @@ const Tasks = () => {
   };
 
   // Enhanced toggle with local state management
-  const handleToggleComplete = async (task) => {
-    if (!task || !task.$id) {
-      console.error('Invalid task object:', task);
-      return;
-    }
-    
+  const handleToggleComplete = async (taskId) => {
     try {
-      // Update UI immediately for better user experience
-      setTasks(prevTasks => prevTasks.map(t => 
-        t.$id === task.$id ? {...t, completed: !task.completed} : t
-      ));
+      const task = tasks.find(t => t.$id === taskId);
+      const updatedTask = await toggleTaskCompletion(taskId, !task.completed);
       
-      // Use the specialized toggle function
-      const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
-      
-      // If task should no longer appear in the current filter view, remove it
       if ((filter === 'completed' && !updatedTask.completed) || 
           (filter === 'active' && updatedTask.completed)) {
-        setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
-      }
-      if (task.completed) {
-        addToast('Task marked as incomplete!', 'success');
+        setTasks(prevTasks => prevTasks.filter(t => t.$id !== taskId));
       } else {
-        addToast('Task marked as complete!', 'success');
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === taskId ? updatedTask : t
+        ));
       }
+      addToast(task.completed ? 'Task marked as incomplete!' : 'Task marked as complete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // Revert UI change using cache
-      const cachedTask = taskCache.getTask(task.$id);
-      if (cachedTask) {
-        // If the task belongs in the current filter view, show it
-        if ((filter === 'completed' && cachedTask.completed) || 
-            (filter === 'active' && !cachedTask.completed) ||
-            filter === 'all') {
-          setTasks(prevTasks => prevTasks.map(t => 
-            t.$id === task.$id ? cachedTask : t
-          ));
-        } else {
-          // Otherwise remove it from the view
-          setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
-        }
-      }
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks } from '../../utils/database';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -92,28 +92,15 @@ const CalendarView = () => {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'active', 'completed'
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Improved task fetching with cache prioritization and optimistic updates
+  // Improved task fetching without cache
   const fetchTasks = useCallback(async () => {
     try {
+      setIsLoading(true);
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       if (!user) return;
       
-      // First show cached tasks immediately for responsive UX
-      if (taskCache.tasks.length > 0) {
-        let filteredTasks = [...taskCache.tasks]; // Create a copy to avoid mutating the cache
-        
-        // Apply filters to cached tasks
-        if (taskFilter === 'completed') {
-          filteredTasks = filteredTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          filteredTasks = filteredTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(filteredTasks);
-      }
-      
-      // Then fetch from server
       let fetchedTasks;
       if (taskFilter === 'completed') {
         fetchedTasks = await getCompletedTasks(user.$id);
@@ -124,7 +111,7 @@ const CalendarView = () => {
       }
       
       if (fetchedTasks) {
-        // Double-check the filter on the fetched tasks to ensure consistency
+        // Apply filters to fetched tasks
         if (taskFilter === 'completed') {
           fetchedTasks = fetchedTasks.filter(t => t.completed === true);
         } else if (taskFilter === 'active') {
@@ -135,19 +122,9 @@ const CalendarView = () => {
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      // Fallback to filtered cache in case of error
-      if (taskCache.tasks.length > 0) {
-        let fallbackTasks = [...taskCache.tasks];
-        
-        // Apply filters to fallback tasks
-        if (taskFilter === 'completed') {
-          fallbackTasks = fallbackTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          fallbackTasks = fallbackTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(fallbackTasks);
-      }
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [taskFilter]);
   
@@ -1102,27 +1079,23 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
             return (
               <div
                 key={date.toISOString()}
-                className={`p-2 text-center border-b border-gray-700/30 
-                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/20' : 'bg-gray-800/30'}`}
+                className={`text-center p-2 border-r border-b border-gray-700/30
+                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/50' : 'bg-gray-800/30'}`}
               >
-                <div className="flex flex-col items-center">
-                  <div className={`text-xs font-medium tracking-wide uppercase 
-                    ${isToday ? 'text-orange-400' : 'text-gray-400'}`}>
-                    {date.toLocaleDateString('default', { weekday: 'short' })}
-                  </div>
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-full text-base 
-                    ${isToday ? 'bg-orange-600 text-white' : 'text-gray-300'}`}>
-                    {date.getDate()}
-                  </div>
+                <div className="text-xs text-gray-400 uppercase">
+                  {date.toLocaleDateString('default', { weekday: 'short' })}
+                </div>
+                <div className={`text-lg ${isToday ? 'text-orange-400' : 'text-gray-300'}`}>
+                  {date.getDate()}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Calendar grid with events */}
-        <div className="grid grid-cols-8 relative">
-          {/* Time column with hour markers - GCal style */}
+        {/* Time and Events Grid */}
+        <div className="col-span-8 grid grid-cols-8">
+          {/* Time column */}
           <div className="col-span-1 border-r border-gray-700/30">
             {Array.from({ length: 24 }).map((_, hour) => (
               <div key={hour} className="relative h-[60px] group">

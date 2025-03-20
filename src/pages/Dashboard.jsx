@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
-import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, refreshTaskCache, taskCache } from '../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion } from '../utils/database';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
@@ -29,14 +29,6 @@ const Dashboard = () => {
       try {
         const user = JSON.parse(localStorage.getItem('loggedInUser'));
         if (user) {
-          // First get tasks from cache for immediate display
-          const cachedTasks = taskCache.tasks;
-          if (cachedTasks.length > 0) {
-            setTasks(cachedTasks);
-            setFilteredTasks(cachedTasks);
-          }
-          
-          // Then fetch latest tasks from backend and update if needed
           const fetchedTasks = await getUserTasks(user.$id);
           setTasks(fetchedTasks);
           setFilteredTasks(fetchedTasks);
@@ -173,14 +165,6 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // Revert to cached state on error
-      const cachedTask = taskCache.getTask(task.$id);
-      if (cachedTask) {
-        setTasks(prevTasks => {
-          const revertedTasks = prevTasks.filter(t => t.$id !== task.$id);
-          return [...revertedTasks, cachedTask];
-        });
-      }
     }
   };
 
