@@ -5,7 +5,7 @@ import {
   FaEdit, FaTrashAlt, FaExclamationCircle, FaTags, FaLayerGroup,
   FaRecycle, FaBullhorn
 } from "react-icons/fa";
-import { toggleTaskCompletion, taskCache } from "../../utils/database"; // Import the specialized function and cache
+import { toggleTaskCompletion } from "../../utils/database"; // Import the specialized function
 
 const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails, usePortal = false }) => {
   const [showDetails, setShowDetails] = useState(false);
@@ -121,22 +121,16 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
     onEdit(task); // Pass entire task object
   };
   
-  // Enhanced toggle handler with local state update for immediate feedback
+  // Enhanced toggle handler - removed taskCache dependency
   const handleToggleComplete = async (e) => {
     if (e) e.stopPropagation();
     
     try {
-      // Get the current task state
-      const currentState = task.completed;
-      
-      // Call the parent component's toggle handler for UI update
-      onToggleComplete(task);
-      
-      // Also update the local cache directly to ensure consistency
-      taskCache.updateTask(task.$id, { 
-        completed: !currentState,
-        ...((!currentState) ? { completedAt: new Date().toISOString() } : {})
-      });
+      const isCurrentlyCompleted = task.status === 'completed';
+      if (onToggleComplete) {
+        // Pass the full task object for backend update
+        await onToggleComplete(task, !isCurrentlyCompleted);
+      }
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
@@ -151,7 +145,7 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
           ${isOverdue 
             ? 'border-red-500/40 hover:border-red-500/60' 
             : task.completed 
-              ? 'border-green-500/30 hover:border-green-500/40 opacity-80' 
+              ? 'bg-gray-900/50 border-gray-600/30 hover:border-gray-600/50' 
               : 'border-gray-700/50 hover:border-orange-500/50'
           }`}
         onClick={handleCardClick}
@@ -164,26 +158,31 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
             {/* Checkbox */}
             <button
               onClick={(e) => handleToggleComplete(e)}
-              className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
-              aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+              className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+              aria-label={task.status === 'completed' ? "Mark as incomplete" : "Mark as complete"}
             >
-              {task.completed ? (
+              {task.status === 'completed' ? (
                 <FaRegCheckCircle className="w-6 h-6 text-green-500" />
               ) : (
-                <FaRegCircle className="w-6 h-6 text-gray-500 group-hover:text-orange-500 transition-colors" />
+                <FaRegCircle className="w-6 h-6 text-gray-500 hover:text-orange-500 transition-colors" />
               )}
             </button>
             
             <div className="space-y-2 min-w-0 flex-1">
-              {/* Title */}
-              <h3 className={`text-base sm:text-lg font-semibold group-hover:text-orange-400 transition-colors truncate
-                ${task.completed ? 'text-gray-400 line-through' : 'text-white'}`}>
+              {/* Title with enhanced completed styling */}
+              <h3 className={`text-base sm:text-lg font-semibold transition-all duration-200
+                ${task.status === 'completed'
+                  ? 'text-gray-500 line-through decoration-gray-500 decoration-2' 
+                  : 'text-white group-hover:text-orange-400'}`}
+              >
                 {task.title}
               </h3>
               
-              {/* Description - Show truncated on card */}
+              {/* Description with enhanced completed styling */}
               {task.description && (
-                <p className="text-gray-400 text-sm sm:text-base line-clamp-2">
+                <p className={`text-gray-400 text-sm sm:text-base line-clamp-2
+                  ${task.completed ? 'line-through decoration-gray-500 opacity-50' : ''}`}
+                >
                   {task.description}
                 </p>
               )}
@@ -305,12 +304,12 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
               <button
                 onClick={onToggleComplete}
                 className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200
-                  ${task.completed 
+                  ${task.status === 'completed' 
                     ? 'text-green-500' 
                     : 'text-gray-400 hover:text-orange-500'
                   }`}
               >
-                {task.completed ? (
+                {task.status === 'completed' ? (
                   <FaRegCheckCircle className="w-6 h-6" />
                 ) : (
                   <FaRegCircle className="w-6 h-6" />
@@ -331,7 +330,7 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
               className="p-2 text-gray-400 hover:text-orange-400 rounded-lg hover:bg-gray-700/50 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" />
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
               </svg>
             </button>
           </div>
