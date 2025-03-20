@@ -146,25 +146,33 @@ const Dashboard = () => {
         return;
       }
       
-      // Single state update for optimistic UI
-      setTasks(prevTasks => {
-        const updatedTasks = prevTasks.filter(t => t.$id !== task.$id);
-        return [...updatedTasks, { ...task, completed: !task.completed }];
-      });
+      // Get current completion state
+      const isCurrentlyCompleted = task.status === 'completed';
       
-      const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
+      // Update backend first
+      const updatedTask = await toggleTaskCompletion(task.$id, !isCurrentlyCompleted);
       
       if (updatedTask) {
-        // Update with server response
-        setTasks(prevTasks => {
-          const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-          return [...filteredTasks, updatedTask];
-        });
+        // Update local state with the response from backend
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === updatedTask.$id ? {
+            ...t,
+            status: updatedTask.status,
+            completedAt: updatedTask.completedAt,
+            updatedAt: updatedTask.updatedAt
+          } : t
+        ));
+        
+        addToast(
+          isCurrentlyCompleted ? 'Task marked as incomplete!' : 'Task marked as complete!', 
+          'success'
+        );
       }
-      addToast(task.completed ? 'Task marked as incomplete!' : 'Task marked as complete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
+      // Refresh tasks to ensure consistency
+      fetchTasks();
     }
   };
 
