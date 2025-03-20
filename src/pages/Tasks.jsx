@@ -103,23 +103,54 @@ const Tasks = () => {
   };
 
   // Enhanced toggle with local state management
-  const handleToggleComplete = async (taskId) => {
+  const handleToggleComplete = async (task) => {
     try {
-      const task = tasks.find(t => t.$id === taskId);
-      const updatedTask = await toggleTaskCompletion(taskId, !task.completed);
+      if (!task || !task.$id) {
+        console.error('Invalid task object:', task);
+        return;
+      }
       
-      if ((filter === 'completed' && !updatedTask.completed) || 
-          (filter === 'active' && updatedTask.completed)) {
-        setTasks(prevTasks => prevTasks.filter(t => t.$id !== taskId));
+      // Calculate the new status
+      const isCurrentlyCompleted = task.status === 'completed';
+      const newStatus = isCurrentlyCompleted ? 'pending' : 'completed';
+      
+      // Check if task should be removed from current view based on filter
+      const shouldRemoveFromView = 
+        (filter === 'completed' && !isCurrentlyCompleted) || 
+        (filter === 'active' && isCurrentlyCompleted);
+      
+      if (shouldRemoveFromView) {
+        // Remove task from view immediately
+        setTasks(prevTasks => prevTasks.filter(t => t.$id !== task.$id));
       } else {
+        // Update task status in the current view
         setTasks(prevTasks => prevTasks.map(t => 
-          t.$id === taskId ? updatedTask : t
+          t.$id === task.$id ? { ...t, status: newStatus } : t
         ));
       }
-      addToast(task.completed ? 'Task marked as incomplete!' : 'Task marked as complete!', 'success');
+      
+      // Update backend
+      await toggleTaskCompletion(task.$id, !isCurrentlyCompleted);
+      addToast(
+        isCurrentlyCompleted ? 'Task marked as incomplete!' : 'Task marked as complete!', 
+        'success'
+      );
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
+      // Refresh tasks to ensure consistency
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (user) {
+        let fetchedTasks;
+        if (filter === 'completed') {
+          fetchedTasks = await getCompletedTasks(user.$id);
+        } else if (filter === 'active') {
+          fetchedTasks = await getActiveTasks(user.$id);
+        } else {
+          fetchedTasks = await getUserTasks(user.$id);
+        }
+        setTasks(fetchedTasks);
+      }
     }
   };
 
@@ -170,13 +201,13 @@ const Tasks = () => {
     return isDateEqual(dateStr, weekendStart) || isDateEqual(dateStr, weekendEnd);
   };
 
-  // Use more specialized filter logic in the JSX
+  // Use status field for filtering tasks
   const filteredTasks = filter === 'all' ? 
     tasks : 
     filter === 'completed' ? 
-      tasks.filter(t => t.completed) :
+      tasks.filter(t => t.status === 'completed') :
       filter === 'active' ? 
-        tasks.filter(t => !t.completed) :
+        tasks.filter(t => t.status !== 'completed') :
         filter === 'today' ? 
           tasks.filter(t => isDateEqual(t.deadline, today)) :
           filter === 'tomorrow' ? 
@@ -224,10 +255,10 @@ const Tasks = () => {
               All ({tasks.length})
             </FilterButton>
             <FilterButton current={filter} value="active" onClick={setFilter}>
-              Active ({tasks.filter(t => !t.completed).length})
+              Active ({tasks.filter(t => t.status !== 'completed').length})
             </FilterButton>
             <FilterButton current={filter} value="completed" onClick={setFilter}>
-              Completed ({tasks.filter(t => t.completed).length})
+              Completed ({tasks.filter(t => t.status === 'completed').length})
             </FilterButton>
           </div>
           

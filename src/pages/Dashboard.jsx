@@ -58,9 +58,9 @@ const Dashboard = () => {
     }
   }, [priorityFilter, tasks]);
 
-  // Separate tasks into completed and queued
-  const queuedTasks = filteredTasks.filter(task => !task.completed);
-  const completedTasks = filteredTasks.filter(task => task.completed);
+  // Separate tasks into completed and queued based on status from backend
+  const queuedTasks = filteredTasks.filter(task => task.status !== 'completed');
+  const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
   // Add new task
   const handleAddTask = () => {
@@ -194,8 +194,8 @@ const Dashboard = () => {
       {/* Statistics Cards - Updated with better icons and more compact for mobile */}
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
         <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
-        <StatCard title="Completed" value={tasks.filter(t => t.completed).length} Icon={FaCheckCircle} color="amber" />
-        <StatCard title="Pending" value={tasks.filter(t => !t.completed).length} Icon={FaHourglassHalf} color="orange" />
+        <StatCard title="Completed" value={tasks.filter(t => t.status === 'completed').length} Icon={FaCheckCircle} color="amber" />
+        <StatCard title="Active" value={tasks.filter(t => t.status !== 'completed').length} Icon={FaHourglassHalf} color="orange" />
       </div>
 
       {/* Tasks Section - Updated with icons */}

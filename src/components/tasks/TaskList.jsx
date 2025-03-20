@@ -11,7 +11,8 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
 
   const handleToggleComplete = async (task) => {
     if (onToggleComplete) {
-      onToggleComplete(task);
+      const isCompleted = task.status === 'completed';
+      onToggleComplete(task, !isCompleted);
     }
   };
 
