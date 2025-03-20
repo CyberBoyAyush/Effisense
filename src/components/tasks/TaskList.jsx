@@ -1,7 +1,6 @@
-import React from "react";
-import TaskCard from "./TaskCard";
-import { createPortal } from "react-dom";
-import { taskCache } from "../../utils/database";
+import React from 'react';
+import TaskCard from './TaskCard';
+import { createPortal } from 'react-dom';
 
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
   const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
@@ -10,18 +9,28 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
     onDelete(task);
   };
 
+  // Update toggle handler to ensure status is properly passed
   const handleToggleComplete = async (task) => {
     if (onToggleComplete) {
-      // Get a consistent task object with proper IDs
-      const taskToToggle = task.$id ? task : taskCache.getTask(task.id);
-      if (taskToToggle) {
-        onToggleComplete(taskToToggle);
-      } else {
-        // Fallback if task isn't in cache
-        onToggleComplete(task);
+      const isCurrentlyCompleted = task.status === 'completed';
+      try {
+        // Toggle task completion and update UI
+        await onToggleComplete(task, !isCurrentlyCompleted);
+        
+        // Task status and completedAt will be updated by the parent component
+        // after successful backend update
+      } catch (error) {
+        console.error('Error toggling task:', error);
       }
     }
   };
+
+  // Sort tasks with completed at bottom using status field
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.status === 'completed' && b.status !== 'completed') return 1;
+    if (a.status !== 'completed' && b.status === 'completed') return -1;
+    return 0;
+  });
 
   return (
     <div className="space-y-2">
@@ -32,7 +41,7 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
           <p className="text-gray-400 mt-2">Add your first task to get started</p>
         </div>
       ) : (
-        tasks.map((task) => (
+        sortedTasks.map((task) => (
           <TaskCard
             key={task.$id || task.createdAt}
             task={task}

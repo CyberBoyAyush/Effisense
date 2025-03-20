@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
-import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, refreshTaskCache, taskCache } from '../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion } from '../utils/database';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
@@ -29,14 +29,6 @@ const Dashboard = () => {
       try {
         const user = JSON.parse(localStorage.getItem('loggedInUser'));
         if (user) {
-          // First get tasks from cache for immediate display
-          const cachedTasks = taskCache.tasks;
-          if (cachedTasks.length > 0) {
-            setTasks(cachedTasks);
-            setFilteredTasks(cachedTasks);
-          }
-          
-          // Then fetch latest tasks from backend and update if needed
           const fetchedTasks = await getUserTasks(user.$id);
           setTasks(fetchedTasks);
           setFilteredTasks(fetchedTasks);
@@ -66,9 +58,9 @@ const Dashboard = () => {
     }
   }, [priorityFilter, tasks]);
 
-  // Separate tasks into completed and queued
-  const queuedTasks = filteredTasks.filter(task => !task.completed);
-  const completedTasks = filteredTasks.filter(task => task.completed);
+  // Separate tasks into completed and queued based on status from backend
+  const queuedTasks = filteredTasks.filter(task => task.status !== 'completed');
+  const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
   // Add new task
   const handleAddTask = () => {
@@ -154,33 +146,33 @@ const Dashboard = () => {
         return;
       }
       
-      // Single state update for optimistic UI
-      setTasks(prevTasks => {
-        const updatedTasks = prevTasks.filter(t => t.$id !== task.$id);
-        return [...updatedTasks, { ...task, completed: !task.completed }];
-      });
+      // Get current completion state
+      const isCurrentlyCompleted = task.status === 'completed';
       
-      const updatedTask = await toggleTaskCompletion(task.$id, !task.completed);
+      // Update backend first
+      const updatedTask = await toggleTaskCompletion(task.$id, !isCurrentlyCompleted);
       
       if (updatedTask) {
-        // Update with server response
-        setTasks(prevTasks => {
-          const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-          return [...filteredTasks, updatedTask];
-        });
+        // Update local state with the response from backend
+        setTasks(prevTasks => prevTasks.map(t => 
+          t.$id === updatedTask.$id ? {
+            ...t,
+            status: updatedTask.status,
+            completedAt: updatedTask.completedAt,
+            updatedAt: updatedTask.updatedAt
+          } : t
+        ));
+        
+        addToast(
+          isCurrentlyCompleted ? 'Task marked as incomplete!' : 'Task marked as complete!', 
+          'success'
+        );
       }
-      addToast(task.completed ? 'Task marked as incomplete!' : 'Task marked as complete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // Revert to cached state on error
-      const cachedTask = taskCache.getTask(task.$id);
-      if (cachedTask) {
-        setTasks(prevTasks => {
-          const revertedTasks = prevTasks.filter(t => t.$id !== task.$id);
-          return [...revertedTasks, cachedTask];
-        });
-      }
+      // Refresh tasks to ensure consistency
+      fetchTasks();
     }
   };
 
@@ -190,6 +182,25 @@ const Dashboard = () => {
     medium: tasks.filter(t => t.priority === "medium").length,
     low: tasks.filter(t => t.priority === "low").length,
   };
+
+  // Update stats card to use status
+  const statsCards = (
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
+      <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
+      <StatCard 
+        title="Completed" 
+        value={tasks.filter(t => t.status === 'completed').length} 
+        Icon={FaCheckCircle} 
+        color="amber" 
+      />
+      <StatCard 
+        title="Active" 
+        value={tasks.filter(t => t.status !== 'completed').length} 
+        Icon={FaHourglassHalf} 
+        color="orange" 
+      />
+    </div>
+  );
 
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">
@@ -208,11 +219,7 @@ const Dashboard = () => {
       </div>
 
       {/* Statistics Cards - Updated with better icons and more compact for mobile */}
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
-        <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
-        <StatCard title="Completed" value={tasks.filter(t => t.completed).length} Icon={FaCheckCircle} color="amber" />
-        <StatCard title="Pending" value={tasks.filter(t => !t.completed).length} Icon={FaHourglassHalf} color="orange" />
-      </div>
+      {statsCards}
 
       {/* Tasks Section - Updated with icons */}
       <div className="mt-4 sm:mt-6 md:mt-8">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks, taskCache } from '../../utils/database';
+import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks } from '../../utils/database';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -44,6 +44,8 @@ const processTasksForDay = (tasks, date) => {
 
         return {
           ...task,
+          completed: task.status === 'completed',
+          inProgress: task.status === 'in_progress',
           startTime,
           endTime,
           startHour,
@@ -92,28 +94,15 @@ const CalendarView = () => {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'active', 'completed'
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Improved task fetching with cache prioritization and optimistic updates
+  // Improved task fetching without cache
   const fetchTasks = useCallback(async () => {
     try {
+      setIsLoading(true);
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       if (!user) return;
       
-      // First show cached tasks immediately for responsive UX
-      if (taskCache.tasks.length > 0) {
-        let filteredTasks = [...taskCache.tasks]; // Create a copy to avoid mutating the cache
-        
-        // Apply filters to cached tasks
-        if (taskFilter === 'completed') {
-          filteredTasks = filteredTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          filteredTasks = filteredTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(filteredTasks);
-      }
-      
-      // Then fetch from server
       let fetchedTasks;
       if (taskFilter === 'completed') {
         fetchedTasks = await getCompletedTasks(user.$id);
@@ -123,31 +112,12 @@ const CalendarView = () => {
         fetchedTasks = await getUserTasks(user.$id);
       }
       
-      if (fetchedTasks) {
-        // Double-check the filter on the fetched tasks to ensure consistency
-        if (taskFilter === 'completed') {
-          fetchedTasks = fetchedTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          fetchedTasks = fetchedTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(fetchedTasks);
-      }
+      setTasks(fetchedTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      // Fallback to filtered cache in case of error
-      if (taskCache.tasks.length > 0) {
-        let fallbackTasks = [...taskCache.tasks];
-        
-        // Apply filters to fallback tasks
-        if (taskFilter === 'completed') {
-          fallbackTasks = fallbackTasks.filter(t => t.completed === true);
-        } else if (taskFilter === 'active') {
-          fallbackTasks = fallbackTasks.filter(t => t.completed === false);
-        }
-        
-        setTasks(fallbackTasks);
-      }
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [taskFilter]);
   
@@ -297,52 +267,30 @@ const CalendarView = () => {
         return;
       }
       
-      // Use $id consistently for Appwrite
       const id = task.$id || task.id;
+      const isCurrentlyCompleted = task.status === 'completed';
+      const newCompletedState = !isCurrentlyCompleted;
       
-      // Calculate the new completed state
-      const newCompletedState = !task.completed;
+      // Update backend first
+      const updatedTask = await toggleTaskCompletion(id, newCompletedState);
       
-      // Check if task should be removed from current view based on filter
-      const shouldRemoveFromView = 
-        (taskFilter === 'completed' && !newCompletedState) || 
-        (taskFilter === 'active' && newCompletedState);
-      
-      if (shouldRemoveFromView) {
-        // Remove task from view immediately if it doesn't match filter
-        setTasks(prevTasks => prevTasks.filter(t => t.$id !== id && t.id !== id));
-        
-        // Close task details if open
-        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
-          setOpenTaskDetails(null);
-        }
-      } else {
-        // Update the task state in the current view
+      if (updatedTask) {
+        // Update tasks state with the response from backend
         setTasks(prevTasks => prevTasks.map(t => 
-          (t.$id === id || t.id === id) ? {
-            ...t, 
-            completed: newCompletedState,
-            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
+          t.$id === id ? {
+            ...t,
+            status: updatedTask.status,
+            completedAt: updatedTask.completedAt,
+            updatedAt: updatedTask.updatedAt
           } : t
         ));
         
-        // Update task details if open
-        if (openTaskDetails && (openTaskDetails.id === id || openTaskDetails.$id === id)) {
-          setOpenTaskDetails({
-            ...openTaskDetails, 
-            completed: newCompletedState,
-            ...(newCompletedState ? { completedAt: new Date().toISOString() } : {})
-          });
-        }
+        addToast(newCompletedState ? 'Task marked as complete!' : 'Task marked as incomplete!', 'success');
       }
-      
-      // Update backend and cache
-      await toggleTaskCompletion(id, newCompletedState);
-      addToast(newCompletedState ? 'Task marked as complete!' : 'Task marked as incomplete!', 'success');
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // On error, refresh tasks to ensure consistency
+      // Refresh tasks to ensure consistency
       fetchTasks();
     }
   };
@@ -427,7 +375,7 @@ const CalendarView = () => {
         key={task.id}
         onClick={(e) => onClick(e, task)}
         className={`text-xs p-1.5 rounded mb-1
-          ${task.completed 
+          ${task.status === 'completed'
             ? 'bg-green-500/20 text-green-300 opacity-70' 
             : isRecurring 
               ? 'bg-orange-500/20 text-orange-300 border-l-2 border-orange-500' 
@@ -435,9 +383,11 @@ const CalendarView = () => {
           }
           hover:bg-opacity-40 cursor-pointer flex items-center gap-1`}
       >
-        {task.completed && <span>✓</span>}
+        {task.status === 'completed' && <span>✓</span>}
         {isRecurring && <span className="text-[9px]">🔄</span>}
-        {task.title}
+        <span className={task.status === 'completed' ? 'line-through' : ''}>
+          {task.title}
+        </span>
       </div>
     );
   };
@@ -794,7 +744,9 @@ const MonthView = ({ currentDate, tasks, onDateClick, handleTaskClick }) => {
                   <div className="flex items-center gap-1">
                     <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0 
                       ${task.completed ? 'bg-green-400' : 'bg-orange-400'}`}></div>
-                    <span className="truncate">{task.title}</span>
+                    <span className={`truncate ${task.completed ? 'line-through text-gray-500 decoration-2' : ''}`}>
+                      {task.title}
+                    </span>
                     {task.completed && <span className="text-green-300 ml-1">✓</span>}
                   </div>
                 </div>
@@ -1052,7 +1004,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                         {task.completed && (
                           <span className="text-[10px] text-green-300">✓</span>
                         )}
-                        <span className={`text-xs font-medium truncate ${task.completed ? 'text-gray-300' : ''}`}>
+                        <span className={`text-xs font-medium truncate leading-tight ${taskStyles.completedStyles}`}>
                           {task.title}
                         </span>
                       </div>
@@ -1102,27 +1054,23 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
             return (
               <div
                 key={date.toISOString()}
-                className={`p-2 text-center border-b border-gray-700/30 
-                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/20' : 'bg-gray-800/30'}`}
+                className={`text-center p-2 border-r border-b border-gray-700/30
+                  ${isToday ? 'bg-orange-950/30' : isWeekend ? 'bg-gray-800/50' : 'bg-gray-800/30'}`}
               >
-                <div className="flex flex-col items-center">
-                  <div className={`text-xs font-medium tracking-wide uppercase 
-                    ${isToday ? 'text-orange-400' : 'text-gray-400'}`}>
-                    {date.toLocaleDateString('default', { weekday: 'short' })}
-                  </div>
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-full text-base 
-                    ${isToday ? 'bg-orange-600 text-white' : 'text-gray-300'}`}>
-                    {date.getDate()}
-                  </div>
+                <div className="text-xs text-gray-400 uppercase">
+                  {date.toLocaleDateString('default', { weekday: 'short' })}
+                </div>
+                <div className={`text-lg ${isToday ? 'text-orange-400' : 'text-gray-300'}`}>
+                  {date.getDate()}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Calendar grid with events */}
-        <div className="grid grid-cols-8 relative">
-          {/* Time column with hour markers - GCal style */}
+        {/* Time and Events Grid */}
+        <div className="col-span-8 grid grid-cols-8">
+          {/* Time column */}
           <div className="col-span-1 border-r border-gray-700/30">
             {Array.from({ length: 24 }).map((_, hour) => (
               <div key={hour} className="relative h-[60px] group">
@@ -1230,9 +1178,7 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
                           {task.completed && (
                             <span className="text-[10px] text-green-300 pt-0.5 font-bold">✓</span>
                           )}
-                          <span className={`text-xs font-medium truncate leading-tight ${
-                            task.completed ? 'text-gray-400' : ''
-                          }`}>
+                          <span className={`text-xs font-medium truncate leading-tight ${taskStyles.completedStyles}`}>
                             {task.title}
                           </span>
                         </div>
@@ -1477,7 +1423,9 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
                     >
                       <div className="flex items-center gap-1">
                         {task.completed && <span className="text-[10px]">✓</span>}
-                        <span className="text-xs font-medium truncate">{task.title}</span>
+                        <span className={`text-xs font-medium truncate ${taskStyles.completedStyles}`}>
+                          {task.title}
+                        </span>
                       </div>
                       
                       {heightValue > 28 && (
@@ -1648,10 +1596,19 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
 
 // Helper function to get styling for tasks based on category/completion status - Updated for GCal style
 const getTaskStyles = (task) => {
-  if (task.completed) {
+  if (task.status === 'completed' || task.completed) {
     return { 
-      bgColor: 'bg-gray-800/70 border border-green-500/30', 
-      textColor: 'text-gray-300'
+      bgColor: 'bg-gray-900/50 border border-gray-600/30', 
+      textColor: 'text-gray-500',
+      completedStyles: 'opacity-75 line-through decoration-gray-500 decoration-2'
+    };
+  }
+  
+  if (task.status === 'in_progress') {
+    return {
+      bgColor: 'bg-amber-500/15 border border-amber-500/40',
+      textColor: 'text-amber-200',
+      completedStyles: ''
     };
   }
   
@@ -1660,22 +1617,26 @@ const getTaskStyles = (task) => {
     case 'work':
       return { 
         bgColor: 'bg-blue-500/15 border border-blue-500/40', 
-        textColor: 'text-blue-200' 
+        textColor: 'text-blue-200',
+        completedStyles: '' 
       };
     case 'personal':
       return { 
         bgColor: 'bg-purple-500/15 border border-purple-500/40', 
-        textColor: 'text-purple-200' 
+        textColor: 'text-purple-200',
+        completedStyles: '' 
       };
     case 'health':
       return { 
         bgColor: 'bg-green-500/15 border border-green-500/40', 
-        textColor: 'text-green-200' 
+        textColor: 'text-green-200',
+        completedStyles: '' 
       };
     default:
       return { 
         bgColor: 'bg-orange-500/15 border border-orange-500/40', 
-        textColor: 'text-orange-200' 
+        textColor: 'text-orange-200',
+        completedStyles: '' 
       };
   }
 };
