@@ -403,16 +403,16 @@ const TasksIcon = ({ filter }) => {
 
 // Updated TaskSections component with orange theme
 const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend, handleEditTask, handleDeleteTask, handleToggleComplete }) => {
-  const todayTasks = tasks.filter(t => isDateEqual(t.deadline, today) && !t.completed);
-  const tomorrowTasks = tasks.filter(t => isDateEqual(t.deadline, tomorrow) && !t.completed);
-  const weekendTasks = tasks.filter(t => isWeekend(t.deadline) && !t.completed);
+  const todayTasks = tasks.filter(t => isDateEqual(t.deadline, today) && t.status !== 'completed');
+  const tomorrowTasks = tasks.filter(t => isDateEqual(t.deadline, tomorrow) && t.status !== 'completed');
+  const weekendTasks = tasks.filter(t => isWeekend(t.deadline) && t.status !== 'completed');
   const otherActiveTasks = tasks.filter(t => 
     !isDateEqual(t.deadline, today) && 
     !isDateEqual(t.deadline, tomorrow) && 
     !isWeekend(t.deadline) && 
-    !t.completed
+    t.status !== 'completed'
   );
-  const completedTasks = tasks.filter(t => t.completed);
+  const completedTasks = tasks.filter(t => t.status === 'completed');
 
   return (
     <div className="space-y-8">

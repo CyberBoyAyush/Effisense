@@ -175,6 +175,25 @@ const Dashboard = () => {
     low: tasks.filter(t => t.priority === "low").length,
   };
 
+  // Update stats card to use status
+  const statsCards = (
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
+      <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
+      <StatCard 
+        title="Completed" 
+        value={tasks.filter(t => t.status === 'completed').length} 
+        Icon={FaCheckCircle} 
+        color="amber" 
+      />
+      <StatCard 
+        title="Active" 
+        value={tasks.filter(t => t.status !== 'completed').length} 
+        Icon={FaHourglassHalf} 
+        color="orange" 
+      />
+    </div>
+  );
+
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">
       {/* Welcome Section - Updated with orange theme */}
@@ -192,11 +211,7 @@ const Dashboard = () => {
       </div>
 
       {/* Statistics Cards - Updated with better icons and more compact for mobile */}
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:gap-6 mt-3 sm:mt-6 md:mt-8">
-        <StatCard title="Total Tasks" value={tasks.length} Icon={FaClipboardList} color="orange" />
-        <StatCard title="Completed" value={tasks.filter(t => t.status === 'completed').length} Icon={FaCheckCircle} color="amber" />
-        <StatCard title="Active" value={tasks.filter(t => t.status !== 'completed').length} Icon={FaHourglassHalf} color="orange" />
-      </div>
+      {statsCards}
 
       {/* Tasks Section - Updated with icons */}
       <div className="mt-4 sm:mt-6 md:mt-8">
