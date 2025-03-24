@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle, FaUser, FaCheckCircle } from "react-icons/fa";
 import { FiX, FiAlertTriangle } from "react-icons/fi";
 import { FaCalendarAlt } from "react-icons/fa";
-import { createAccount } from '../utils/appwrite';
+import { createAccount, createGoogleOAuthSession } from '../utils/appwrite';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -17,6 +17,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [step, setStep] = useState(1);
 
   // Password strength validation
@@ -107,9 +108,18 @@ const Signup = () => {
     }
   };
 
-  // Disable Google signup and show coming soon message 
-  const handleGoogleSignup = () => {
-    setError("Google OAuth signup coming soon!");
+  // Handle Google signup
+  const handleGoogleSignup = async () => {
+    setError("");
+    setGoogleLoading(true);
+    
+    try {
+      // Start Google OAuth process - this will redirect to Google
+      await createGoogleOAuthSession('dashboard');
+    } catch (err) {
+      setError("Failed to initialize Google signup. Please try again.");
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -267,11 +277,17 @@ const Signup = () => {
           {!success && (
             <motion.button
               onClick={handleGoogleSignup}
-              disabled={true}
-              className="w-full flex items-center justify-center gap-3 mb-6 px-6 py-3 bg-gray-700/50 border border-gray-600 text-gray-400 rounded-xl transition-all duration-200 cursor-not-allowed"
+              disabled={googleLoading}
+              className="w-full flex items-center justify-center gap-3 mb-6 px-6 py-3 bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <FaGoogle className="text-gray-400" />
-              <span>Google OAuth Coming Soon</span>
+              {googleLoading ? (
+                <div className="w-5 h-5 border-2 border-orange-600/30 border-t-orange-600 rounded-full animate-spin" />
+              ) : (
+                <>
+                  <FaGoogle className="text-blue-600" />
+                  <span>Sign up with Google</span>
+                </>
+              )}
             </motion.button>
           )}
           

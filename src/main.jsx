@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
+import OAuthCallback from "./pages/OAuthCallback";
 import "./index.css"; // Tailwind setup
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/oauth-callback" element={<OAuthCallback />} />
           
           {/* Protected Dashboard Routes */}
           <Route path="/dashboard" element={
