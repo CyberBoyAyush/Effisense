@@ -41,7 +41,7 @@ const Footer = () => {
             </button>
             
             <a 
-              href="https://github.com/effisense" 
+              href="https://github.com/cyberboyayush/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
