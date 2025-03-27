@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FaUser, FaBell, FaGoogle, FaMoon, FaSun, 
   FaCheck, FaEdit, FaCog, FaCalendarAlt,
-  FaClipboardList, FaCheckCircle, FaBullhorn
+  FaClipboardList, FaCheckCircle, FaBullhorn, FaExclamationTriangle, FaSync
 } from 'react-icons/fa';
 import { getUserTasks, updateUserName } from '../utils/database';
 import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
+import { checkSignedInStatus } from '../utils/googleCalendar';
+import { useToast } from '../contexts/ToastContext';
+
+// Key for Google auth status in localStorage - must match with AuthCallback.jsx
+const GOOGLE_AUTH_SUCCESS_KEY = 'googleAuthStatus';
+// Used to track if we've already shown a toast for this session
+const TOAST_SHOWN_KEY = 'googleAuthToastShown';
 
 const Settings = () => {
+  const { addToast } = useToast();
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -17,14 +25,99 @@ const Settings = () => {
     completed: 0,
     pending: 0
   });
+  
+  // Google Calendar connection states
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [toastShown, setToastShown] = useState(false);
+
+  // Check Google Calendar connection
+  const checkGoogleConnection = useCallback(async () => {
+    console.log("Settings: Checking Google Calendar connection status...");
+    
+    setIsCheckingConnection(true);
+    // Only clear connection error if we're explicitly checking again
+    setConnectionError(false);
+    
+    try {
+      const isConnected = await checkSignedInStatus();
+      console.log('Settings: Google Calendar connection status:', isConnected);
+      
+      // Only update state if it changed to prevent loops
+      if (isConnected !== googleCalendarConnected) {
+        setGoogleCalendarConnected(isConnected);
+        
+        // Don't show a toast for routine connection checks
+        // Toasts for connection status will be handled elsewhere
+      }
+      
+      setLastRefresh(Date.now());
+    } catch (error) {
+      console.error('Settings: Error checking Google Calendar connection:', error);
+      setGoogleCalendarConnected(false);
+      setConnectionError(true);
+      
+      // Don't show error toasts for routine connection checks
+      // This prevents the "connection failed" toast from appearing 
+      // when we're just checking the status
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  }, [googleCalendarConnected]);
+
+  // Handle Google auth status from localStorage once on mount
+  useEffect(() => {
+    const checkGoogleAuthStatus = () => {
+      try {
+        const authStatusJson = localStorage.getItem(GOOGLE_AUTH_SUCCESS_KEY);
+        if (!authStatusJson) return;
+        
+        // Parse the JSON data
+        const authStatus = JSON.parse(authStatusJson);
+        
+        // Check if we've already shown a toast for this auth status
+        const shownTimestamp = sessionStorage.getItem(TOAST_SHOWN_KEY);
+        
+        // Only process if this is a new status or we haven't shown a toast yet
+        if (!shownTimestamp || (authStatus.timestamp > parseInt(shownTimestamp))) {
+          if (authStatus.success) {
+            setGoogleCalendarConnected(true);
+            setConnectionError(false);
+            addToast('Successfully connected to Google Calendar!', 'success');
+          } else {
+            setGoogleCalendarConnected(false);
+            // Only show error toast if this is from a real connection attempt
+            addToast(`Google Calendar connection failed: ${authStatus.error || 'Unknown error'}`, 'error');
+          }
+          
+          // Mark that we've shown a toast for this status
+          sessionStorage.setItem(TOAST_SHOWN_KEY, authStatus.timestamp.toString());
+          setToastShown(true);
+        }
+        
+        // Clear the status from localStorage to prevent showing again on reload
+        localStorage.removeItem(GOOGLE_AUTH_SUCCESS_KEY);
+      } catch (error) {
+        console.error('Error processing Google auth status:', error);
+      }
+    };
+    
+    // Check auth status and connection on mount
+    checkGoogleAuthStatus();
+    checkGoogleConnection();
+    
+  }, [addToast, checkGoogleConnection]);
 
   useEffect(() => {
     // Load user data
     const loadUser = () => {
       const userData = JSON.parse(localStorage.getItem('loggedInUser'));
-      setUser(userData);
-      setEditedName(userData?.name || '');
+      if (userData) {
+        setUser(userData);
+        setEditedName(userData?.name || '');
+      }
     };
 
     // Load task statistics
@@ -65,9 +158,23 @@ const Settings = () => {
     }
   };
 
-  const handleGoogleCalendarStatusChange = (isConnected) => {
-    setGoogleCalendarConnected(isConnected);
-  };
+  // Enhanced handler to properly manage connection state changes
+  const handleGoogleCalendarStatusChange = useCallback((isConnected) => {
+    console.log('Settings: Google Calendar connection status changed:', isConnected);
+    
+    // Only update state if it's different to prevent unnecessary re-renders
+    if (isConnected !== googleCalendarConnected) {
+      setGoogleCalendarConnected(isConnected);
+      
+      // Only show disconnect toast here - connection toasts are handled elsewhere
+      if (!isConnected && googleCalendarConnected) {
+        addToast('Disconnected from Google Calendar', 'info');
+      }
+      
+      // Clear connection errors when status changes
+      setConnectionError(false);
+    }
+  }, [googleCalendarConnected, addToast]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 text-gray-200">
@@ -136,7 +243,7 @@ const Settings = () => {
             </div>
           </div>
           
-          {/* Task Stats Grid */}
+          {/* Task Stats Grid - Fixed closing tags */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <StatCard icon={FaClipboardList} title="Total Tasks" value={taskStats.total} />
             <StatCard icon={FaCheckCircle} title="Completed" value={taskStats.completed} color="green" />
@@ -145,11 +252,39 @@ const Settings = () => {
         </div>
       </Section>
 
-      {/* Integrations Section */}
+      {/* Integrations Section - Enhanced with better error handling */}
       <Section icon={FaGoogle} title="Integrations">
         <div className="space-y-4">
-          {/* Google Calendar Integration - Now fully functional */}
-          <GoogleCalendarSync onSyncStatusChange={handleGoogleCalendarStatusChange} />
+          {connectionError && !isCheckingConnection && (
+            <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="text-amber-400 p-2 bg-amber-500/10 rounded-full">
+                  <FaExclamationTriangle />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-300">Connection status could not be determined</p>
+                  <p className="text-xs text-amber-300/80 mt-1">
+                    We couldn't verify your Google Calendar connection. The status below may not be accurate.
+                  </p>
+                  <button 
+                    onClick={checkGoogleConnection}
+                    className="mt-2 text-xs bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <FaSync className={isCheckingConnection ? "animate-spin" : ""} />
+                    {isCheckingConnection ? "Checking..." : "Retry Connection Check"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <GoogleCalendarSync 
+            key={`google-calendar-sync-${lastRefresh}`}  
+            onSyncStatusChange={handleGoogleCalendarStatusChange} 
+            initialConnected={googleCalendarConnected}
+            isCheckingConnection={isCheckingConnection}
+            refreshConnectionStatus={checkGoogleConnection}
+          />
         </div>
       </Section>
 
