@@ -4,6 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   // Form fields state
@@ -35,6 +36,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   // Convert string deadline to Date object for DatePicker
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
+
+  // Add state for Google Calendar status
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
   useEffect(() => {
     // Reset form when modal opens
@@ -190,6 +194,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           console.log("Setting default end date:", end);
           setEndDate(end);
         }
+
+        // Check if Google Calendar is connected
+        const googleConnected = checkSignedInStatus();
+        setIsGoogleConnected(googleConnected);
       } catch (error) {
         console.error("Error initializing form dates:", error);
       }
@@ -425,7 +433,32 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             }
         });
 
-        onSave(taskData);
+        let savedTask;
+        
+        // First save the task to get its ID
+        if (taskToEdit) {
+            savedTask = await onSave({...taskData, $id: taskToEdit.$id});
+        } else {
+            savedTask = await onSave(taskData);
+        }
+        
+        // Handle Google Calendar sync if enabled
+        if (syncWithGoogle && isGoogleConnected && savedTask) {
+            try {
+                if (taskToEdit) {
+                    // Update existing Google Calendar event
+                    await updateGoogleCalendarEvent({...savedTask, ...taskData});
+                } else {
+                    // Create new Google Calendar event
+                    await createGoogleCalendarEvent({...savedTask, ...taskData});
+                }
+            } catch (gcalError) {
+                console.error("Google Calendar sync error:", gcalError);
+                // Continue with task save even if Google Calendar sync fails
+                // But notify user by adding an error
+                setErrors({...errors, googleCalendar: 'Failed to sync with Google Calendar.'});
+            }
+        }
     } catch (error) {
         console.error("Error saving task:", error);
         setErrors({...errors, general: "Failed to save task"});
@@ -439,6 +472,42 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setDeadline("2023-10-12");
     setTime("10:00");
   };
+
+  // Modify the Google Calendar Sync Toggle to show connection status
+  const renderGoogleSyncToggle = () => (
+    <div className="flex items-center h-full">
+      <label className="inline-flex items-center cursor-pointer">
+        <input 
+          type="checkbox" 
+          className="sr-only peer" 
+          checked={syncWithGoogle}
+          onChange={() => {
+            if (!isGoogleConnected && !syncWithGoogle) {
+              setErrors({...errors, googleCalendar: 'Please connect to Google Calendar in Settings first.'});
+              setTimeout(() => {
+                const newErrors = {...errors};
+                delete newErrors.googleCalendar;
+                setErrors(newErrors);
+              }, 3000);
+              return;
+            }
+            setSyncWithGoogle(!syncWithGoogle);
+          }}
+        />
+        <div className="relative w-8 h-4 bg-gray-700 rounded-full peer peer-checked:bg-orange-600 
+          peer-focus:ring-1 peer-focus:ring-orange-500/30
+          after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
+          after:rounded-full after:h-3 after:w-3 after:transition-all 
+          peer-checked:after:translate-x-4"></div>
+        <span className="ml-2 text-xs text-gray-300">
+          Google Sync
+        </span>
+        {!isGoogleConnected && (
+          <span className="ml-1 text-[10px] text-orange-400">(Setup in Settings)</span>
+        )}
+      </label>
+    </div>
+  );
 
   if (!isOpen) return null;
   
@@ -487,6 +556,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             <p className="text-orange-300 text-xs flex items-center gap-1">
               <span className="text-xs">🔄</span>
               <span>This is a recurring task. Your changes will create a new instance.</span>
+            </p>
+          </div>
+        )}
+
+        {/* Google Calendar error message */}
+        {errors.googleCalendar && (
+          <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20">
+            <p className="text-red-300 text-xs flex items-center gap-1">
+              <span className="text-xs">⚠️</span>
+              <span>{errors.googleCalendar}</span>
             </p>
           </div>
         )}
@@ -611,25 +690,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 </select>
               </div>
 
-              {/* Google Calendar Sync Toggle */}
-              <div className="flex items-center h-full">
-                <label className="inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={syncWithGoogle}
-                    onChange={() => setSyncWithGoogle(!syncWithGoogle)}
-                  />
-                  <div className="relative w-8 h-4 bg-gray-700 rounded-full peer peer-checked:bg-orange-600 
-                    peer-focus:ring-1 peer-focus:ring-orange-500/30
-                    after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
-                    after:rounded-full after:h-3 after:w-3 after:transition-all 
-                    peer-checked:after:translate-x-4"></div>
-                  <span className="ml-2 text-xs text-gray-300">
-                    Google Sync
-                  </span>
-                </label>
-              </div>
+              {/* Google Calendar Sync Toggle - Updated with connection status */}
+              {renderGoogleSyncToggle()}
             </div>
 
             {/* Enhanced Date and Time Pickers - More compact */}
