@@ -1,7 +1,7 @@
 import { databases } from './appwrite';
 import { ID, Query } from 'appwrite';
 import { account } from './appwrite';
-import { deleteGoogleCalendarEvent } from './googleCalendar';
+import { deleteGoogleCalendarEvent, updateGoogleCalendarEvent } from './googleCalendar';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const COLLECTION_ID = import.meta.env.VITE_APPWRITE_TASKS_COLLECTION_ID;
@@ -65,6 +65,7 @@ export const createTask = async (taskData, userId) => {
             validData
         );
         
+        console.log("Task created in Appwrite:", response);
         return response;
     } catch (error) {
         console.error('Error creating task:', error);
@@ -112,6 +113,7 @@ export const updateTask = async (taskId, taskData) => {
             validData
         );
         
+        console.log("Task updated in Appwrite:", response);
         return response;
     } catch (error) {
         console.error('Error updating task:', error);
@@ -144,9 +146,22 @@ export const toggleTaskCompletion = async (taskId, isCompleted) => {
             taskUpdate
         );
 
-        // If task has Google Calendar event ID and is now completed, handle calendar event update separately
-        // This would typically be done by calling updateGoogleCalendarEvent
-        // For this implementation, we'll just ensure the task data is consistent
+        // If task has Google Calendar sync enabled, update the calendar event
+        if (task && task.syncWithGoogle === true) {
+            try {
+                // Update the Google Calendar event to reflect the new status
+                // Pass the entire updated task including the new status
+                await updateGoogleCalendarEvent({
+                    ...task,
+                    ...taskUpdate,
+                    $id: task.$id
+                });
+                console.log(`Successfully updated Google Calendar event status for task: ${task.title}`);
+            } catch (gcalError) {
+                // Log the error but don't fail the task update
+                console.error('Failed to update Google Calendar event:', gcalError);
+            }
+        }
         
         return updatedTask;
     } catch (error) {
@@ -196,7 +211,7 @@ export const getActiveTasks = async (userId) => {
     }
 };
 
-// Updated deleteTask to handle Google Calendar integration with syncWithGoogle flag only
+// Updated deleteTask to properly handle Google Calendar event deletion
 export const deleteTask = async (taskId) => {
     try {
         // First, get the task to check if it has Google Calendar sync enabled
@@ -206,13 +221,13 @@ export const deleteTask = async (taskId) => {
             taskId
         );
         
-        // If task has syncWithGoogle enabled and there's a cached eventId, delete the event from Google Calendar
-        if (task && task.syncWithGoogle) {
-            // We need to get the Google Calendar event ID from a different source
-            // Since we can't store it in Appwrite, we'll use the task ID as a reference
+        // If task has syncWithGoogle enabled, delete the event from Google Calendar
+        if (task && task.syncWithGoogle === true) {
             try {
-                // Delete event from Google Calendar by searching for it using task info
-                await deleteGoogleCalendarEvent(task.$id, task.title);
+                // Use the Google Calendar API to delete the event
+                // This will properly handle finding the event using the task ID mapping
+                await deleteGoogleCalendarEvent(task.$id);
+                console.log(`Successfully deleted Google Calendar event for task: ${task.title}`);
             } catch (gcalError) {
                 // Log the error but continue with task deletion
                 console.error('Failed to delete Google Calendar event:', gcalError);

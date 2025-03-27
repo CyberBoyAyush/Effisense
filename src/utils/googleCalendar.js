@@ -7,6 +7,9 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
 
+// Import account from appwrite to store preferences
+import { account } from './appwrite';
+
 // User token storage helper functions
 const GOOGLE_TOKEN_KEY = 'googleAuthToken';
 const GOOGLE_REFRESH_TOKEN_KEY = 'googleRefreshToken';
@@ -14,17 +17,28 @@ const GOOGLE_TOKEN_EXPIRY_KEY = 'googleTokenExpiry';
 const GOOGLE_EVENT_MAPPINGS_KEY = 'googleEventMappings';
 
 // Store event ID mappings (taskId to Google Calendar eventId)
-const storeEventMapping = (taskId, eventId) => {
+const storeEventMapping = async (taskId, eventId) => {
   try {
-    // Get existing mappings
-    const mappingsStr = localStorage.getItem(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
+    // Get current user and preferences
+    const userData = await account.get();
+    const prefs = {...userData.prefs} || {};
+    
+    // Get existing mappings or create new ones
+    const mappingsKey = GOOGLE_EVENT_MAPPINGS_KEY;
+    const mappingsStr = prefs[mappingsKey] || '{}';
     const mappings = JSON.parse(mappingsStr);
     
     // Add new mapping
     mappings[taskId] = eventId;
     
-    // Save updated mappings
-    localStorage.setItem(GOOGLE_EVENT_MAPPINGS_KEY, JSON.stringify(mappings));
+    // Update account preferences with new mappings
+    await account.updatePrefs({
+      [mappingsKey]: JSON.stringify(mappings)
+    });
+    
+    // Also keep a local copy for performance
+    sessionStorage.setItem(mappingsKey, JSON.stringify(mappings));
+    
     return true;
   } catch (error) {
     console.error('Error storing event mapping:', error);
@@ -33,11 +47,28 @@ const storeEventMapping = (taskId, eventId) => {
 };
 
 // Get event ID for a task
-const getEventIdForTask = (taskId) => {
+const getEventIdForTask = async (taskId) => {
   try {
-    const mappingsStr = localStorage.getItem(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
+    // Try session storage first for performance
+    const sessionMappings = sessionStorage.getItem(GOOGLE_EVENT_MAPPINGS_KEY);
+    if (sessionMappings) {
+      const mappings = JSON.parse(sessionMappings);
+      if (mappings[taskId]) {
+        return mappings[taskId];
+      }
+    }
+    
+    // Fall back to Appwrite preferences
+    const userData = await account.get();
+    const prefs = userData.prefs || {};
+    
+    const mappingsStr = prefs[GOOGLE_EVENT_MAPPINGS_KEY] || '{}';
     const mappings = JSON.parse(mappingsStr);
-    return mappings[taskId];
+    
+    // Update session storage
+    sessionStorage.setItem(GOOGLE_EVENT_MAPPINGS_KEY, mappingsStr);
+    
+    return mappings[taskId] || null;
   } catch (error) {
     console.error('Error getting event ID for task:', error);
     return null;
@@ -45,12 +76,28 @@ const getEventIdForTask = (taskId) => {
 };
 
 // Remove event mapping
-const removeEventMapping = (taskId) => {
+const removeEventMapping = async (taskId) => {
   try {
-    const mappingsStr = localStorage.getItem(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
+    // Get current user and preferences
+    const userData = await account.get();
+    const prefs = {...userData.prefs} || {};
+    
+    // Get existing mappings
+    const mappingsKey = GOOGLE_EVENT_MAPPINGS_KEY;
+    const mappingsStr = prefs[mappingsKey] || '{}';
     const mappings = JSON.parse(mappingsStr);
+    
+    // Remove mapping
     delete mappings[taskId];
-    localStorage.setItem(GOOGLE_EVENT_MAPPINGS_KEY, JSON.stringify(mappings));
+    
+    // Update account preferences with new mappings
+    await account.updatePrefs({
+      [mappingsKey]: JSON.stringify(mappings)
+    });
+    
+    // Update session storage
+    sessionStorage.setItem(mappingsKey, JSON.stringify(mappings));
+    
     return true;
   } catch (error) {
     console.error('Error removing event mapping:', error);
@@ -58,37 +105,33 @@ const removeEventMapping = (taskId) => {
   }
 };
 
-// Store tokens in user preferences securely
-export const storeUserTokens = (tokens) => {
+// Store tokens in Appwrite account preferences securely
+export const storeUserTokens = async (tokens) => {
   try {
-    const userData = JSON.parse(localStorage.getItem('loggedInUser')) || {};
+    // Create preferences object for storing Google tokens
+    const prefs = {
+      [GOOGLE_TOKEN_KEY]: tokens.access_token,
+      [GOOGLE_REFRESH_TOKEN_KEY]: tokens.refresh_token,
+      [GOOGLE_TOKEN_EXPIRY_KEY]: Date.now() + (tokens.expires_in * 1000)
+    };
     
-    // Create preferences object if it doesn't exist
-    if (!userData.preferences) {
-      userData.preferences = {};
-    }
+    // Update account preferences in Appwrite
+    await account.updatePrefs(prefs);
     
-    // Store tokens in user preferences
-    userData.preferences[GOOGLE_TOKEN_KEY] = tokens.access_token;
-    userData.preferences[GOOGLE_REFRESH_TOKEN_KEY] = tokens.refresh_token;
-    userData.preferences[GOOGLE_TOKEN_EXPIRY_KEY] = Date.now() + (tokens.expires_in * 1000);
-    
-    // Save updated user data
-    localStorage.setItem('loggedInUser', JSON.stringify(userData));
-    
-    // Also store in sessionStorage for immediate access
+    // Also store in sessionStorage for immediate access without Appwrite calls
+    // but don't use localStorage to avoid inconsistencies
     sessionStorage.setItem(GOOGLE_TOKEN_KEY, tokens.access_token);
-    sessionStorage.setItem(GOOGLE_TOKEN_EXPIRY_KEY, userData.preferences[GOOGLE_TOKEN_EXPIRY_KEY]);
+    sessionStorage.setItem(GOOGLE_TOKEN_EXPIRY_KEY, prefs[GOOGLE_TOKEN_EXPIRY_KEY]);
     
     return true;
   } catch (error) {
-    console.error('Error storing user tokens:', error);
+    console.error('Error storing user tokens in Appwrite:', error);
     return false;
   }
 };
 
-// Get tokens from user preferences
-export const getUserTokens = () => {
+// Get tokens from Appwrite account preferences
+export const getUserTokens = async () => {
   try {
     // First check sessionStorage for immediate access
     const sessionToken = sessionStorage.getItem(GOOGLE_TOKEN_KEY);
@@ -101,13 +144,14 @@ export const getUserTokens = () => {
       };
     }
     
-    // Otherwise check user preferences in localStorage
-    const userData = JSON.parse(localStorage.getItem('loggedInUser')) || {};
+    // Otherwise check Appwrite account preferences
+    const userData = await account.get();
+    const prefs = userData.prefs || {};
     
-    if (userData.preferences && userData.preferences[GOOGLE_TOKEN_KEY]) {
-      const token = userData.preferences[GOOGLE_TOKEN_KEY];
-      const expiry = userData.preferences[GOOGLE_TOKEN_EXPIRY_KEY];
-      const refreshToken = userData.preferences[GOOGLE_REFRESH_TOKEN_KEY];
+    if (prefs && prefs[GOOGLE_TOKEN_KEY]) {
+      const token = prefs[GOOGLE_TOKEN_KEY];
+      const expiry = prefs[GOOGLE_TOKEN_EXPIRY_KEY];
+      const refreshToken = prefs[GOOGLE_REFRESH_TOKEN_KEY];
       
       if (token && expiry && Date.now() < expiry) {
         // Sync with sessionStorage
@@ -127,23 +171,25 @@ export const getUserTokens = () => {
     
     return null;
   } catch (error) {
-    console.error('Error getting user tokens:', error);
+    console.error('Error getting user tokens from Appwrite:', error);
     return null;
   }
 };
 
-// Clear tokens from user preferences
-export const clearUserTokens = () => {
+// Clear tokens from Appwrite account preferences
+export const clearUserTokens = async () => {
   try {
-    const userData = JSON.parse(localStorage.getItem('loggedInUser')) || {};
+    // Get current preferences
+    const userData = await account.get();
+    const prefs = {...userData.prefs} || {};
     
-    if (userData.preferences) {
-      delete userData.preferences[GOOGLE_TOKEN_KEY];
-      delete userData.preferences[GOOGLE_REFRESH_TOKEN_KEY];
-      delete userData.preferences[GOOGLE_TOKEN_EXPIRY_KEY];
-      
-      localStorage.setItem('loggedInUser', JSON.stringify(userData));
-    }
+    // Remove Google tokens
+    delete prefs[GOOGLE_TOKEN_KEY];
+    delete prefs[GOOGLE_REFRESH_TOKEN_KEY];
+    delete prefs[GOOGLE_TOKEN_EXPIRY_KEY];
+    
+    // Update Appwrite account preferences
+    await account.updatePrefs(prefs);
     
     // Clear session storage as well
     sessionStorage.removeItem(GOOGLE_TOKEN_KEY);
@@ -151,15 +197,20 @@ export const clearUserTokens = () => {
     
     return true;
   } catch (error) {
-    console.error('Error clearing user tokens:', error);
+    console.error('Error clearing user tokens from Appwrite:', error);
     return false;
   }
 };
 
 // Check if user is signed in to Google
-export const checkSignedInStatus = () => {
-  const tokens = getUserTokens();
-  return tokens && tokens.access_token ? true : false;
+export const checkSignedInStatus = async () => {
+  try {
+    const tokens = await getUserTokens();
+    return tokens && tokens.access_token ? true : false;
+  } catch (error) {
+    console.error('Error checking signed in status:', error);
+    return false;
+  }
 };
 
 // Generate OAuth URL for redirect
@@ -265,7 +316,7 @@ export const exchangeCodeForTokens = async (code) => {
 // Refresh token if expired
 export const refreshAccessToken = async () => {
   try {
-    const tokens = getUserTokens();
+    const tokens = await getUserTokens();
     
     if (!tokens || !tokens.refresh_token) {
       throw new Error('No refresh token available');
@@ -354,7 +405,7 @@ export const signOutFromGoogle = async () => {
 
 // Helper to ensure we have a valid token
 const ensureValidToken = async () => {
-  const tokens = getUserTokens();
+  const tokens = await getUserTokens();
   
   if (!tokens) {
     throw new Error('User not authenticated with Google');
@@ -366,7 +417,7 @@ const ensureValidToken = async () => {
   
   if (tokens.refresh_token) {
     await refreshAccessToken();
-    const newTokens = getUserTokens();
+    const newTokens = await getUserTokens();
     return newTokens.access_token;
   }
   
@@ -393,142 +444,178 @@ const makeGoogleApiRequest = async (url, method = 'GET', body = null) => {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Google API error: ${error.error?.message || 'Unknown error'}`);
+      const errorText = await response.text();
+      throw new Error(`Google API request failed: ${response.status} ${errorText}`);
     }
     
+    // For methods like DELETE that don't return JSON, just return success
     if (method === 'DELETE') {
-      return true;
+      return { success: true };
     }
     
-    return await response.json();
+    // Only parse JSON for responses that have it
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      return await response.text();
+    }
   } catch (error) {
-    console.error('Google API request error:', error);
+    console.error('Google API request failed:', error);
     throw error;
   }
 };
 
-// Create a Google Calendar event from a task
+// Create a Google Calendar event for a task
 export const createGoogleCalendarEvent = async (task) => {
   try {
-    // Format event times from task
-    const startDateTime = new Date(task.deadline);
-    const endDateTime = task.endTime ? new Date(task.endTime) : new Date(startDateTime.getTime() + 60 * 60 * 1000);
-
-    // Create the event object
-    const event = {
-      'summary': task.title,
-      'description': task.description || '',
-      'start': {
-        'dateTime': startDateTime.toISOString(),
-        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
-      },
-      'end': {
-        'dateTime': endDateTime.toISOString(),
-        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
-      },
-      'colorId': getColorIdForTask(task),
-      'reminders': {
-        'useDefault': !task.enableReminders,
-        'overrides': task.enableReminders ? [
-          {'method': 'popup', 'minutes': parseInt(task.reminderTime) || 15}
-        ] : []
-      }
-    };
-
-    // Add the event to Google Calendar using our API request helper
-    const calendarEventUrl = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-    const response = await makeGoogleApiRequest(calendarEventUrl, 'POST', event);
+    console.log('Creating Google Calendar event for task:', task);
     
-    // Store the mapping between task ID and event ID
-    if (task.$id) {
-      storeEventMapping(task.$id, response.id);
+    // Ensure we have the required fields
+    if (!task.title || !task.deadline) {
+      throw new Error('Task must have title and deadline to create a calendar event');
     }
-
-    // Return the event ID from Google Calendar
-    return response.id;
+    
+    // Format the event
+    const event = {
+      summary: task.title,
+      description: task.description || '',
+      start: {
+        dateTime: new Date(task.deadline).toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      },
+      end: {
+        dateTime: task.endTime ? new Date(task.endTime).toISOString() : 
+          new Date(new Date(task.deadline).getTime() + (parseInt(task.duration || 60) * 60000)).toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      },
+      reminders: {
+        useDefault: false,
+        overrides: task.enableReminders ? [
+          { method: 'popup', minutes: parseInt(task.reminderTime || 15) }
+        ] : []
+      },
+      colorId: getColorIdForTask(task)
+    };
+    
+    console.log('Google Calendar event data:', event);
+    
+    // Make API call to create event
+    const response = await makeGoogleApiRequest(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+      'POST',
+      event
+    );
+    
+    console.log('Google Calendar API response:', response);
+    
+    // Store mapping between task ID and Google Calendar event ID
+    if (response && response.id) {
+      console.log('Storing event mapping:', task.$id, response.id);
+      await storeEventMapping(task.$id, response.id);
+    } else {
+      console.error('No event ID returned from Google Calendar API');
+    }
+    
+    return response;
   } catch (error) {
     console.error('Error creating Google Calendar event:', error);
     throw error;
   }
 };
 
-// Update a Google Calendar event based on task changes
+// Update a Google Calendar event for a task
 export const updateGoogleCalendarEvent = async (task) => {
   try {
     // Get the Google Calendar event ID for this task
-    const eventId = getEventIdForTask(task.$id);
+    const eventId = await getEventIdForTask(task.$id);
     
     if (!eventId) {
-      // If no event ID is found, create a new event instead
-      return await createGoogleCalendarEvent(task);
+      // If no mapping exists, create a new event instead
+      return createGoogleCalendarEvent(task);
     }
-
-    // Format event times from task
-    const startDateTime = new Date(task.deadline);
-    const endDateTime = task.endTime ? new Date(task.endTime) : new Date(startDateTime.getTime() + 60 * 60 * 1000);
-
-    // Create the event object
+    
+    // Format the event
     const event = {
-      'summary': task.title,
-      'description': task.description || '',
-      'start': {
-        'dateTime': startDateTime.toISOString(),
-        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
+      summary: task.title,
+      description: task.description || '',
+      start: {
+        dateTime: new Date(task.deadline).toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       },
-      'end': {
-        'dateTime': endDateTime.toISOString(),
-        'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone
+      end: {
+        dateTime: task.endTime ? new Date(task.endTime).toISOString() : 
+          new Date(new Date(task.deadline).getTime() + (parseInt(task.duration || 60) * 60000)).toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       },
-      'colorId': getColorIdForTask(task),
-      'reminders': {
-        'useDefault': !task.enableReminders,
-        'overrides': task.enableReminders ? [
-          {'method': 'popup', 'minutes': parseInt(task.reminderTime) || 15}
+      reminders: {
+        useDefault: false,
+        overrides: task.enableReminders ? [
+          { method: 'popup', minutes: parseInt(task.reminderTime || 15) }
         ] : []
       }
     };
-
-    // Update the event in Google Calendar
-    const calendarEventUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`;
-    const response = await makeGoogleApiRequest(calendarEventUrl, 'PUT', event);
-
-    // Return the event ID from Google Calendar
-    return response.id;
+    
+    // Make API call to update event
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+      'PUT',
+      event
+    );
+    
+    return response;
   } catch (error) {
     console.error('Error updating Google Calendar event:', error);
-    // If the event was not found, it might have been deleted from Google Calendar
-    // Try to create a new event instead
-    if (error.message && error.message.includes('not found')) {
-      return await createGoogleCalendarEvent(task);
-    }
     throw error;
   }
 };
 
-// Delete a Google Calendar event
-export const deleteGoogleCalendarEvent = async (taskId, taskTitle) => {
+// Delete a Google Calendar event for a task
+export const deleteGoogleCalendarEvent = async (taskId) => {
   try {
-    // Get the event ID from our mappings
-    const eventId = getEventIdForTask(taskId);
+    // Get the Google Calendar event ID for this task
+    const eventId = await getEventIdForTask(taskId);
     
     if (!eventId) {
-      console.log(`No Google Calendar event found for task: ${taskId} - ${taskTitle}`);
-      return false;
+      console.log('No Google Calendar event found for task', taskId);
+      return { success: false, reason: 'no_event_found' };
     }
     
-    // Delete the event from Google Calendar
-    const calendarEventUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`;
-    await makeGoogleApiRequest(calendarEventUrl, 'DELETE');
+    // Make API call to delete event
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+      'DELETE'
+    );
     
-    // Remove the mapping
-    removeEventMapping(taskId);
-
-    return true;
+    // Remove the mapping between task ID and Google Calendar event
+    if (response.success) {
+      await removeEventMapping(taskId);
+    }
+    
+    return response;
   } catch (error) {
     console.error('Error deleting Google Calendar event:', error);
-    // Remove the mapping anyway to prevent future errors
-    removeEventMapping(taskId);
+    throw error;
+  }
+};
+
+// List Google Calendar events within a time range
+export const listGoogleCalendarEvents = async (timeMin, timeMax) => {
+  try {
+    const params = new URLSearchParams({
+      timeMin: new Date(timeMin).toISOString(),
+      timeMax: new Date(timeMax).toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+    
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`
+    );
+    
+    return response;
+  } catch (error) {
+    console.error('Error listing Google Calendar events:', error);
     throw error;
   }
 };

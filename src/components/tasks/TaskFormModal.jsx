@@ -407,63 +407,59 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate the form
+    const isValid = validateForm();
+    const isTimeValid = validateTimeOrder();
+    
+    if (!isValid || !isTimeValid) {
+      console.log("Form validation failed");
+      return;
+    }
 
     try {
-        // Prepare task data while removing system fields
-        const taskData = {
-            title,
-            description,
-            deadline: startDate.toISOString(),
-            endTime: endDate ? endDate.toISOString() : undefined,
-            priority,
-            status,
-            category,
-            syncWithGoogle,
-            isRecurring,
-            recurringType: isRecurring ? recurringType : undefined,
-            enableReminders,
-            reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined,
-            duration
-        };
+      // Prepare task data while removing system fields
+      const taskData = {
+        title,
+        description,
+        deadline: startDate.toISOString(),
+        endTime: endDate ? endDate.toISOString() : undefined,
+        priority,
+        status,
+        category,
+        syncWithGoogle,
+        isRecurring,
+        recurringType: isRecurring ? recurringType : undefined,
+        enableReminders,
+        reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined,
+        duration
+      };
 
-        // Remove any nullish values
-        Object.keys(taskData).forEach(key => {
-            if (taskData[key] === undefined || taskData[key] === null) {
-                delete taskData[key];
-            }
-        });
+      // Remove any nullish values
+      Object.keys(taskData).forEach(key => {
+        if (taskData[key] === undefined || taskData[key] === null) {
+          delete taskData[key];
+        }
+      });
 
-        let savedTask;
-        
-        // First save the task to get its ID
-        if (taskToEdit) {
-            savedTask = await onSave({...taskData, $id: taskToEdit.$id});
-        } else {
-            savedTask = await onSave(taskData);
-        }
-        
-        // Handle Google Calendar sync if enabled
-        if (syncWithGoogle && isGoogleConnected && savedTask) {
-            try {
-                if (taskToEdit) {
-                    // Update existing Google Calendar event
-                    await updateGoogleCalendarEvent({...savedTask, ...taskData});
-                } else {
-                    // Create new Google Calendar event
-                    await createGoogleCalendarEvent({...savedTask, ...taskData});
-                }
-            } catch (gcalError) {
-                console.error("Google Calendar sync error:", gcalError);
-                // Continue with task save even if Google Calendar sync fails
-                // But notify user by adding an error
-                setErrors({...errors, googleCalendar: 'Failed to sync with Google Calendar.'});
-            }
-        }
+      console.log("Saving task with data:", taskData);
+      
+      // If editing an existing task, include its ID
+      if (taskToEdit) {
+        await onSave({...taskData, $id: taskToEdit.$id});
+      } else {
+        await onSave(taskData);
+      }
+      
+      // The parent component (Tasks.jsx) will handle Google Calendar sync
+      
+      // Close the modal after successful save
+      onClose();
     } catch (error) {
-        console.error("Error saving task:", error);
-        setErrors({...errors, general: "Failed to save task"});
+      console.error("Error saving task:", error);
+      setErrors({...errors, general: "Failed to save task"});
     }
-};
+  };
 
   // Apply AI suggestion
   const applyAiSuggestion = () => {

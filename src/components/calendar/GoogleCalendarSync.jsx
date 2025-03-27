@@ -5,49 +5,61 @@ import { useToast } from '../../contexts/ToastContext';
 
 const GoogleCalendarSync = ({ onSyncStatusChange }) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start as loading until we check
   const { addToast } = useToast();
-
+  
   // Check if the user is already authenticated with Google
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const isSignedIn = checkSignedInStatus();
-      setIsConnected(isSignedIn);
-      if (onSyncStatusChange) {
-        onSyncStatusChange(isSignedIn);
+      try {
+        const isSignedIn = await checkSignedInStatus();
+        setIsConnected(isSignedIn);
+        if (onSyncStatusChange) {
+          onSyncStatusChange(isSignedIn);
+        }
+      } catch (error) {
+        console.error('Error checking Google auth status:', error);
+        setIsConnected(false);
+        if (onSyncStatusChange) {
+          onSyncStatusChange(false);
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
-
+    
     checkAuthStatus();
   }, [onSyncStatusChange]);
-
-  const handleConnect = async () => {
+  
+  const handleConnect = () => {
     setIsLoading(true);
     try {
-      // This will redirect to Google OAuth
+      // This will redirect to Google OAuth without showing toasts
+      // The AuthCallback page will handle showing the success/error toasts
       handleGoogleAuth();
-      // The rest of the flow is handled in AuthCallback.jsx
+      // No need to set states here as page will redirect
     } catch (error) {
-      console.error('Error connecting to Google Calendar:', error);
+      console.error('Error initiating Google Calendar connection:', error);
       addToast('Error connecting to Google Calendar. Please try again.', 'error');
       setIsConnected(false);
       setIsLoading(false);
     }
   };
-
+  
   const handleDisconnect = async () => {
     setIsLoading(true);
     try {
-      const result = await signOutFromGoogle();
-      setIsConnected(!result);
+      await signOutFromGoogle();
+      setIsConnected(false);
       if (onSyncStatusChange) {
-        onSyncStatusChange(!result);
+        onSyncStatusChange(false);
       }
+      // Single toast for disconnect success
       addToast('Disconnected from Google Calendar.', 'info');
-      setIsLoading(false);
     } catch (error) {
       console.error('Error disconnecting from Google Calendar:', error);
       addToast('Error disconnecting from Google Calendar.', 'error');
+    } finally {
       setIsLoading(false);
     }
   };

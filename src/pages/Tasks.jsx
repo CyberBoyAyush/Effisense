@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
 import { createPortal } from "react-dom";
 import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks } from '../utils/database';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../utils/googleCalendar';
 import { 
   FaTasks, FaPlus, FaCheck, FaRegClock, 
   FaCalendarDay, FaCalendarPlus, FaRegCalendarCheck,
@@ -17,33 +18,47 @@ const Tasks = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+
+  // Check Google Calendar connection status
+  useEffect(() => {
+    const checkGoogleStatus = async () => {
+      const isConnected = await checkSignedInStatus();
+      setIsGoogleConnected(isConnected);
+    };
+    
+    checkGoogleStatus();
+  }, []);
+
+  // Define fetchTasks as a useCallback function so it can be used in other functions
+  const fetchTasks = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      
+      if (user) {
+        let fetchedTasks;
+        if (filter === 'completed') {
+          fetchedTasks = await getCompletedTasks(user.$id);
+        } else if (filter === 'active') {
+          fetchedTasks = await getActiveTasks(user.$id);
+        } else {
+          fetchedTasks = await getUserTasks(user.$id);
+        }
+        setTasks(fetchedTasks);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      addToast('Error fetching tasks', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filter, addToast]);
 
   // Load tasks from Appwrite database with efficient filtering and caching
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setIsLoading(true);
-        const user = JSON.parse(localStorage.getItem('loggedInUser'));
-        if (user) {
-          let fetchedTasks;
-          if (filter === 'completed') {
-            fetchedTasks = await getCompletedTasks(user.$id);
-          } else if (filter === 'active') {
-            fetchedTasks = await getActiveTasks(user.$id);
-          } else {
-            fetchedTasks = await getUserTasks(user.$id);
-          }
-          setTasks(fetchedTasks);
-        }
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchTasks();
-  }, [filter]); // Re-fetch when filter changes
+  }, [fetchTasks]); // Re-fetch when filter changes
 
   // Handle task operations
   const handleAddTask = () => {
@@ -51,34 +66,59 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
+  // Updated handleSaveTask function that handles Google Calendar sync directly
   const handleSaveTask = async (taskData) => {
     try {
+      setIsLoading(true);
+      
+      // Get current user from localStorage
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
-      if (taskToEdit) {
-        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
-        
-        if (updatedTask) {
-          setTasks(prevTasks => {
-            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-            return [...filteredTasks, updatedTask];
-          });
-        }
+      // Create or update task
+      let savedTask;
+      if (taskData.$id) {
+        // Update existing task
+        savedTask = await updateTask(taskData.$id, taskData);
+        console.log("Task updated successfully:", savedTask);
       } else {
-        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const newTask = await createTask(cleanedData, user.$id);
-        
-        if (newTask) {
-          setTasks(prevTasks => [...prevTasks, newTask]);
+        // Create new task
+        savedTask = await createTask(taskData, user.$id);
+        console.log("Task created successfully:", savedTask);
+      }
+      
+      // Handle Google Calendar sync if enabled
+      if (taskData.syncWithGoogle && isGoogleConnected && savedTask) {
+        try {
+          console.log("Attempting to sync with Google Calendar");
+          if (taskData.$id) {
+            // Update existing Google Calendar event
+            await updateGoogleCalendarEvent({...savedTask});
+            console.log("Google Calendar event updated successfully");
+          } else {
+            // Create new Google Calendar event
+            await createGoogleCalendarEvent({...savedTask});
+            console.log("Google Calendar event created successfully");
+          }
+        } catch (gcalError) {
+          console.error("Google Calendar sync error:", gcalError);
+          addToast('Task saved but failed to sync with Google Calendar', 'warning');
         }
       }
-      setIsModalOpen(false);
-      setTaskToEdit(null);
-      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
+      
+      // Refresh tasks after save
+      await fetchTasks();
+      
+      // Show success toast
+      addToast('Task saved successfully!', 'success');
+      
+      setIsLoading(false);
+      return savedTask;
+      
     } catch (error) {
       console.error('Error saving task:', error);
-      addToast('Failed to save task. Please try again.', 'error');
+      setIsLoading(false);
+      addToast('Error saving task. Please try again.', 'error');
+      throw error;
     }
   };
 
