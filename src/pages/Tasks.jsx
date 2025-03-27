@@ -131,9 +131,23 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteTask = async (taskId) => {
+  const handleDeleteTask = async (taskToDelete) => {
     try {
-      await deleteTask(taskId);
+      // Check if we have a task object or just an ID
+      const taskId = typeof taskToDelete === 'object' && taskToDelete !== null ? 
+        taskToDelete.$id : taskToDelete;
+      
+      if (!taskId || typeof taskId !== 'string') {
+        console.error('Invalid task ID:', taskId);
+        addToast('Cannot delete task: Invalid task ID', 'error');
+        return;
+      }
+      
+      // Clean the task ID to ensure it meets Appwrite's requirements
+      const validTaskId = taskId.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 36);
+      console.log('Deleting task with cleaned ID:', validTaskId);
+      
+      await deleteTask(validTaskId);
       setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
       addToast('Task deleted successfully!', 'success');
     } catch (error) {
