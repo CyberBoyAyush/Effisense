@@ -18,6 +18,33 @@ const GOOGLE_EVENT_MAPPINGS_KEY = 'googleEventMappings';
 const GOOGLE_AUTH_STATUS_KEY = 'googleAuthStatus';
 const GOOGLE_CONNECTION_MARKER = 'googleConnectionActive';
 
+// In-memory cache for faster connection status checks
+// This avoids making repeated API calls for the same information
+const connectionStatusCache = {
+  status: null,         // Current connection status (boolean)
+  timestamp: 0,         // When the status was last checked
+  expiresIn: 60 * 1000, // Cache for 1 minute by default
+  
+  // Check if the cached status is still valid
+  isValid() {
+    return this.status !== null && 
+           (Date.now() - this.timestamp) < this.expiresIn;
+  },
+  
+  // Update the cache
+  update(status) {
+    this.status = status;
+    this.timestamp = Date.now();
+    return status;
+  },
+  
+  // Clear the cache
+  clear() {
+    this.status = null;
+    this.timestamp = 0;
+  }
+};
+
 // Persistent preference handler - provides atomic updates and prevents accidental preference deletion
 const persistentPrefs = {
   // Get all user preferences safely
@@ -177,6 +204,9 @@ export const storeAuthStatus = async (status) => {
     // Set connection marker to track active connection
     if (status.success) {
       await persistentPrefs.set(GOOGLE_CONNECTION_MARKER, 'true');
+      connectionStatusCache.update(true); // Update the cache
+    } else {
+      connectionStatusCache.update(false);
     }
     
     return true;
@@ -186,6 +216,7 @@ export const storeAuthStatus = async (status) => {
     if (error.code) {
       console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
     }
+    connectionStatusCache.clear();
     return false;
   }
 };
@@ -244,6 +275,9 @@ export const storeUserTokens = async (tokens) => {
     // Update tokens while preserving other preferences
     await persistentPrefs.setMultiple(tokenPrefs);
     
+    // Update connection status cache
+    connectionStatusCache.update(true);
+    
     console.log('Google tokens stored successfully in Appwrite');
     return true;
   } catch (error) {
@@ -252,6 +286,7 @@ export const storeUserTokens = async (tokens) => {
     if (error.code) {
       console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
     }
+    connectionStatusCache.clear();
     return false;
   }
 };
@@ -303,6 +338,9 @@ export const clearUserTokens = async () => {
     await persistentPrefs.remove(GOOGLE_REFRESH_TOKEN_KEY);
     await persistentPrefs.remove(GOOGLE_CONNECTION_MARKER);
     
+    // Clear connection status cache
+    connectionStatusCache.update(false);
+    
     return true;
   } catch (error) {
     console.error('Error clearing user tokens from Appwrite:', error);
@@ -310,37 +348,53 @@ export const clearUserTokens = async () => {
     if (error.code) {
       console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
     }
+    connectionStatusCache.clear();
     return false;
   }
 };
 
-// Check if user is signed in to Google
+// Check if user is signed in to Google - Optimized with cache
 export const checkSignedInStatus = async () => {
   try {
-    // First check active connection marker
+    // First check if we have a valid cached status to avoid API calls
+    if (connectionStatusCache.isValid()) {
+      return connectionStatusCache.status;
+    }
+    
+    // If no valid cache, check active connection marker (fast retrieval)
     const connectionActive = await persistentPrefs.get(GOOGLE_CONNECTION_MARKER);
     
     // If explicitly marked as not connected, return false immediately
     if (connectionActive !== 'true') {
-      return false;
+      return connectionStatusCache.update(false);
     }
     
-    // Then verify we have valid tokens
-    const tokens = await getUserTokens();
-    const connected = tokens && (tokens.access_token || tokens.refresh_token);
+    // For a positive marker, verify with a quick token check (no full validation)
+    const token = await persistentPrefs.get(GOOGLE_TOKEN_KEY);
+    const refreshToken = await persistentPrefs.get(GOOGLE_REFRESH_TOKEN_KEY);
+    
+    const connected = !!(token || refreshToken);
     
     // If connection marker exists but we don't have tokens, fix the inconsistency
     if (connectionActive === 'true' && !connected) {
       console.warn('Connection marked as active but no tokens found, resetting connection marker');
       await persistentPrefs.set(GOOGLE_CONNECTION_MARKER, 'false');
-      return false;
+      return connectionStatusCache.update(false);
     }
     
-    return !!connected;
+    return connectionStatusCache.update(connected);
   } catch (error) {
     console.error('Error checking signed in status:', error);
+    connectionStatusCache.clear();
     return false;
   }
+};
+
+// Force refresh the connection status (bypass cache)
+export const refreshConnectionStatus = async () => {
+  // Clear the cache to force a fresh check
+  connectionStatusCache.clear();
+  return await checkSignedInStatus();
 };
 
 // Generate OAuth URL for redirect
