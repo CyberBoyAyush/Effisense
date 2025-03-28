@@ -4,6 +4,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
+
+// Connection status initialization - ensures we only check once when component loads
+// This prevents unnecessary checks on every render
+let googleConnectionChecked = false;
+let cachedConnectionStatus = false;
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
   // Form fields state
@@ -36,6 +42,46 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
 
+  // Add state for Google Calendar status
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+  // Fast connection check that uses cache when possible
+  const checkGoogleCalendarConnection = async () => {
+    try {
+      if (!isCheckingConnection) {
+        setIsCheckingConnection(true);
+        
+        // Use the cached status if already checked and the modal just reopened
+        if (googleConnectionChecked) {
+          console.log("Using cached Google Calendar connection status:", cachedConnectionStatus);
+          setIsGoogleConnected(cachedConnectionStatus);
+          setIsCheckingConnection(false);
+          return cachedConnectionStatus;
+        }
+        
+        // Otherwise perform a fresh check
+        console.log("Checking Google Calendar connection status...");
+        const isConnected = await checkSignedInStatus();
+        console.log("Google Calendar connection status:", isConnected);
+        
+        // Update both the component state and cached values
+        setIsGoogleConnected(isConnected);
+        cachedConnectionStatus = isConnected;
+        googleConnectionChecked = true;
+        
+        setIsCheckingConnection(false);
+        return isConnected;
+      }
+      return isGoogleConnected;
+    } catch (error) {
+      console.error("Error checking Google Calendar connection:", error);
+      setIsGoogleConnected(false);
+      setIsCheckingConnection(false);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
@@ -51,7 +97,6 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           setPriority(taskToEdit.priority || "medium");
           setStatus(taskToEdit.status || "pending");
           setCategory(taskToEdit.category || "work");
-          setSyncWithGoogle(taskToEdit.syncWithGoogle || false);
           setIsRecurring(taskToEdit.isRecurring || false);
           setRecurringType(taskToEdit.recurringType || "daily");
           setEnableReminders(taskToEdit.enableReminders || false);
@@ -190,6 +235,35 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           console.log("Setting default end date:", end);
           setEndDate(end);
         }
+
+        // Fast check if Google Calendar is connected using the optimized function
+        const initializeGoogleCalendarState = async () => {
+          const isConnected = await checkGoogleCalendarConnection();
+          
+          // If editing a task that has Google sync but Google is no longer connected,
+          // show a warning and disable the sync option
+          if (taskToEdit?.syncWithGoogle && !isConnected) {
+            setErrors({
+              ...errors,
+              googleCalendar: 'Google Calendar is disconnected. Sync option has been disabled.'
+            });
+            setSyncWithGoogle(false);
+            
+            // Clear the error after 5 seconds
+            setTimeout(() => {
+              setErrors(prev => {
+                const newErrors = {...prev};
+                delete newErrors.googleCalendar;
+                return newErrors;
+              });
+            }, 5000);
+          } else if (taskToEdit?.syncWithGoogle && isConnected) {
+            // If editing a task that has Google sync and Google is connected, keep sync enabled
+            setSyncWithGoogle(true);
+          }
+        };
+        
+        initializeGoogleCalendarState();
       } catch (error) {
         console.error("Error initializing form dates:", error);
       }
@@ -399,38 +473,60 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate the form
+    const isValid = validateForm();
+    const isTimeValid = validateTimeOrder();
+    
+    if (!isValid || !isTimeValid) {
+      console.log("Form validation failed");
+      return;
+    }
 
     try {
-        // Prepare task data while removing system fields
-        const taskData = {
-            title,
-            description,
-            deadline: startDate.toISOString(),
-            endTime: endDate ? endDate.toISOString() : undefined,
-            priority,
-            status,
-            category,
-            syncWithGoogle,
-            isRecurring,
-            recurringType: isRecurring ? recurringType : undefined,
-            enableReminders,
-            reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined,
-            duration
-        };
+      // Prepare task data while removing system fields
+      const taskData = {
+        title,
+        description,
+        deadline: startDate.toISOString(),
+        endTime: endDate ? endDate.toISOString() : undefined,
+        priority,
+        status,
+        category,
+        // Only include syncWithGoogle if Google Calendar is actually connected
+        syncWithGoogle: isGoogleConnected ? syncWithGoogle : false,
+        isRecurring,
+        recurringType: isRecurring ? recurringType : undefined,
+        enableReminders,
+        reminderTime: enableReminders ? parseInt(reminderTime, 10) : undefined,
+        duration
+      };
 
-        // Remove any nullish values
-        Object.keys(taskData).forEach(key => {
-            if (taskData[key] === undefined || taskData[key] === null) {
-                delete taskData[key];
-            }
-        });
+      // Remove any nullish values
+      Object.keys(taskData).forEach(key => {
+        if (taskData[key] === undefined || taskData[key] === null) {
+          delete taskData[key];
+        }
+      });
 
-        onSave(taskData);
+      console.log("Saving task with data:", taskData);
+      
+      // If editing an existing task, include its ID
+      if (taskToEdit) {
+        await onSave({...taskData, $id: taskToEdit.$id});
+      } else {
+        await onSave(taskData);
+      }
+      
+      // The parent component (Tasks.jsx) will handle Google Calendar sync
+      
+      // Close the modal after successful save
+      onClose();
     } catch (error) {
-        console.error("Error saving task:", error);
-        setErrors({...errors, general: "Failed to save task"});
+      console.error("Error saving task:", error);
+      setErrors({...errors, general: "Failed to save task"});
     }
-};
+  };
 
   // Apply AI suggestion
   const applyAiSuggestion = () => {
@@ -439,6 +535,56 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setDeadline("2023-10-12");
     setTime("10:00");
   };
+
+  // Modify the Google Calendar Sync Toggle to show connection status
+  const renderGoogleSyncToggle = () => (
+    <div className="flex items-center h-full">
+      <label className={`inline-flex items-center ${isGoogleConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+        <input 
+          type="checkbox" 
+          className="sr-only peer" 
+          checked={syncWithGoogle}
+          onChange={() => {
+            if (!isGoogleConnected) {
+              setErrors({
+                ...errors, 
+                googleCalendar: 'Please connect to Google Calendar in Settings first.'
+              });
+              
+              // Clear the error after 3 seconds
+              setTimeout(() => {
+                setErrors(prev => {
+                  const newErrors = {...prev};
+                  delete newErrors.googleCalendar;
+                  return newErrors;
+                });
+              }, 3000);
+              
+              // Don't allow enabling when not connected
+              setSyncWithGoogle(false);
+              return;
+            }
+            setSyncWithGoogle(!syncWithGoogle);
+          }}
+          disabled={!isGoogleConnected}
+        />
+        <div className={`relative w-8 h-4 ${isGoogleConnected ? 'bg-gray-700' : 'bg-gray-800'} rounded-full 
+          peer peer-checked:bg-orange-600 peer-focus:ring-1 peer-focus:ring-orange-500/30
+          after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
+          after:rounded-full after:h-3 after:w-3 after:transition-all 
+          peer-checked:after:translate-x-4`}></div>
+        <span className="ml-2 text-xs text-gray-300">
+          Google Sync
+        </span>
+        {!isGoogleConnected && (
+          <span className="ml-1 text-[10px] text-orange-400">(Setup in Settings)</span>
+        )}
+        {isCheckingConnection && (
+          <span className="ml-1 text-[10px] text-blue-400 animate-pulse">(Checking...)</span>
+        )}
+      </label>
+    </div>
+  );
 
   if (!isOpen) return null;
   
@@ -487,6 +633,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             <p className="text-orange-300 text-xs flex items-center gap-1">
               <span className="text-xs">🔄</span>
               <span>This is a recurring task. Your changes will create a new instance.</span>
+            </p>
+          </div>
+        )}
+
+        {/* Google Calendar error message */}
+        {errors.googleCalendar && (
+          <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20">
+            <p className="text-red-300 text-xs flex items-center gap-1">
+              <span className="text-xs">⚠️</span>
+              <span>{errors.googleCalendar}</span>
             </p>
           </div>
         )}
@@ -611,25 +767,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 </select>
               </div>
 
-              {/* Google Calendar Sync Toggle */}
-              <div className="flex items-center h-full">
-                <label className="inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={syncWithGoogle}
-                    onChange={() => setSyncWithGoogle(!syncWithGoogle)}
-                  />
-                  <div className="relative w-8 h-4 bg-gray-700 rounded-full peer peer-checked:bg-orange-600 
-                    peer-focus:ring-1 peer-focus:ring-orange-500/30
-                    after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
-                    after:rounded-full after:h-3 after:w-3 after:transition-all 
-                    peer-checked:after:translate-x-4"></div>
-                  <span className="ml-2 text-xs text-gray-300">
-                    Google Sync
-                  </span>
-                </label>
-              </div>
+              {/* Google Calendar Sync Toggle - Updated with connection status */}
+              {renderGoogleSyncToggle()}
             </div>
 
             {/* Enhanced Date and Time Pickers - More compact */}
