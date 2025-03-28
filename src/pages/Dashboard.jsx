@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import TaskList from "../components/tasks/TaskList";
 import TaskFormModal from "../components/tasks/TaskFormModal";
 import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion } from '../utils/database';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../utils/googleCalendar';
 import { 
   FaHandPaper, FaPlus, FaListUl, FaCalendarAlt, 
   FaClipboardList, FaCheckCircle, FaHourglassHalf,
@@ -22,24 +23,41 @@ const Dashboard = () => {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
+  // Check if Google Calendar is connected
   useEffect(() => {
-    // Load tasks when component mounts
-    const fetchTasks = async () => {
+    const checkGoogleStatus = async () => {
       try {
-        const user = JSON.parse(localStorage.getItem('loggedInUser'));
-        if (user) {
-          const fetchedTasks = await getUserTasks(user.$id);
-          setTasks(fetchedTasks);
-          setFilteredTasks(fetchedTasks);
-        }
+        const isConnected = await checkSignedInStatus();
+        setIsGoogleConnected(isConnected);
+        console.log("Google Calendar connection status:", isConnected ? "Connected" : "Not connected");
       } catch (error) {
-        console.error('Error fetching tasks:', error);
+        console.error("Error checking Google Calendar connection:", error);
+        setIsGoogleConnected(false);
       }
     };
+    
+    checkGoogleStatus();
+  }, []);
 
+  // Load tasks when component mounts
+  const fetchTasks = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (user) {
+        const fetchedTasks = await getUserTasks(user.$id);
+        setTasks(fetchedTasks);
+        setFilteredTasks(fetchedTasks);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchTasks();
-
+    
     // Check authentication
     const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
     if (!loggedInUser) {
@@ -68,35 +86,62 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Save or update a task with immediate UI update
+  // Save or update a task with immediate UI update and Google Calendar sync
   const handleSaveTask = async (taskData) => {
     try {
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      let savedTask;
       
       if (taskToEdit) {
         // Update existing task
         const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
+        savedTask = await updateTask(taskToEdit.$id, cleanedData);
+        console.log("Task updated successfully:", savedTask);
         
-        if (updatedTask) {
+        if (savedTask) {
           // Single state update to prevent race conditions
           setTasks(prevTasks => {
-            const newTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-            return [...newTasks, updatedTask];
+            const newTasks = prevTasks.filter(t => t.$id !== savedTask.$id);
+            return [...newTasks, savedTask];
           });
+          
+          // Handle Google Calendar sync for updated task
+          if (taskData.syncWithGoogle && isGoogleConnected) {
+            try {
+              console.log("Updating Google Calendar event for task:", savedTask.$id);
+              await updateGoogleCalendarEvent({...savedTask});
+              console.log("Google Calendar event updated successfully");
+            } catch (gcalError) {
+              console.error("Google Calendar sync error:", gcalError);
+              addToast('Task updated but failed to sync with Google Calendar', 'warning');
+            }
+          }
         }
       } else {
         // Create new task
         const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const newTask = await createTask(cleanedData, user.$id);
+        savedTask = await createTask(cleanedData, user.$id);
+        console.log("Task created successfully:", savedTask);
         
-        if (newTask) {
+        if (savedTask) {
           // Add new task without causing duplicates
           setTasks(prevTasks => {
             // Ensure no task with this ID exists
-            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
-            return [...uniqueTasks, newTask];
+            const uniqueTasks = prevTasks.filter(t => t.$id !== savedTask.$id);
+            return [...uniqueTasks, savedTask];
           });
+          
+          // Handle Google Calendar sync for new task
+          if (taskData.syncWithGoogle && isGoogleConnected) {
+            try {
+              console.log("Creating Google Calendar event for task:", savedTask.$id);
+              await createGoogleCalendarEvent({...savedTask});
+              console.log("Google Calendar event created successfully");
+            } catch (gcalError) {
+              console.error("Google Calendar sync error:", gcalError);
+              addToast('Task created but failed to sync with Google Calendar', 'warning');
+            }
+          }
         }
       }
       setIsModalOpen(false);

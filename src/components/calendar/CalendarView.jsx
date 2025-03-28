@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getUserTasks, createTask, updateTask, deleteTask, toggleTaskCompletion, getCompletedTasks, getActiveTasks } from '../../utils/database';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
 import TaskFormModal from '../tasks/TaskFormModal';
 import TaskCard from '../tasks/TaskCard';
 import { createPortal } from 'react-dom';
@@ -81,7 +82,7 @@ const HourRangeButton = ({ label, range, setRange, current }) => {
   );
 };
 
-const CalendarView = () => {
+const CalendarView = ({ isGoogleConnected: propIsGoogleConnected }) => {
   const { addToast } = useToast();
   const [view, setView] = useState('month'); // 'month', 'week', 'day'
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -95,6 +96,27 @@ const CalendarView = () => {
   const [openTaskDetails, setOpenTaskDetails] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'active', 'completed'
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+
+  // Use prop value if provided, otherwise check status
+  useEffect(() => {
+    if (propIsGoogleConnected !== undefined) {
+      setIsGoogleConnected(propIsGoogleConnected);
+    } else {
+      const checkGoogleStatus = async () => {
+        try {
+          const isConnected = await checkSignedInStatus();
+          setIsGoogleConnected(isConnected);
+          console.log("Google Calendar connection status:", isConnected ? "Connected" : "Not connected");
+        } catch (error) {
+          console.error("Error checking Google Calendar connection:", error);
+          setIsGoogleConnected(false);
+        }
+      };
+      
+      checkGoogleStatus();
+    }
+  }, [propIsGoogleConnected]);
 
   // Improved task fetching without cache
   const fetchTasks = useCallback(async () => {
@@ -203,34 +225,59 @@ const CalendarView = () => {
 
   const handleSaveTask = async (taskData) => {
     try {
+      setIsLoading(true);
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
-      if (!user) return;
+      let savedTask;
       
       if (taskToEdit) {
         // Update existing task
         const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
+        savedTask = await updateTask(taskToEdit.$id, cleanedData);
+        console.log("Task updated successfully:", savedTask);
         
-        if (updatedTask) {
-          // Replace existing task with updated version
+        if (savedTask) {
+          // Update tasks state
           setTasks(prevTasks => {
-            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-            return [...filteredTasks, updatedTask];
+            const filteredTasks = prevTasks.filter(t => t.$id !== savedTask.$id);
+            return [...filteredTasks, savedTask];
           });
+          
+          // Handle Google Calendar sync for updated task
+          if (taskData.syncWithGoogle && isGoogleConnected) {
+            try {
+              console.log("Updating Google Calendar event for task:", savedTask.$id);
+              await updateGoogleCalendarEvent({...savedTask});
+              console.log("Google Calendar event updated successfully");
+            } catch (gcalError) {
+              console.error("Google Calendar sync error:", gcalError);
+              addToast('Task updated but failed to sync with Google Calendar', 'warning');
+            }
+          }
         }
       } else {
         // Create new task
         const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
+        savedTask = await createTask(cleanedData, user.$id);
+        console.log("Task created successfully:", savedTask);
         
-        // Create in backend first
-        const newTask = await createTask(cleanedData, user.$id);
-        
-        if (newTask) {
-          // Add to state ensuring no duplicates
+        if (savedTask) {
+          // Add task to state
           setTasks(prevTasks => {
-            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
-            return [...uniqueTasks, newTask];
+            const uniqueTasks = prevTasks.filter(t => t.$id !== savedTask.$id);
+            return [...uniqueTasks, savedTask];
           });
+          
+          // Handle Google Calendar sync for new task
+          if (taskData.syncWithGoogle && isGoogleConnected) {
+            try {
+              console.log("Creating Google Calendar event for task:", savedTask.$id);
+              await createGoogleCalendarEvent({...savedTask});
+              console.log("Google Calendar event created successfully");
+            } catch (gcalError) {
+              console.error("Google Calendar sync error:", gcalError);
+              addToast('Task created but failed to sync with Google Calendar', 'warning');
+            }
+          }
         }
       }
       
@@ -241,6 +288,8 @@ const CalendarView = () => {
     } catch (error) {
       console.error('Error saving task:', error);
       addToast('Failed to save task. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -328,43 +377,6 @@ const CalendarView = () => {
     setShowTaskDetails(false);
     setTaskToEdit(selectedTask);
     setIsModalOpen(true);
-  };
-
-  const handleTaskSave = async (taskData) => {
-    try {
-      const user = JSON.parse(localStorage.getItem('loggedInUser'));
-      
-      if (taskToEdit) {
-        // Update existing task
-        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const updatedTask = await updateTask(taskToEdit.$id, cleanedData);
-        
-        if (updatedTask) {
-          setTasks(prevTasks => {
-            const filteredTasks = prevTasks.filter(t => t.$id !== updatedTask.$id);
-            return [...filteredTasks, updatedTask];
-          });
-        }
-      } else {
-        // Create new task
-        const { $id, $databaseId, $collectionId, ...cleanedData } = taskData;
-        const newTask = await createTask(cleanedData, user.$id);
-        
-        if (newTask) {
-          setTasks(prevTasks => {
-            const uniqueTasks = prevTasks.filter(t => t.$id !== newTask.$id);
-            return [...uniqueTasks, newTask];
-          });
-        }
-      }
-      
-      setIsModalOpen(false);
-      setTaskToEdit(null);
-      addToast(taskToEdit ? 'Task updated successfully!' : 'Task created successfully!', 'success');
-    } catch (error) {
-      console.error('Error saving task:', error);
-      addToast('Failed to save task. Please try again.', 'error');
-    }
   };
 
   const renderTaskItem = (task, onClick) => {
@@ -619,7 +631,7 @@ const CalendarView = () => {
             setIsModalOpen(false);
             setTaskToEdit(null);
           }}
-          onSave={handleTaskSave}
+          onSave={handleSaveTask}
           taskToEdit={taskToEdit}
           defaultDateTime={selectedDate}
         />,

@@ -1,8 +1,27 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import CalendarView from "../components/calendar/CalendarView";
 import { FaCalendarAlt, FaRegCalendarCheck } from "react-icons/fa";
+import { checkSignedInStatus } from "../utils/googleCalendar";
 
 const Calendar = () => {
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+
+  // Check Google Calendar connection status
+  useEffect(() => {
+    const checkGoogleStatus = async () => {
+      try {
+        const isConnected = await checkSignedInStatus();
+        setIsGoogleConnected(isConnected);
+        console.log("Google Calendar connection status:", isConnected ? "Connected" : "Not connected");
+      } catch (error) {
+        console.error("Error checking Google Calendar connection:", error);
+        setIsGoogleConnected(false);
+      }
+    };
+    
+    checkGoogleStatus();
+  }, []);
+
   return (
     <div className="p-4 md:p-6 text-gray-200">
       {/* Header - Enhanced orange theme with React Icons */}
@@ -17,7 +36,7 @@ const Calendar = () => {
         </p>
       </div>
 
-      <CalendarView />
+      <CalendarView isGoogleConnected={isGoogleConnected} />
     </div>
   );
 };
