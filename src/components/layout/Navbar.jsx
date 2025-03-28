@@ -1,16 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   FaCalendarAlt, FaSignOutAlt, FaUserCircle, FaChevronDown,
   FaTachometerAlt, FaListUl, FaCalendarCheck, FaUserCog,
-  FaBell, FaCog, FaQuestionCircle
+  FaBell, FaCog, FaQuestionCircle, FaGoogle, FaCheck, FaTimes
 } from "react-icons/fa";
+import { checkSignedInStatus } from '../../utils/googleCalendar';
 
 const Navbar = ({ onMenuClick, showMenuButton }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   
   // Check if user is authenticated
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -20,9 +23,52 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
     path => location.pathname.startsWith(path)
   );
 
+  // Check Google Calendar connection status when dropdown opens
+  useEffect(() => {
+    if (isDropdownOpen && user) {
+      const checkGoogleConnection = async () => {
+        try {
+          setIsCheckingConnection(true);
+          const connected = await checkSignedInStatus();
+          setGoogleConnected(connected);
+        } catch (error) {
+          console.error("Error checking Google Calendar connection:", error);
+          setGoogleConnected(false);
+        } finally {
+          setIsCheckingConnection(false);
+        }
+      };
+      
+      checkGoogleConnection();
+    }
+  }, [isDropdownOpen, user]);
+
   const handleLogout = () => {
     localStorage.removeItem("loggedInUser");
     navigate("/login");
+  };
+
+  // Google Calendar connection status display component
+  const GoogleConnectionStatus = () => {
+    if (isCheckingConnection) {
+      return (
+        <span className="bg-gray-700 text-xs px-1.5 py-0.5 rounded text-gray-300 flex items-center">
+          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5 animate-pulse"></span>
+          Checking
+        </span>
+      );
+    }
+    
+    return googleConnected ? (
+      <span className="bg-green-900/30 text-xs px-1.5 py-0.5 rounded text-green-400 flex items-center">
+        <FaCheck size={10} className="mr-1" />
+        Connected
+      </span>
+    ) : (
+      <span className="bg-gray-700 text-xs px-1.5 py-0.5 rounded text-gray-300 flex items-center">
+        Connect
+      </span>
+    );
   };
 
   return (
@@ -129,6 +175,23 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                         <NavLink to="/dashboard" icon={<FaTachometerAlt />} label="Dashboard" />
                         <NavLink to="/tasks" icon={<FaListUl />} label="Tasks" />
                         <NavLink to="/calendar" icon={<FaCalendarCheck />} label="Calendar" />
+                      </div>
+                      
+                      {/* Integrations Section - With dynamic connection status */}
+                      <div className="py-1 px-2 border-t border-gray-700/60">
+                        <Link 
+                          to="/settings#google-calendar"
+                          className="flex items-center justify-between px-3 py-2 my-0.5 text-sm rounded-lg
+                            transition-colors duration-200 group hover:bg-gray-700/70 text-gray-300 hover:text-orange-300"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-[#4285F4] group-hover:text-[#4285F4]">
+                              <FaGoogle />
+                            </span>
+                            <span>GCAL Sync</span>
+                          </div>
+                          <GoogleConnectionStatus />
+                        </Link>
                       </div>
                       
                       {/* Account Actions */}
