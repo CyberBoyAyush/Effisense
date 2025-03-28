@@ -3,9 +3,6 @@ import { handleGoogleAuth, checkSignedInStatus, signOutFromGoogle } from '../../
 import { FaGoogle, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt, FaSpinner, FaSignOutAlt } from 'react-icons/fa';
 import { useToast } from '../../contexts/ToastContext';
 
-// Key for Google auth success in localStorage - must match with Settings.jsx
-const GOOGLE_AUTH_SUCCESS_KEY = 'googleAuthStatus';
-
 const GoogleCalendarSync = ({ 
   onSyncStatusChange, 
   initialConnected = false,
@@ -67,14 +64,6 @@ const GoogleCalendarSync = ({
       // No toast here - will be handled by AuthCallback -> Settings flow
     } catch (error) {
       console.error('Error initiating Google Calendar connection:', error);
-      
-      // Store error in localStorage instead of showing toast directly
-      localStorage.setItem(GOOGLE_AUTH_SUCCESS_KEY, JSON.stringify({
-        success: false,
-        error: 'Failed to initiate Google connection',
-        timestamp: Date.now()
-      }));
-      
       setIsConnected(false);
       setIsLoading(false);
       setConnectionError(true);

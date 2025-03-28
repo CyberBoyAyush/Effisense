@@ -7,13 +7,8 @@ import {
 } from 'react-icons/fa';
 import { getUserTasks, updateUserName } from '../utils/database';
 import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
-import { checkSignedInStatus } from '../utils/googleCalendar';
+import { checkSignedInStatus, getAuthStatus, clearAuthStatus } from '../utils/googleCalendar';
 import { useToast } from '../contexts/ToastContext';
-
-// Key for Google auth status in localStorage - must match with AuthCallback.jsx
-const GOOGLE_AUTH_SUCCESS_KEY = 'googleAuthStatus';
-// Used to track if we've already shown a toast for this session
-const TOAST_SHOWN_KEY = 'googleAuthToastShown';
 
 const Settings = () => {
   const { addToast } = useToast();
@@ -31,7 +26,7 @@ const Settings = () => {
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
-  const [toastShown, setToastShown] = useState(false);
+  const [authStatusChecked, setAuthStatusChecked] = useState(false);
 
   // Check Google Calendar connection
   const checkGoogleConnection = useCallback(async () => {
@@ -48,9 +43,6 @@ const Settings = () => {
       // Only update state if it changed to prevent loops
       if (isConnected !== googleCalendarConnected) {
         setGoogleCalendarConnected(isConnected);
-        
-        // Don't show a toast for routine connection checks
-        // Toasts for connection status will be handled elsewhere
       }
       
       setLastRefresh(Date.now());
@@ -58,47 +50,37 @@ const Settings = () => {
       console.error('Settings: Error checking Google Calendar connection:', error);
       setGoogleCalendarConnected(false);
       setConnectionError(true);
-      
-      // Don't show error toasts for routine connection checks
-      // This prevents the "connection failed" toast from appearing 
-      // when we're just checking the status
     } finally {
       setIsCheckingConnection(false);
     }
   }, [googleCalendarConnected]);
 
-  // Handle Google auth status from localStorage once on mount
+  // Handle Google auth status from Appwrite once on mount
   useEffect(() => {
-    const checkGoogleAuthStatus = () => {
+    const checkGoogleAuthStatus = async () => {
       try {
-        const authStatusJson = localStorage.getItem(GOOGLE_AUTH_SUCCESS_KEY);
-        if (!authStatusJson) return;
+        // Get auth status from Appwrite
+        const authStatus = await getAuthStatus();
         
-        // Parse the JSON data
-        const authStatus = JSON.parse(authStatusJson);
+        if (!authStatus || authStatusChecked) return;
         
-        // Check if we've already shown a toast for this auth status
-        const shownTimestamp = sessionStorage.getItem(TOAST_SHOWN_KEY);
-        
-        // Only process if this is a new status or we haven't shown a toast yet
-        if (!shownTimestamp || (authStatus.timestamp > parseInt(shownTimestamp))) {
-          if (authStatus.success) {
-            setGoogleCalendarConnected(true);
-            setConnectionError(false);
-            addToast('Successfully connected to Google Calendar!', 'success');
-          } else {
-            setGoogleCalendarConnected(false);
-            // Only show error toast if this is from a real connection attempt
+        // Process the auth status
+        if (authStatus.success) {
+          setGoogleCalendarConnected(true);
+          setConnectionError(false);
+          addToast('Successfully connected to Google Calendar!', 'success');
+        } else {
+          setGoogleCalendarConnected(false);
+          // Only show error toast if this is from a recent connection attempt (within last 30 seconds)
+          const isRecent = Date.now() - authStatus.timestamp < 30000;
+          if (isRecent) {
             addToast(`Google Calendar connection failed: ${authStatus.error || 'Unknown error'}`, 'error');
           }
-          
-          // Mark that we've shown a toast for this status
-          sessionStorage.setItem(TOAST_SHOWN_KEY, authStatus.timestamp.toString());
-          setToastShown(true);
         }
         
-        // Clear the status from localStorage to prevent showing again on reload
-        localStorage.removeItem(GOOGLE_AUTH_SUCCESS_KEY);
+        // Clear the auth status from Appwrite after processing
+        await clearAuthStatus();
+        setAuthStatusChecked(true);
       } catch (error) {
         console.error('Error processing Google auth status:', error);
       }
@@ -108,7 +90,7 @@ const Settings = () => {
     checkGoogleAuthStatus();
     checkGoogleConnection();
     
-  }, [addToast, checkGoogleConnection]);
+  }, [addToast, checkGoogleConnection, authStatusChecked]);
 
   useEffect(() => {
     // Load user data

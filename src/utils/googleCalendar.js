@@ -10,34 +10,115 @@ const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
 // Import account from appwrite to store preferences
 import { account } from './appwrite';
 
-// User token storage helper functions
+// User token storage keys for Appwrite preferences
 const GOOGLE_TOKEN_KEY = 'googleAuthToken';
 const GOOGLE_REFRESH_TOKEN_KEY = 'googleRefreshToken';
 const GOOGLE_TOKEN_EXPIRY_KEY = 'googleTokenExpiry';
 const GOOGLE_EVENT_MAPPINGS_KEY = 'googleEventMappings';
+const GOOGLE_AUTH_STATUS_KEY = 'googleAuthStatus';
+const GOOGLE_CONNECTION_MARKER = 'googleConnectionActive';
+
+// Persistent preference handler - provides atomic updates and prevents accidental preference deletion
+const persistentPrefs = {
+  // Get all user preferences safely
+  async getAll() {
+    try {
+      const userData = await account.get();
+      return userData?.prefs || {};
+    } catch (error) {
+      console.error('Error getting user preferences:', error);
+      return {};
+    }
+  },
+
+  // Get a specific preference by key
+  async get(key) {
+    try {
+      const prefs = await this.getAll();
+      return prefs[key];
+    } catch (error) {
+      console.error(`Error getting preference ${key}:`, error);
+      return null;
+    }
+  },
+
+  // Set a specific preference - preserves all other preferences
+  async set(key, value) {
+    try {
+      // Get current preferences to ensure we don't lose any
+      const currentPrefs = await this.getAll();
+      
+      // Update with new value
+      const updatedPrefs = {
+        ...currentPrefs,
+        [key]: value
+      };
+      
+      // Update account preferences
+      await account.updatePrefs(updatedPrefs);
+      
+      return true;
+    } catch (error) {
+      console.error(`Error setting preference ${key}:`, error);
+      return false;
+    }
+  },
+
+  // Remove a specific preference - preserves all other preferences
+  async remove(key) {
+    try {
+      // Get current preferences to ensure we don't lose any
+      const currentPrefs = await this.getAll();
+      
+      // Create copy and remove specific key
+      const updatedPrefs = {...currentPrefs};
+      delete updatedPrefs[key];
+      
+      // Update account preferences
+      await account.updatePrefs(updatedPrefs);
+      
+      return true;
+    } catch (error) {
+      console.error(`Error removing preference ${key}:`, error);
+      return false;
+    }
+  },
+
+  // Set multiple preferences at once
+  async setMultiple(prefsObject) {
+    try {
+      // Get current preferences to ensure we don't lose any
+      const currentPrefs = await this.getAll();
+      
+      // Merge with new values
+      const updatedPrefs = {
+        ...currentPrefs,
+        ...prefsObject
+      };
+      
+      // Update account preferences
+      await account.updatePrefs(updatedPrefs);
+      
+      return true;
+    } catch (error) {
+      console.error('Error setting multiple preferences:', error);
+      return false;
+    }
+  }
+};
 
 // Store event ID mappings (taskId to Google Calendar eventId)
 const storeEventMapping = async (taskId, eventId) => {
   try {
-    // Get current user and preferences
-    const userData = await account.get();
-    const prefs = {...userData.prefs} || {};
-    
-    // Get existing mappings or create new ones
-    const mappingsKey = GOOGLE_EVENT_MAPPINGS_KEY;
-    const mappingsStr = prefs[mappingsKey] || '{}';
+    // Get current mappings
+    let mappingsStr = await persistentPrefs.get(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
     const mappings = JSON.parse(mappingsStr);
     
     // Add new mapping
     mappings[taskId] = eventId;
     
-    // Update account preferences with new mappings
-    await account.updatePrefs({
-      [mappingsKey]: JSON.stringify(mappings)
-    });
-    
-    // Also keep a local copy for performance
-    sessionStorage.setItem(mappingsKey, JSON.stringify(mappings));
+    // Update with new mappings
+    await persistentPrefs.set(GOOGLE_EVENT_MAPPINGS_KEY, JSON.stringify(mappings));
     
     return true;
   } catch (error) {
@@ -49,24 +130,9 @@ const storeEventMapping = async (taskId, eventId) => {
 // Get event ID for a task
 const getEventIdForTask = async (taskId) => {
   try {
-    // Try session storage first for performance
-    const sessionMappings = sessionStorage.getItem(GOOGLE_EVENT_MAPPINGS_KEY);
-    if (sessionMappings) {
-      const mappings = JSON.parse(sessionMappings);
-      if (mappings[taskId]) {
-        return mappings[taskId];
-      }
-    }
-    
-    // Fall back to Appwrite preferences
-    const userData = await account.get();
-    const prefs = userData.prefs || {};
-    
-    const mappingsStr = prefs[GOOGLE_EVENT_MAPPINGS_KEY] || '{}';
+    // Get mappings from Appwrite preferences
+    const mappingsStr = await persistentPrefs.get(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
     const mappings = JSON.parse(mappingsStr);
-    
-    // Update session storage
-    sessionStorage.setItem(GOOGLE_EVENT_MAPPINGS_KEY, mappingsStr);
     
     return mappings[taskId] || null;
   } catch (error) {
@@ -78,25 +144,15 @@ const getEventIdForTask = async (taskId) => {
 // Remove event mapping
 const removeEventMapping = async (taskId) => {
   try {
-    // Get current user and preferences
-    const userData = await account.get();
-    const prefs = {...userData.prefs} || {};
-    
-    // Get existing mappings
-    const mappingsKey = GOOGLE_EVENT_MAPPINGS_KEY;
-    const mappingsStr = prefs[mappingsKey] || '{}';
+    // Get current mappings
+    const mappingsStr = await persistentPrefs.get(GOOGLE_EVENT_MAPPINGS_KEY) || '{}';
     const mappings = JSON.parse(mappingsStr);
     
     // Remove mapping
     delete mappings[taskId];
     
-    // Update account preferences with new mappings
-    await account.updatePrefs({
-      [mappingsKey]: JSON.stringify(mappings)
-    });
-    
-    // Update session storage
-    sessionStorage.setItem(mappingsKey, JSON.stringify(mappings));
+    // Update with new mappings
+    await persistentPrefs.set(GOOGLE_EVENT_MAPPINGS_KEY, JSON.stringify(mappings));
     
     return true;
   } catch (error) {
@@ -105,27 +161,97 @@ const removeEventMapping = async (taskId) => {
   }
 };
 
-// Store tokens in Appwrite account preferences securely
-export const storeUserTokens = async (tokens) => {
+// Store auth status in Appwrite - used after OAuth flow
+export const storeAuthStatus = async (status) => {
   try {
-    // Create preferences object for storing Google tokens
-    const prefs = {
-      [GOOGLE_TOKEN_KEY]: tokens.access_token,
-      [GOOGLE_REFRESH_TOKEN_KEY]: tokens.refresh_token,
-      [GOOGLE_TOKEN_EXPIRY_KEY]: Date.now() + (tokens.expires_in * 1000)
-    };
+    console.log('Storing Google auth status in Appwrite:', status.success ? 'Success' : 'Failed');
     
-    // Update account preferences in Appwrite
-    await account.updatePrefs(prefs);
+    const statusData = JSON.stringify({
+      ...status,
+      timestamp: Date.now()
+    });
     
-    // Also store in sessionStorage for immediate access without Appwrite calls
-    // but don't use localStorage to avoid inconsistencies
-    sessionStorage.setItem(GOOGLE_TOKEN_KEY, tokens.access_token);
-    sessionStorage.setItem(GOOGLE_TOKEN_EXPIRY_KEY, prefs[GOOGLE_TOKEN_EXPIRY_KEY]);
+    // Update the auth status but preserve other preferences
+    await persistentPrefs.set(GOOGLE_AUTH_STATUS_KEY, statusData);
+    
+    // Set connection marker to track active connection
+    if (status.success) {
+      await persistentPrefs.set(GOOGLE_CONNECTION_MARKER, 'true');
+    }
     
     return true;
   } catch (error) {
+    console.error('Error storing auth status in Appwrite:', error);
+    // Log more detailed error info for debugging
+    if (error.code) {
+      console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
+    }
+    return false;
+  }
+};
+
+// Get auth status from Appwrite
+export const getAuthStatus = async () => {
+  try {
+    const statusData = await persistentPrefs.get(GOOGLE_AUTH_STATUS_KEY);
+    
+    if (statusData) {
+      return JSON.parse(statusData);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting auth status:', error);
+    return null;
+  }
+};
+
+// Clear auth status from Appwrite
+export const clearAuthStatus = async () => {
+  try {
+    console.log('Clearing Google auth status from Appwrite');
+    
+    // Only remove the specific key, keeping other preferences intact
+    await persistentPrefs.remove(GOOGLE_AUTH_STATUS_KEY);
+    
+    return true;
+  } catch (error) {
+    console.error('Error clearing auth status from Appwrite:', error);
+    // Log more detailed error info for debugging
+    if (error.code) {
+      console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
+    }
+    return false;
+  }
+};
+
+// Store tokens in Appwrite account preferences securely
+export const storeUserTokens = async (tokens) => {
+  try {
+    console.log('Attempting to store tokens in Appwrite...');
+    
+    // Get existing refresh token if one exists (to preserve it if not in new tokens)
+    const currentTokens = await getUserTokens();
+    const existingRefreshToken = currentTokens?.refresh_token;
+    
+    // Create preferences object for storing Google tokens
+    const tokenPrefs = {
+      [GOOGLE_TOKEN_KEY]: tokens.access_token,
+      [GOOGLE_REFRESH_TOKEN_KEY]: tokens.refresh_token || existingRefreshToken,
+      [GOOGLE_TOKEN_EXPIRY_KEY]: Date.now() + ((tokens.expires_in || 3600) * 1000),
+      [GOOGLE_CONNECTION_MARKER]: 'true' // Mark that we have an active connection
+    };
+    
+    // Update tokens while preserving other preferences
+    await persistentPrefs.setMultiple(tokenPrefs);
+    
+    console.log('Google tokens stored successfully in Appwrite');
+    return true;
+  } catch (error) {
     console.error('Error storing user tokens in Appwrite:', error);
+    // Log more detailed error info for debugging
+    if (error.code) {
+      console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
+    }
     return false;
   }
 };
@@ -133,31 +259,21 @@ export const storeUserTokens = async (tokens) => {
 // Get tokens from Appwrite account preferences
 export const getUserTokens = async () => {
   try {
-    // First check sessionStorage for immediate access
-    const sessionToken = sessionStorage.getItem(GOOGLE_TOKEN_KEY);
-    const sessionExpiry = sessionStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
+    // Check if we have an active connection marker
+    const connectionActive = await persistentPrefs.get(GOOGLE_CONNECTION_MARKER);
     
-    if (sessionToken && sessionExpiry && Date.now() < parseInt(sessionExpiry)) {
-      return {
-        access_token: sessionToken,
-        expires_at: parseInt(sessionExpiry)
-      };
+    // If no active connection is marked, don't attempt to use tokens
+    if (connectionActive !== 'true') {
+      return null;
     }
     
-    // Otherwise check Appwrite account preferences
-    const userData = await account.get();
-    const prefs = userData.prefs || {};
+    // Get token data
+    const token = await persistentPrefs.get(GOOGLE_TOKEN_KEY);
+    const expiry = await persistentPrefs.get(GOOGLE_TOKEN_EXPIRY_KEY);
+    const refreshToken = await persistentPrefs.get(GOOGLE_REFRESH_TOKEN_KEY);
     
-    if (prefs && prefs[GOOGLE_TOKEN_KEY]) {
-      const token = prefs[GOOGLE_TOKEN_KEY];
-      const expiry = prefs[GOOGLE_TOKEN_EXPIRY_KEY];
-      const refreshToken = prefs[GOOGLE_REFRESH_TOKEN_KEY];
-      
-      if (token && expiry && Date.now() < expiry) {
-        // Sync with sessionStorage
-        sessionStorage.setItem(GOOGLE_TOKEN_KEY, token);
-        sessionStorage.setItem(GOOGLE_TOKEN_EXPIRY_KEY, expiry);
-        
+    if (token) {
+      if (expiry && Date.now() < expiry) {
         return {
           access_token: token,
           refresh_token: refreshToken,
@@ -179,25 +295,21 @@ export const getUserTokens = async () => {
 // Clear tokens from Appwrite account preferences
 export const clearUserTokens = async () => {
   try {
-    // Get current preferences
-    const userData = await account.get();
-    const prefs = {...userData.prefs} || {};
+    console.log('Clearing Google tokens from Appwrite');
     
-    // Remove Google tokens
-    delete prefs[GOOGLE_TOKEN_KEY];
-    delete prefs[GOOGLE_REFRESH_TOKEN_KEY];
-    delete prefs[GOOGLE_TOKEN_EXPIRY_KEY];
-    
-    // Update Appwrite account preferences
-    await account.updatePrefs(prefs);
-    
-    // Clear session storage as well
-    sessionStorage.removeItem(GOOGLE_TOKEN_KEY);
-    sessionStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+    // Remove specific token keys while preserving other preferences
+    await persistentPrefs.remove(GOOGLE_TOKEN_KEY);
+    await persistentPrefs.remove(GOOGLE_TOKEN_EXPIRY_KEY);
+    await persistentPrefs.remove(GOOGLE_REFRESH_TOKEN_KEY);
+    await persistentPrefs.remove(GOOGLE_CONNECTION_MARKER);
     
     return true;
   } catch (error) {
     console.error('Error clearing user tokens from Appwrite:', error);
+    // Log more detailed error info for debugging
+    if (error.code) {
+      console.error(`Appwrite error code: ${error.code}, message: ${error.message}`);
+    }
     return false;
   }
 };
@@ -205,8 +317,26 @@ export const clearUserTokens = async () => {
 // Check if user is signed in to Google
 export const checkSignedInStatus = async () => {
   try {
+    // First check active connection marker
+    const connectionActive = await persistentPrefs.get(GOOGLE_CONNECTION_MARKER);
+    
+    // If explicitly marked as not connected, return false immediately
+    if (connectionActive !== 'true') {
+      return false;
+    }
+    
+    // Then verify we have valid tokens
     const tokens = await getUserTokens();
-    return tokens && tokens.access_token ? true : false;
+    const connected = tokens && (tokens.access_token || tokens.refresh_token);
+    
+    // If connection marker exists but we don't have tokens, fix the inconsistency
+    if (connectionActive === 'true' && !connected) {
+      console.warn('Connection marked as active but no tokens found, resetting connection marker');
+      await persistentPrefs.set(GOOGLE_CONNECTION_MARKER, 'false');
+      return false;
+    }
+    
+    return !!connected;
   } catch (error) {
     console.error('Error checking signed in status:', error);
     return false;
@@ -278,7 +408,7 @@ export const exchangeCodeForTokens = async (code) => {
       const tokens = await response.json();
       
       // Store tokens securely in user preferences
-      storeUserTokens(tokens);
+      await storeUserTokens(tokens);
       
       return true;
     } 
@@ -304,7 +434,7 @@ export const exchangeCodeForTokens = async (code) => {
     const tokens = await response.json();
     
     // Store tokens securely in user preferences
-    storeUserTokens(tokens);
+    await storeUserTokens(tokens);
     
     return true;
   } catch (error) {
@@ -355,7 +485,7 @@ export const refreshAccessToken = async () => {
       newTokens.refresh_token = tokens.refresh_token;
       
       // Store updated tokens
-      storeUserTokens(newTokens);
+      await storeUserTokens(newTokens);
       
       return true;
     }
@@ -380,13 +510,13 @@ export const refreshAccessToken = async () => {
     newTokens.refresh_token = tokens.refresh_token;
     
     // Store updated tokens
-    storeUserTokens(newTokens);
+    await storeUserTokens(newTokens);
     
     return true;
   } catch (error) {
     console.error('Error refreshing access token:', error);
     // Clear tokens on refresh error
-    clearUserTokens();
+    await clearUserTokens();
     throw error;
   }
 };
@@ -395,7 +525,9 @@ export const refreshAccessToken = async () => {
 export const signOutFromGoogle = async () => {
   try {
     // Clear tokens from storage
-    clearUserTokens();
+    await clearUserTokens();
+    // Clear auth status
+    await clearAuthStatus();
     return true;
   } catch (error) {
     console.error('Error signing out from Google:', error);

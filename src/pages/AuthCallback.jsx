@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exchangeCodeForTokens, checkSignedInStatus } from '../utils/googleCalendar';
-
-// Key for storing Google auth status in localStorage - must match with Settings.jsx
-const GOOGLE_AUTH_SUCCESS_KEY = 'googleAuthStatus';
+import { exchangeCodeForTokens, checkSignedInStatus, storeAuthStatus } from '../utils/googleCalendar';
 
 const AuthCallback = () => {
   const [status, setStatus] = useState('processing');
+  const [errorDetails, setErrorDetails] = useState('');
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -17,46 +15,62 @@ const AuthCallback = () => {
         const code = urlParams.get('code');
         const error = urlParams.get('error');
         
+        console.log('AuthCallback: Processing OAuth callback');
+        
         if (error) {
+          console.error('OAuth error:', error);
           setStatus('error');
-          // Store detailed error info in localStorage for Settings to display
-          localStorage.setItem(GOOGLE_AUTH_SUCCESS_KEY, JSON.stringify({
+          setErrorDetails(error);
+          
+          // Store detailed error info in Appwrite
+          await storeAuthStatus({
             success: false,
             error: error,
             timestamp: Date.now()
-          }));
-          setTimeout(() => navigate('/settings'), 2000);
+          });
+          
+          setTimeout(() => navigate('/settings'), 3000);
           return;
         }
         
         if (!code) {
+          console.error('No authorization code received');
           setStatus('error');
-          localStorage.setItem(GOOGLE_AUTH_SUCCESS_KEY, JSON.stringify({
+          setErrorDetails('No authorization code received');
+          
+          await storeAuthStatus({
             success: false,
             error: 'No authorization code received',
             timestamp: Date.now()
-          }));
-          setTimeout(() => navigate('/settings'), 2000);
+          });
+          
+          setTimeout(() => navigate('/settings'), 3000);
           return;
         }
+        
+        console.log('AuthCallback: Exchanging code for tokens');
         
         // Exchange the code for tokens
         await exchangeCodeForTokens(code);
         
+        console.log('AuthCallback: Token exchange complete, verifying connection');
+        
         // Verify the connection worked by checking signed-in status
         const isConnected = await checkSignedInStatus();
+        console.log('AuthCallback: Connection status:', isConnected);
         
         if (isConnected) {
           setStatus('success');
           
-          // Use localStorage to indicate success with timestamp
-          localStorage.setItem(GOOGLE_AUTH_SUCCESS_KEY, JSON.stringify({
+          // Store success status in Appwrite
+          console.log('AuthCallback: Storing success status in Appwrite');
+          await storeAuthStatus({
             success: true,
             timestamp: Date.now()
-          }));
+          });
           
           // Redirect back to settings page after a short delay
-          setTimeout(() => navigate('/settings'), 1500);
+          setTimeout(() => navigate('/settings'), 2000);
         } else {
           // If we couldn't verify the connection, treat as an error
           throw new Error('Failed to verify Google Calendar connection');
@@ -64,14 +78,15 @@ const AuthCallback = () => {
       } catch (error) {
         console.error('Error handling Google auth callback:', error);
         setStatus('error');
+        setErrorDetails(error?.message || 'Failed to complete authentication');
         
-        localStorage.setItem(GOOGLE_AUTH_SUCCESS_KEY, JSON.stringify({
+        await storeAuthStatus({
           success: false,
           error: error?.message || 'Failed to complete authentication',
           timestamp: Date.now()
-        }));
+        });
         
-        setTimeout(() => navigate('/settings'), 2000);
+        setTimeout(() => navigate('/settings'), 3000);
       }
     };
     
@@ -110,6 +125,11 @@ const AuthCallback = () => {
               </div>
               <h2 className="text-xl font-medium text-red-400 mb-2">Connection Failed</h2>
               <p className="text-gray-300">Something went wrong. Redirecting back to settings...</p>
+              {errorDetails && (
+                <p className="mt-3 text-xs text-red-300/70 bg-red-500/10 p-2 rounded">
+                  Error: {errorDetails}
+                </p>
+              )}
             </>
           )}
         </div>
