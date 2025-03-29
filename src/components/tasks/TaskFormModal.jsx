@@ -32,6 +32,28 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
+  // Add loading state and animation message state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+
+  // Funny loading messages
+  const funnyLoadingMessages = [
+    "Convincing your calendar to accept another task...",
+    "Teaching time management to your future self...",
+    "Bribing the productivity gods with coffee...",
+    "Negotiating with your schedule for some free time...",
+    "Finding the perfect spot in your busy day...",
+    "Feeding your task to the productivity machine...",
+    "Asking AI if this task is really necessary...",
+    "Calculating how many coffee breaks you'll need...",
+    "Converting procrastination into motivation...",
+    "Ensuring your task doesn't feel lonely in your calendar...",
+    "Scheduling a meeting between your ambition and reality...",
+    "Measuring the task against your willpower reserves...",
+    "Checking if your future self will thank you for this...",
+    "Calculating the perfect productivity-to-effort ratio..."
+  ];
+
   // AI suggestion for optimal time (mock data - in a real app, this would come from the backend)
   const aiSuggestion = "Tomorrow at 10:00 AM";
 
@@ -484,6 +506,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
 
     try {
+      // Set loading state and random funny message
+      setIsSubmitting(true);
+      setLoadingMessage(funnyLoadingMessages[Math.floor(Math.random() * funnyLoadingMessages.length)]);
+
       // Prepare task data while removing system fields
       const taskData = {
         title,
@@ -525,6 +551,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     } catch (error) {
       console.error("Error saving task:", error);
       setErrors({...errors, general: "Failed to save task"});
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -605,6 +633,23 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           margin: 'auto'
         }}
       >
+        {/* Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center">
+            <div className="w-16 h-16 mb-4">
+              <svg className="animate-spin w-full h-full text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <div className="text-orange-400 text-center font-medium mb-3">
+              {taskToEdit ? "Updating task..." : "Creating task..."}
+            </div>
+            <div className="text-gray-300 text-sm text-center max-w-[80%]">
+              {loadingMessage}
+            </div>
+          </div>
+        )}
         
         {/* Compact header */}
         <div className="p-2 sm:p-3 bg-gradient-to-r from-gray-800/80 to-orange-950/20 border-b border-orange-700/30 flex items-center justify-between shrink-0">
@@ -1033,12 +1078,21 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 hover:from-orange-500 hover:to-amber-500 transition-colors font-medium text-xs
                 shadow-[0_0_8px_rgba(251,146,60,0.3)] hover:shadow-[0_0_12px_rgba(251,146,60,0.4)]"
             >
-              {taskToEdit 
-                ? isInstanceReschedule 
-                  ? "Reschedule" 
-                  : "Update" 
-                : "Add"
-              }
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <svg className="animate-spin h-4 w-4 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-xs">{loadingMessage}</span>
+                </div>
+              ) : (
+                taskToEdit 
+                  ? isInstanceReschedule 
+                    ? "Reschedule" 
+                    : "Update" 
+                  : "Add"
+              )}
             </button>
           </div>
         </div>
