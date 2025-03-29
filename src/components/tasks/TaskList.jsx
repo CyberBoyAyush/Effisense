@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import TaskCard from './TaskCard';
 import { createPortal } from 'react-dom';
 
 const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
-  const [openTaskDetails, setOpenTaskDetails] = React.useState(null);
+  const [openTaskDetails, setOpenTaskDetails] = useState(null);
+  const [deletingTaskIds, setDeletingTaskIds] = useState([]); // Track tasks that are being deleted
 
-  const handleDelete = (task) => {
-    onDelete(task);
+  const handleDelete = async (task) => {
+    try {
+      const taskId = task.$id || task.id;
+      
+      // Add task ID to the deleting array to show loading state
+      setDeletingTaskIds(prev => [...prev, taskId]);
+      
+      // Call the parent delete handler
+      await onDelete(task);
+      
+      // After successful deletion, the task will be removed from the tasks array
+      // But we'll also remove it from deletingTaskIds just to be safe
+      setDeletingTaskIds(prev => prev.filter(id => id !== taskId));
+    } catch (error) {
+      // If deletion fails, remove from deleting state
+      const taskId = task.$id || task.id;
+      setDeletingTaskIds(prev => prev.filter(id => id !== taskId));
+      console.error('Error deleting task:', error);
+    }
   };
 
   // Update toggle handler to ensure status is properly passed
@@ -50,6 +68,7 @@ const TaskList = ({ tasks, onEdit, onDelete, onToggleComplete }) => {
             onToggleComplete={() => handleToggleComplete(task)}
             setOpenTaskDetails={setOpenTaskDetails}
             usePortal={true}
+            isDeleting={deletingTaskIds.includes(task.$id || task.id)} // Pass deleting state
           />
         ))
       )}
