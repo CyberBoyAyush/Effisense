@@ -471,7 +471,7 @@ export const exchangeCodeForTokens = async (code) => {
     console.log("Using server-side proxy for token exchange");
     
     // Use our server-side proxy to exchange the code for tokens securely
-    const response = await fetch('/api/oauth-token-exchange', {
+    const response = await fetch('/src/gapi/oauth-token-exchange', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -546,7 +546,7 @@ export const refreshAccessToken = async () => {
     
     // Production flow - use server-side proxy
     // Call server-side proxy to refresh token
-    const response = await fetch('/api/oauth-refresh-token', {
+    const response = await fetch('/src/gapi/oauth-refresh-token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
