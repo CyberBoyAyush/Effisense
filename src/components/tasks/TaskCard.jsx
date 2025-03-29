@@ -7,7 +7,7 @@ import {
 } from "react-icons/fa";
 import { toggleTaskCompletion } from "../../utils/database"; // Import the specialized function
 
-const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails, usePortal = false }) => {
+const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails, usePortal = false, isDeleting = false }) => {
   const [showDetails, setShowDetails] = useState(false);
   
   // Format deadline date for display
@@ -244,12 +244,23 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
             </button>
             <button
               onClick={handleDelete}
-              className="flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 
-                transition-all duration-200 border border-red-500/20 flex items-center justify-center gap-2"
+              className={`flex-1 sm:flex-initial px-3 sm:px-3 py-1.5 sm:py-1.5 text-sm bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 
+                transition-all duration-200 border border-red-500/20 flex items-center justify-center gap-2
+                ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-label="Delete task"
+              disabled={isDeleting}
             >
-              <FaTrashAlt className="w-3.5 h-3.5" />
-              <span className="sm:sr-only">Delete</span>
+              {isDeleting ? (
+                <svg className="animate-spin h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+              ) : (
+                <>
+                  <FaTrashAlt className="w-3.5 h-3.5" />
+                  <span className="sm:sr-only">Delete</span>
+                </>
+              )}
             </button>
           </div>
         </div>
