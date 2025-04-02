@@ -2,7 +2,7 @@ import React from "react";
 import { FaGithub, FaEnvelope, FaBug, FaHeart, FaUserShield } from "react-icons/fa";
 
 const Footer = () => {
-  const email = "contact@ayush-sharma.in";
+  const email = "connect@ayush-sharma.in";
   
   const openReportBugEmail = () => {
     const subject = encodeURIComponent("Bug/Feedback Report for Effisense");
@@ -22,7 +22,7 @@ const Footer = () => {
               </span>
             </div>
             <div className="text-xs text-gray-500 flex items-center gap-1">
-              <span>Made with</span>
+              <span>Made by Ayush Sharma with</span>
               <FaHeart className="w-3 h-3 text-rose-500 animate-pulse" />
               <span>&copy; {new Date().getFullYear()}</span>
             </div>
