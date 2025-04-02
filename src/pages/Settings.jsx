@@ -1,26 +1,41 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  FaUser, FaBell, FaGoogle, FaMoon, FaSun, 
-  FaCheck, FaEdit, FaCog, FaCalendarAlt,
-  FaClipboardList, FaCheckCircle, FaBullhorn, FaExclamationTriangle, FaSync
-} from 'react-icons/fa';
-import { getUserTasks, updateUserName } from '../utils/database';
-import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
-import { checkSignedInStatus, getAuthStatus, clearAuthStatus } from '../utils/googleCalendar';
-import { useToast } from '../contexts/ToastContext';
+import React, { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import {
+  FaUser,
+  FaBell,
+  FaGoogle,
+  FaMoon,
+  FaSun,
+  FaCheck,
+  FaEdit,
+  FaCog,
+  FaCalendarAlt,
+  FaClipboardList,
+  FaCheckCircle,
+  FaBullhorn,
+  FaExclamationTriangle,
+  FaSync,
+} from "react-icons/fa";
+import { getUserTasks, updateUserName } from "../utils/database";
+import GoogleCalendarSync from "../components/calendar/GoogleCalendarSync";
+import {
+  checkSignedInStatus,
+  getAuthStatus,
+  clearAuthStatus,
+} from "../utils/googleCalendar";
+import { useToast } from "../contexts/ToastContext";
 
 const Settings = () => {
   const { addToast } = useToast();
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState('');
+  const [editedName, setEditedName] = useState("");
   const [taskStats, setTaskStats] = useState({
     total: 0,
     completed: 0,
-    pending: 0
+    pending: 0,
   });
-  
+
   // Google Calendar connection states
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
@@ -31,23 +46,26 @@ const Settings = () => {
   // Check Google Calendar connection
   const checkGoogleConnection = useCallback(async () => {
     console.log("Settings: Checking Google Calendar connection status...");
-    
+
     setIsCheckingConnection(true);
     // Only clear connection error if we're explicitly checking again
     setConnectionError(false);
-    
+
     try {
       const isConnected = await checkSignedInStatus();
-      console.log('Settings: Google Calendar connection status:', isConnected);
-      
+      console.log("Settings: Google Calendar connection status:", isConnected);
+
       // Only update state if it changed to prevent loops
       if (isConnected !== googleCalendarConnected) {
         setGoogleCalendarConnected(isConnected);
       }
-      
+
       setLastRefresh(Date.now());
     } catch (error) {
-      console.error('Settings: Error checking Google Calendar connection:', error);
+      console.error(
+        "Settings: Error checking Google Calendar connection:",
+        error
+      );
       setGoogleCalendarConnected(false);
       setConnectionError(true);
     } finally {
@@ -61,61 +79,64 @@ const Settings = () => {
       try {
         // Get auth status from Appwrite
         const authStatus = await getAuthStatus();
-        
+
         if (!authStatus || authStatusChecked) return;
-        
+
         // Process the auth status
         if (authStatus.success) {
           setGoogleCalendarConnected(true);
           setConnectionError(false);
-          addToast('Successfully connected to Google Calendar!', 'success');
         } else {
           setGoogleCalendarConnected(false);
           // Only show error toast if this is from a recent connection attempt (within last 30 seconds)
           const isRecent = Date.now() - authStatus.timestamp < 30000;
           if (isRecent) {
-            addToast(`Google Calendar connection failed: ${authStatus.error || 'Unknown error'}`, 'error');
+            addToast(
+              `Google Calendar connection failed: ${
+                authStatus.error || "Unknown error"
+              }`,
+              "error"
+            );
           }
         }
-        
+
         // Clear the auth status from Appwrite after processing
         await clearAuthStatus();
         setAuthStatusChecked(true);
       } catch (error) {
-        console.error('Error processing Google auth status:', error);
+        console.error("Error processing Google auth status:", error);
       }
     };
-    
+
     // Check auth status and connection on mount
     checkGoogleAuthStatus();
     checkGoogleConnection();
-    
   }, [addToast, checkGoogleConnection, authStatusChecked]);
 
   useEffect(() => {
     // Load user data
     const loadUser = () => {
-      const userData = JSON.parse(localStorage.getItem('loggedInUser'));
+      const userData = JSON.parse(localStorage.getItem("loggedInUser"));
       if (userData) {
         setUser(userData);
-        setEditedName(userData?.name || '');
+        setEditedName(userData?.name || "");
       }
     };
 
     // Load task statistics
     const loadTaskStats = async () => {
       try {
-        const userData = JSON.parse(localStorage.getItem('loggedInUser'));
+        const userData = JSON.parse(localStorage.getItem("loggedInUser"));
         if (userData) {
           const tasks = await getUserTasks(userData.$id);
           setTaskStats({
             total: tasks.length,
-            completed: tasks.filter(t => t.status === 'completed').length,
-            pending: tasks.filter(t => t.status !== 'completed').length
+            completed: tasks.filter((t) => t.status === "completed").length,
+            pending: tasks.filter((t) => t.status !== "completed").length,
           });
         }
       } catch (error) {
-        console.error('Error loading task stats:', error);
+        console.error("Error loading task stats:", error);
       }
     };
 
@@ -127,36 +148,42 @@ const Settings = () => {
     try {
       // Update name in Appwrite
       const updatedUser = await updateUserName(user.$id, editedName);
-      
+
       // Update local state and storage only if Appwrite update succeeds
       if (updatedUser) {
         const updatedUserData = { ...user, name: editedName };
         setUser(updatedUserData);
-        localStorage.setItem('loggedInUser', JSON.stringify(updatedUserData));
+        localStorage.setItem("loggedInUser", JSON.stringify(updatedUserData));
         setIsEditing(false);
       }
     } catch (error) {
-      console.error('Error updating name:', error);
+      console.error("Error updating name:", error);
     }
   };
 
   // Enhanced handler to properly manage connection state changes
-  const handleGoogleCalendarStatusChange = useCallback((isConnected) => {
-    console.log('Settings: Google Calendar connection status changed:', isConnected);
-    
-    // Only update state if it's different to prevent unnecessary re-renders
-    if (isConnected !== googleCalendarConnected) {
-      setGoogleCalendarConnected(isConnected);
-      
-      // Only show disconnect toast here - connection toasts are handled elsewhere
-      if (!isConnected && googleCalendarConnected) {
-        addToast('Disconnected from Google Calendar', 'info');
+  const handleGoogleCalendarStatusChange = useCallback(
+    (isConnected) => {
+      console.log(
+        "Settings: Google Calendar connection status changed:",
+        isConnected
+      );
+
+      // Only update state if it's different to prevent unnecessary re-renders
+      if (isConnected !== googleCalendarConnected) {
+        setGoogleCalendarConnected(isConnected);
+
+        // Only show disconnect toast here - connection toasts are handled elsewhere
+        if (!isConnected && googleCalendarConnected) {
+          addToast("Disconnected from Google Calendar", "info");
+        }
+
+        // Clear connection errors when status changes
+        setConnectionError(false);
       }
-      
-      // Clear connection errors when status changes
-      setConnectionError(false);
-    }
-  }, [googleCalendarConnected, addToast]);
+    },
+    [googleCalendarConnected, addToast]
+  );
 
   return (
     <div className="p-4 md:p-6 space-y-6 text-gray-200">
@@ -165,8 +192,12 @@ const Settings = () => {
         <div className="flex items-center gap-3">
           <FaCog className="text-orange-400 text-xl sm:text-2xl" />
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">Settings</h1>
-            <p className="text-sm sm:text-base text-gray-400">Manage your account preferences</p>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
+              Settings
+            </h1>
+            <p className="text-sm sm:text-base text-gray-400">
+              Manage your account preferences
+            </p>
           </div>
         </div>
       </div>
@@ -221,15 +252,31 @@ const Settings = () => {
                   </button>
                 )}
               </div>
-              <p className="text-gray-400 text-sm mt-1 sm:mt-0.5">{user?.email}</p>
+              <p className="text-gray-400 text-sm mt-1 sm:mt-0.5">
+                {user?.email}
+              </p>
             </div>
           </div>
-          
+
           {/* Task Stats Grid - Fixed closing tags */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <StatCard icon={FaClipboardList} title="Total Tasks" value={taskStats.total} />
-            <StatCard icon={FaCheckCircle} title="Completed" value={taskStats.completed} color="green" />
-            <StatCard icon={FaClipboardList} title="Pending" value={taskStats.pending} color="amber" />
+            <StatCard
+              icon={FaClipboardList}
+              title="Total Tasks"
+              value={taskStats.total}
+            />
+            <StatCard
+              icon={FaCheckCircle}
+              title="Completed"
+              value={taskStats.completed}
+              color="green"
+            />
+            <StatCard
+              icon={FaClipboardList}
+              title="Pending"
+              value={taskStats.pending}
+              color="amber"
+            />
           </div>
         </div>
       </Section>
@@ -244,25 +291,32 @@ const Settings = () => {
                   <FaExclamationTriangle />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-amber-300">Connection status could not be determined</p>
-                  <p className="text-xs text-amber-300/80 mt-1">
-                    We couldn't verify your Google Calendar connection. The status below may not be accurate.
+                  <p className="text-sm font-medium text-amber-300">
+                    Connection status could not be determined
                   </p>
-                  <button 
+                  <p className="text-xs text-amber-300/80 mt-1">
+                    We couldn't verify your Google Calendar connection. The
+                    status below may not be accurate.
+                  </p>
+                  <button
                     onClick={checkGoogleConnection}
                     className="mt-2 text-xs bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
                   >
-                    <FaSync className={isCheckingConnection ? "animate-spin" : ""} />
-                    {isCheckingConnection ? "Checking..." : "Retry Connection Check"}
+                    <FaSync
+                      className={isCheckingConnection ? "animate-spin" : ""}
+                    />
+                    {isCheckingConnection
+                      ? "Checking..."
+                      : "Retry Connection Check"}
                   </button>
                 </div>
               </div>
             </div>
           )}
-          
-          <GoogleCalendarSync 
-            key={`google-calendar-sync-${lastRefresh}`}  
-            onSyncStatusChange={handleGoogleCalendarStatusChange} 
+
+          <GoogleCalendarSync
+            key={`google-calendar-sync-${lastRefresh}`}
+            onSyncStatusChange={handleGoogleCalendarStatusChange}
             initialConnected={googleCalendarConnected}
             isCheckingConnection={isCheckingConnection}
             refreshConnectionStatus={checkGoogleConnection}
@@ -287,7 +341,7 @@ const Settings = () => {
       </Section>
 
       {/* Theme Section */}
-      <Section icon={FaMoon} title="Appearance (Coming Soon)">
+      {/* <Section icon={FaMoon} title="Appearance (Coming Soon)">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
@@ -297,7 +351,7 @@ const Settings = () => {
             <ThemeToggle enabled={true} />
           </div>
         </div>
-      </Section>
+      </Section> */}
     </div>
   );
 };
@@ -324,17 +378,19 @@ const Section = ({ icon: Icon, title, children }) => {
 const StatCard = ({ icon: Icon, title, value, color }) => {
   const getColorClass = () => {
     switch (color) {
-      case 'green':
-        return 'from-green-500/20 to-green-800/5 border-green-500/30 text-green-400';
-      case 'amber':
-        return 'from-amber-500/20 to-amber-800/5 border-amber-500/30 text-amber-400';
+      case "green":
+        return "from-green-500/20 to-green-800/5 border-green-500/30 text-green-400";
+      case "amber":
+        return "from-amber-500/20 to-amber-800/5 border-amber-500/30 text-amber-400";
       default:
-        return 'from-orange-500/20 to-orange-800/5 border-orange-500/30 text-orange-400';
+        return "from-orange-500/20 to-orange-800/5 border-orange-500/30 text-orange-400";
     }
   };
 
   return (
-    <div className={`flex flex-col items-center justify-center p-3 rounded-lg bg-gradient-to-br ${getColorClass()} border`}>
+    <div
+      className={`flex flex-col items-center justify-center p-3 rounded-lg bg-gradient-to-br ${getColorClass()} border`}
+    >
       <div className="mb-1">
         <Icon className="text-xl" />
       </div>
@@ -364,9 +420,7 @@ const NotificationSetting = ({ icon: Icon, title, description }) => {
         className="relative w-12 h-6 rounded-full transition-colors cursor-not-allowed
           bg-gray-700"
       >
-        <span
-          className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform"
-        />
+        <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform" />
       </button>
     </div>
   );
@@ -380,11 +434,11 @@ const ThemeToggle = ({ enabled, onChange }) => {
         onClick={() => onChange && onChange(!enabled)}
         disabled={true}
         className={`relative w-12 h-6 rounded-full transition-colors cursor-not-allowed
-          ${enabled ? 'bg-orange-500' : 'bg-gray-700'}`}
+          ${enabled ? "bg-orange-500" : "bg-gray-700"}`}
       >
         <span
           className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform
-            ${enabled ? 'transform translate-x-6' : ''}`}
+            ${enabled ? "transform translate-x-6" : ""}`}
         />
       </button>
       <FaMoon className="text-gray-300" />
