@@ -2,7 +2,7 @@ import React from "react";
 import { FaGithub, FaEnvelope, FaBug, FaHeart, FaUserShield } from "react-icons/fa";
 
 const Footer = () => {
-  const email = "cseayushsharma@gmail.com";
+  const email = "contact@ayush-sharma.in";
   
   const openReportBugEmail = () => {
     const subject = encodeURIComponent("Bug/Feedback Report for Effisense");
