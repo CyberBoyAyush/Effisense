@@ -7,7 +7,48 @@ const client = new Client()
 export const account = new Account(client);
 export const databases = new Databases(client);
 
-// Auth helper functions
+// Generate verification URL
+const getVerificationURL = () => {
+    const baseURL = import.meta.env.PROD 
+        ? 'https://effisense.vercel.app'
+        : 'http://localhost:5173';
+    return `${baseURL}/verify-email`;
+};
+
+// Send verification email
+export const sendVerificationEmail = async () => {
+    try {
+        await account.createVerification(getVerificationURL());
+        return true;
+    } catch (error) {
+        console.error('Appwrite service error:', error);
+        throw error;
+    }
+};
+
+// Confirm email verification
+export const confirmVerification = async (userId, secret) => {
+    try {
+        await account.updateVerification(userId, secret);
+        return true;
+    } catch (error) {
+        console.error('Email verification error:', error);
+        throw error;
+    }
+};
+
+// Check if user is verified
+export const isUserVerified = async () => {
+    try {
+        const user = await getCurrentUser();
+        return user?.emailVerification ?? false;
+    } catch (error) {
+        console.error('Verification check error:', error);
+        return false;
+    }
+};
+
+// Modified createAccount to store verification requirement flag
 export const createAccount = async (email, password, name) => {
     try {
         // First delete any existing sessions
@@ -18,15 +59,23 @@ export const createAccount = async (email, password, name) => {
         }
         
         // Create account and session
-        await account.create('unique()', email, password, name);
+        const createdAccount = await account.create('unique()', email, password, name);
         await account.createEmailPasswordSession(email, password);
-        return await account.get();
+        
+        // Set verification requirement for new accounts
+        sessionStorage.setItem('requiresVerification', 'true');
+        sessionStorage.setItem('accountCreatedAt', Date.now().toString());
+        
+        // Send verification email
+        await sendVerificationEmail();
+        return createdAccount;
     } catch (error) {
         console.error('Appwrite service error:', error);
         throw error;
     }
 };
 
+// Modified login to clear verification flags
 export const login = async (email, password) => {
     try {
         // First delete any existing sessions
@@ -38,6 +87,11 @@ export const login = async (email, password) => {
         
         // Create new session
         await account.createEmailPasswordSession(email, password);
+        
+        // Clear any verification requirements for existing users
+        sessionStorage.removeItem('requiresVerification');
+        sessionStorage.removeItem('accountCreatedAt');
+        
         return await account.get();
     } catch (error) {
         console.error('Appwrite service error:', error);
@@ -45,9 +99,11 @@ export const login = async (email, password) => {
     }
 };
 
+// Modified logout to clear all session data
 export const logout = async () => {
     try {
         await account.deleteSessions();
+        sessionStorage.clear(); // Clear all session data including verification flags
         return true;
     } catch (error) {
         console.error('Appwrite service error:', error);
