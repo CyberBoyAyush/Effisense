@@ -214,10 +214,10 @@ const Home = () => {
                 </SnappyButton>
 
                 <SnappyButton
-                  to="/about"
+                  to="/privacy"
                   secondary
                 >
-                  Learn More
+                  Privacy Policy
                 </SnappyButton>
               </motion.div>
             </div>
@@ -282,12 +282,73 @@ const Home = () => {
           {/* Features Grid with optimized staggered animation */}
           <FeatureGrid prefersReducedMotion={prefersReducedMotion} />
 
-          {/* CTA Button */}
+          {/* Developer Info Section */}
+          <motion.div
+            className="mt-24 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            viewport={{ once: true }}
+          >
+            <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-orange-500/20 backdrop-blur-sm">
+              <motion.div 
+                className="flex flex-col items-center space-y-4"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <img 
+                  src="https://avatars.githubusercontent.com/u/69210117?v=4"
+                  alt="Ayush Sharma"
+                  className="w-20 h-20 rounded-full border-2 border-orange-500/30 shadow-lg shadow-orange-500/20"
+                />
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-400">
+                    Developed by Ayush Sharma
+                  </h3>
+                  <p className="text-gray-400 text-sm">Full Stack Developer & AI Enthusiast</p>
+                  <a href="mailto:connect@ayush-sharma.in" className="text-orange-400/80 hover:text-orange-400 text-sm transition-colors duration-200">
+                    connect@ayush-sharma.in
+                  </a>
+                </div>
+                <div className="flex items-center gap-4 pt-2">
+                  <a
+                    href="https://cyberboyayush.in/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-orange-400 transition-colors duration-200"
+                  >
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="px-4 py-1.5 rounded-lg border border-orange-500/20 hover:bg-orange-500/10"
+                    >
+                      Portfolio
+                    </motion.div>
+                  </a>
+                  <a
+                    href="https://github.com/cyberboyayush"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-orange-400 transition-colors duration-200"
+                  >
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="px-4 py-1.5 rounded-lg border border-orange-500/20 hover:bg-orange-500/10"
+                    >
+                      GitHub
+                    </motion.div>
+                  </a>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+
+          {/* CTA Button after Developer Info */}
           <motion.div 
-            className="text-center mt-12" // Reduced margin
+            className="text-center mt-12 flex justify-center gap-4 flex-wrap"
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }} // Snappy transition
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
             viewport={{ once: true, margin: "-10%" }}
           >
             <SnappyButton
@@ -296,6 +357,13 @@ const Home = () => {
               large
             >
               {isLoggedIn ? "Go to Dashboard" : "Get Started With All Features"}
+            </SnappyButton>
+            <SnappyButton
+              to={`mailto:connect@ayush-sharma.in`}
+              secondary
+              large
+            >
+              Contact Us
             </SnappyButton>
           </motion.div>
         </motion.div>
