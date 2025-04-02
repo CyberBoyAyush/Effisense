@@ -1,8 +1,8 @@
 import React from "react";
-import { FaGithub, FaEnvelope, FaBug, FaHeart } from "react-icons/fa";
+import { FaGithub, FaEnvelope, FaBug, FaHeart, FaUserShield } from "react-icons/fa";
 
 const Footer = () => {
-  const email = "cseayushsharma@gmail.com";
+  const email = "contact@ayush-sharma.in";
   
   const openReportBugEmail = () => {
     const subject = encodeURIComponent("Bug/Feedback Report for Effisense");
@@ -56,6 +56,13 @@ const Footer = () => {
               aria-label="Email"
             >
               <FaEnvelope className="w-4 h-4" />
+            </a>
+            <a 
+              href="/privacy" 
+              className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
+              aria-label="Privacy Policy"
+            >
+              <FaUserShield className="w-4 h-4" />
             </a>
           </div>
         </div>
