@@ -809,14 +809,15 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
   // Process tasks for the selected day
   const selectedDayTasks = processTasksForDay(tasks, selectedDate);
   
-  // Filter tasks based on visible hours for mobile view
+  // Filter tasks based on visible hours
   const visibleTasks = selectedDayTasks.filter(task => {
-    return (task.endHour >= hourRange.start && task.startHour <= hourRange.end);
+    const taskStart = task.startHour;
+    const taskEnd = task.endHour;
+
+    // Check if task overlaps with visible hours range
+    return (taskEnd > hourRange.start && taskStart < hourRange.end);
   });
 
-  // Group tasks by their continuous blocks
-  const tasksByHour = groupTasksByBlocks(visibleTasks, visibleHours);
-  
   return (
     <div className="flex flex-col space-y-2">
       {/* Mobile Week View */}
@@ -961,81 +962,54 @@ const WeekView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskC
             
             {/* Overlay continuous tasks - CORRECTED POSITIONING */}
             <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
-              {(() => {
-                const taskGroups = {};
-                const hourHeight = 60; // FIXED HEIGHT - each hour cell is exactly 60px
+              {visibleTasks.map((task, index) => {
+                const hourHeight = 60;
                 const firstVisibleHour = Math.min(...visibleHours);
+                const hourDiff = task.startHour - firstVisibleHour;
+                const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
+                const heightValue = task.durationHours * hourHeight;
+                const taskStyles = getTaskStyles(task);
                 
-                // First group all task segments by task ID
-                Object.entries(tasksByHour).forEach(([hour, tasks]) => {
-                  tasks.forEach(task => {
-                    if (!taskGroups[task.id]) {
-                      taskGroups[task.id] = {
-                        task: { ...task }
-                      };
-                    }
-                  });
-                });
+                // Calculate horizontal position for multiple tasks
+                const taskWidth = 'calc(100% - 52px)'; // Adjust if needed
                 
-                // Calculate positions for each task with PRECISE timing
-                return Object.values(taskGroups).map(({ task }) => {
-                  // Ensure we have a unique key using $id or id with a prefix
-                  const uniqueKey = `task-${task.$id || task.id}`;
-                  
-                  const taskStyles = getTaskStyles(task);
-                  
-                  // Calculate position with PRECISE MEASUREMENTS
-                  const hourDiff = task.startHour - firstVisibleHour;
-                  const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
-
-                  // Calculate vertical offset to align with hour lines
-                  const topOffsetPx = 4; // Small correction to align perfectly with hour lines
-                  
-                  // Calculate precise height based on duration and time
-                  const heightValue = task.durationHours * hourHeight;
-                  
-                  return (
-                    <div 
-                      key={uniqueKey}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskClick(e, task);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: `${topPosition + topOffsetPx}px`, // Added correction to align exactly with hour lines
-                        left: '48px', // Time column width margin
-                        right: '8px',
-                        height: `${Math.max(heightValue - topOffsetPx, 24)}px`, // Adjust height to maintain integrity
-                        zIndex: 10
-                      }}
-                      className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 flex flex-col justify-center
-                        ${task.completed ? 'opacity-60 border-green-500/30' : ''} pointer-events-auto overflow-hidden`}
-                    >
-                      <div className="flex items-center gap-1">
-                        {task.completed && (
-                          <span className="text-[10px] text-green-300">✓</span>
-                        )}
-                        <span className={`text-xs font-medium truncate leading-tight ${taskStyles.completedStyles}`}>
-                          {task.title}
-                        </span>
-                      </div>
-                      
-                      {heightValue > 28 && (
-                        <div className="text-[10px] opacity-80">
-                          {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {task.durationHours >= 0.25 && (
-                            <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
-                          )}
-                          {task.durationHours >= 0.75 && (
-                            <span className="ml-1">({task.durationText})</span>
-                          )}
-                        </div>
-                      )}
+                return (
+                  <div 
+                    key={`task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTaskClick(e, task);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: `${topPosition + 4}px`,
+                      left: '48px',
+                      right: '4px',
+                      height: `${Math.max(heightValue - 4, 24)}px`,
+                      zIndex: index + 10 // Stack tasks based on their order
+                    }}
+                    className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 
+                      flex flex-col justify-center pointer-events-auto overflow-hidden
+                      ${task.completed ? 'opacity-60' : ''}`}
+                  >
+                    {/* Task content */}
+                    <div className="flex items-center gap-1">
+                      {task.completed && <span className="text-[10px] text-green-300">✓</span>}
+                      <span className={`text-xs font-medium truncate ${taskStyles.completedStyles}`}>
+                        {task.title}
+                      </span>
                     </div>
-                  );
-                });
-              })()}
+                    {heightValue > 28 && (
+                      <div className="text-[10px] opacity-80">
+                        {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {task.durationHours >= 0.25 && (
+                          <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
             
@@ -1247,67 +1221,46 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
     (_, i) => i
   ).filter(hour => hour >= hourRange.start && hour <= hourRange.end);
 
-  // Group tasks by their continuous blocks
-  const tasksByHour = groupTasksByBlocks(visibleTasks, visibleHours);
+  // Add filter range presets with better ranges
+  const hourRangePresets = [
+    { id: 'all', label: 'All day', range: { start: 0, end: 23 } },
+    { id: 'working', label: 'Working hours', range: { start: 9, end: 17 } },
+    { id: 'morning', label: 'Morning', range: { start: 5, end: 11 } },
+    { id: 'afternoon', label: 'Afternoon', range: { start: 12, end: 16 } },
+    { id: 'evening', label: 'Evening', range: { start: 17, end: 22 } },
+    { id: 'night', label: 'Night', range: { start: 22, end: 23 } }
+  ];
+
+  const handleRangeChange = (range) => {
+    setHourRange(range);
+  };
+
+  // Replace the hour range buttons with this new component
+  const TimeRangeFilters = () => (
+    <div className="flex gap-1.5 overflow-x-auto py-1 no-scrollbar">
+      {hourRangePresets.map(preset => (
+        <button
+          key={preset.id}
+          onClick={() => handleRangeChange(preset.range)}
+          className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap transition-colors
+            ${hourRange.start === preset.range.start && hourRange.end === preset.range.end
+              ? 'bg-orange-600 text-white' 
+              : 'bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-700/70'
+            }`}
+        >
+          {preset.label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col space-y-2">
       {/* Mobile Day View */}
       <div className="md:hidden flex flex-col">
-        {/* Mini Hour Selector - Pills like Google Calendar */}
+        {/* Replace the old hour selector with the new TimeRangeFilters */}
         <div className="flex justify-between items-center mb-2 px-1">
-          <div className="flex gap-1.5 overflow-x-auto py-1 no-scrollbar">
-            <button
-              onClick={() => setHourRange({ start: 0, end: 23 })}
-              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
-                ${hourRange.start === 0 && hourRange.end === 23 
-                  ? 'bg-orange-600 text-white' 
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-            >
-              All day
-            </button>
-            <button
-              onClick={() => setHourRange({ start: 9, end: 17 })}
-              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
-                ${hourRange.start === 9 && hourRange.end === 17 
-                  ? 'bg-orange-600 text-white' 
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-            >
-              Working hours
-            </button>
-            <button
-              onClick={() => setHourRange({ start: 5, end: 11 })}
-              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
-                ${hourRange.start === 5 && hourRange.end === 11 
-                  ? 'bg-orange-600 text-white' 
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-            >
-              Morning
-            </button>
-            <button
-              onClick={() => setHourRange({ start: 12, end: 17 })}
-              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
-                ${hourRange.start === 12 && hourRange.end === 17
-                  ? 'bg-orange-600 text-white' 
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-            >
-              Afternoon
-            </button>
-            <button
-              onClick={() => setHourRange({ start: 17, end: 23 })}
-              className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap
-                ${hourRange.start === 17 && hourRange.end === 23
-                  ? 'bg-orange-600 text-white' 
-                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                }`}
-            >
-              Evening
-            </button>
-          </div>
+          <TimeRangeFilters />
           
           <button 
             onClick={() => onTimeSlotClick(currentDate)}
@@ -1318,7 +1271,14 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
             </svg>
           </button>
         </div>
-        
+
+        {/* Add a no tasks message when there are no visible tasks */}
+        {visibleTasks.length === 0 && (
+          <div className="p-6 text-center text-gray-500 bg-gray-800/40 rounded-lg border border-gray-700/30">
+            <p>No tasks scheduled during this time range</p>
+          </div>
+        )}
+
         {/* Timeline View - Google Calendar style */}
         <div className="bg-gray-800/40 rounded-lg border border-gray-700/30">
           {/* Day header - Nice header with date info */}
@@ -1383,78 +1343,50 @@ const DayView = ({ currentDate, tasks, formatTime, onTimeSlotClick, handleTaskCl
             
             {/* Overlay continuous tasks - CORRECTED POSITIONING */}
             <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
-              {(() => {
-                const taskGroups = {};
-                const hourHeight = 60; // FIXED HEIGHT - each hour cell is exactly 60px
+              {visibleTasks.map((task, index) => {
+                const hourHeight = 60;
                 const firstVisibleHour = Math.min(...visibleHours);
-                
-                // Group tasks by their ID
-                Object.entries(tasksByHour).forEach(([hour, tasks]) => {
-                  tasks.forEach(task => {
-                    if (!taskGroups[task.id]) {
-                      taskGroups[task.id] = {
-                        task: { ...task }
-                      };
-                    }
-                  });
-                });
-                
-                // Calculate accurate positions for each task
-                return Object.values(taskGroups).map(({ task }) => {
-                  // Create a unique key using both task ID and any unique properties
-                  const uniqueKey = `day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`;
-                  const taskStyles = getTaskStyles(task);
-                  
-                  // Calculate position with PRECISE MEASUREMENTS
-                  const hourDiff = task.startHour - firstVisibleHour;
-                  const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
-                  
-                  // Calculate vertical offset to align with hour lines
-                  const topOffsetPx = 4; // Small correction to align perfectly with hour lines
-                  
-                  // Calculate precise height based on exact duration including minutes
-                  const heightValue = task.durationHours * hourHeight;
+                const hourDiff = task.startHour - firstVisibleHour;
+                const topPosition = (hourDiff * hourHeight) + ((task.startMinutes / 60) * hourHeight);
+                const heightValue = task.durationHours * hourHeight;
+                const taskStyles = getTaskStyles(task);
 
-                  return (
-                    <div 
-                      key={uniqueKey}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskClick(e, task);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: `${topPosition + topOffsetPx}px`, // Added correction to align exactly with hour lines
-                        left: '48px', // Time column width margin
-                        right: '8px',
-                        height: `${Math.max(heightValue - topOffsetPx, 24)}px`, // Adjust height to maintain integrity
-                        zIndex: 10
-                      }}
-                      className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 flex flex-col justify-center
-                        ${task.completed ? 'opacity-60' : ''} pointer-events-auto overflow-hidden`}
-                    >
-                      <div className="flex items-center gap-1">
-                        {task.completed && <span className="text-[10px]">✓</span>}
-                        <span className={`text-xs font-medium truncate ${taskStyles.completedStyles}`}>
-                          {task.title}
-                        </span>
-                      </div>
-                      
-                      {heightValue > 28 && (
-                        <div className="text-[10px] opacity-80">
-                          {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {task.durationHours >= 0.25 && (
-                            <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
-                          )}
-                          {task.durationHours >= 0.75 && (
-                            <span className="ml-1">({task.durationText})</span>
-                          )}
-                        </div>
-                      )}
+                return (
+                  <div 
+                    key={`day-task-${task.$id || task.id}-${task.startHour}-${task.startMinutes}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTaskClick(e, task);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: `${topPosition + 4}px`,
+                      left: '48px',
+                      right: '4px',
+                      height: `${Math.max(heightValue - 4, 24)}px`,
+                      zIndex: index + 10 // Stack tasks based on their order
+                    }}
+                    className={`rounded-md ${taskStyles.bgColor} ${taskStyles.textColor} px-2 
+                      flex flex-col justify-center pointer-events-auto overflow-hidden
+                      ${task.completed ? 'opacity-60' : ''}`}
+                  >
+                    <div className="flex items-center gap-1">
+                      {task.completed && <span className="text-[10px]">✓</span>}
+                      <span className={`text-xs font-medium truncate ${taskStyles.completedStyles}`}>
+                        {task.title}
+                      </span>
                     </div>
-                  );
-                });
-              })()}
+                    {heightValue > 28 && (
+                      <div className="text-[10px] opacity-80">
+                        {task.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {task.durationHours >= 0.25 && (
+                          <> - {task.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
             
@@ -1651,36 +1583,6 @@ const getTaskStyles = (task) => {
         completedStyles: '' 
       };
   }
-};
-
-// Group tasks by their continuous blocks to avoid splitting between hours
-const groupTasksByBlocks = (tasks, visibleHours) => {
-  // First, create a map to track which tasks are displayed in which hours
-  const hourTasksMap = {};
-  visibleHours.forEach(hour => {
-    hourTasksMap[hour] = [];
-  });
-
-  // Assign tasks to their respective hours
-  tasks.forEach(task => {
-    // Only consider tasks that overlap with visible hours
-    const startHour = Math.max(task.startHour, Math.min(...visibleHours));
-    const endHour = Math.min(task.endHour, Math.max(...visibleHours) + 1);
-    
-    // Add task to each hour it spans
-    for (let h = startHour; h < endHour; h++) {
-      if (visibleHours.includes(h)) {
-        hourTasksMap[h].push({
-          ...task,
-          isStartHour: h === task.startHour,
-          isEndHour: h === task.endHour - 1,
-          displayFull: h === task.startHour // Only show full details on the first hour
-        });
-      }
-    }
-  });
-
-  return hourTasksMap;
 };
 
 export default CalendarView;
