@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     const tokenUrl = 'https://oauth2.googleapis.com/token';
     
     // Use Vite environment variables for sensitive data
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+    const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
 
     const params = new URLSearchParams({
       client_id: clientId,

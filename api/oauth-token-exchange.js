@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     const tokenUrl = 'https://oauth2.googleapis.com/token';
     
     // Use Vite environment variables for sensitive data
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
+    const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
     
     // Get origin from request headers to build the correct redirect URI
     // The redirect URI must exactly match what's registered in Google Cloud Console
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const origin = req.headers.origin || 'https://effisense.vercel.app';
     
     // Use the redirect URI from environment variables
-    const redirectPath = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+    const redirectPath = process.env.VITE_GOOGLE_REDIRECT_URI;
     const redirectUri = `${origin}${redirectPath}`;
     
     console.log("Using redirect URI for token exchange:", redirectUri);
