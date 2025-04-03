@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     // Get origin from request headers to build the correct redirect URI
     // The redirect URI must exactly match what's registered in Google Cloud Console
     // and what was used in the authorization request
-    const origin = req.headers.origin || 'https://effisense.vercel.app';
+    const origin = req.headers.origin || 'https://effisense.ayush-sharma.in';
     
     // Use the redirect URI from environment variables
     const redirectPath = process.env.VITE_GOOGLE_REDIRECT_URI;

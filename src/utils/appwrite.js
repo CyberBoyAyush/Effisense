@@ -10,7 +10,7 @@ export const databases = new Databases(client);
 // Generate verification URL
 const getVerificationURL = () => {
     const baseURL = import.meta.env.PROD 
-        ? 'https://effisense.vercel.app'
+        ? 'https://effisense.ayush-sharma.in'
         : 'http://localhost:5173';
     return `${baseURL}/verify-email`;
 };
@@ -122,7 +122,7 @@ export const getCurrentUser = async () => {
 
 const getResetPasswordURL = () => {
     const baseURL = import.meta.env.PROD 
-        ? 'https://effisense.vercel.app'
+        ? 'https://effisense.ayush-sharma.in'
         : 'http://localhost:5173';
     return `${baseURL}/reset-password`;
 };
