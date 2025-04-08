@@ -18,6 +18,7 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   // Password strength validation
   const validatePassword = (value) => {
@@ -74,7 +75,7 @@ const Signup = () => {
     setStep(2);
   };
 
-  // Updated signup function with Appwrite
+  // Updated signup function
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
@@ -93,10 +94,8 @@ const Signup = () => {
 
     try {
       await createAccount(email, password, name);
-      setSuccess("Account created successfully!");
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1500);
+      setSuccess("Account created successfully! Please check your email to verify your account.");
+      setVerificationSent(true);
     } catch (err) {
       if (err.code === 409) {
         setError("Email already exists. Please log in.");
@@ -106,6 +105,33 @@ const Signup = () => {
       setIsLoading(false);
     }
   };
+
+  // If verification is sent, show verification prompt
+  if (verificationSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] bg-gradient-to-br from-black via-gray-900 to-[#0F0F0F] py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-orange-700/30 shadow-xl"
+          >
+            <div className="text-center">
+              <FaEnvelope className="w-16 h-16 mx-auto mb-4 text-orange-500" />
+              <h2 className="text-2xl font-bold text-white mb-2">Check Your Email</h2>
+              <p className="text-gray-300 mb-6">
+                We've sent a verification link to {email}.<br />
+                Please click the link to verify your account.
+              </p>
+              <p className="text-sm text-gray-400">
+                Don't see the email? Check your spam folder.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   // Disable Google signup and show coming soon message 
   const handleGoogleSignup = () => {
