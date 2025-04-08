@@ -1,9 +1,15 @@
 import React from "react";
-import { FaGithub, FaEnvelope, FaBug, FaHeart, FaUserShield } from "react-icons/fa";
+import {
+  FaGithub,
+  FaEnvelope,
+  FaBug,
+  FaHeart,
+  FaUserShield,
+} from "react-icons/fa";
 
 const Footer = () => {
   const email = "connect@ayush-sharma.in";
-  
+
   const openReportBugEmail = () => {
     const subject = encodeURIComponent("Bug/Feedback Report for Effisense");
     const body = encodeURIComponent("Describe the issue or feedback here:\n\n");
@@ -12,7 +18,7 @@ const Footer = () => {
 
   return (
     <footer className="bg-gradient-to-r from-gray-900/95 via-gray-900/90 to-orange-950/20 backdrop-blur-md border-t border-orange-800/30">
-      <div className="max-w-7xl mx-auto px-4 py-4 md:py-5">
+      <div className=" mx-auto px-4 py-4 md:py-5">
         <div className="flex flex-col sm:flex-row items-center justify-between sm:space-y-0 space-y-3">
           {/* Left Side - Brand and Made with love */}
           <div className="flex flex-col items-center sm:items-start space-y-1">
@@ -27,7 +33,7 @@ const Footer = () => {
               <span>&copy; {new Date().getFullYear()}</span>
             </div>
           </div>
-          
+
           {/* Right Side - Actions and Links */}
           <div className="flex items-center gap-4">
             <button
@@ -39,26 +45,26 @@ const Footer = () => {
               <FaBug className="text-orange-400" />
               <span>Report Bug</span>
             </button>
-            
-            <a 
-              href="https://github.com/cyberboyayush/" 
 
-              target="_blank" 
+            <a
+              href="https://github.com/cyberboyayush/"
+              target="_blank"
+
               rel="noopener noreferrer"
               className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
               aria-label="GitHub"
             >
               <FaGithub className="w-4 h-4" />
             </a>
-            <a 
-              href={`mailto:${email}`} 
+            <a
+              href={`mailto:${email}`}
               className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
               aria-label="Email"
             >
               <FaEnvelope className="w-4 h-4" />
             </a>
-            <a 
-              href="/privacy" 
+            <a
+              href="/privacy"
               className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
               aria-label="Privacy Policy"
             >
