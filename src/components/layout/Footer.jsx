@@ -5,6 +5,7 @@ import {
   FaBug,
   FaHeart,
   FaUserShield,
+  FaInfoCircle,
 } from "react-icons/fa";
 
 const Footer = () => {
@@ -47,9 +48,16 @@ const Footer = () => {
             </button>
 
             <a
+              href="/about-us"
+              className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
+              aria-label="About Us"
+            >
+              <FaInfoCircle className="w-4 h-4" />
+            </a>
+
+            <a
               href="https://github.com/cyberboyayush/"
               target="_blank"
-
               rel="noopener noreferrer"
               className="p-2 text-gray-400 hover:text-orange-300 transition-colors rounded-full hover:bg-gray-800/50"
               aria-label="GitHub"
