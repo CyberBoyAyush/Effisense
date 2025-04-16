@@ -760,7 +760,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 placeholder="Add notes, details or instructions for this task... 
 • What needs to be done?
 • Any specific requirements?
-• References or resources needed?"
+• References or resources needed?
+• Include URLs for related resources"
                 className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
                   text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
                   focus:ring-orange-500 focus:border-transparent transition-all
@@ -774,9 +775,15 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               />
               
               <div className="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
-                  <span>Include relevant context to help you later</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
+                    <span>Include relevant context to help you later</span>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2.5">
+                    <span className="text-orange-400">💡</span>
+                    <span>URLs will automatically become clickable</span>
+                  </div>
                 </div>
                 <div className={`transition-colors ${charactersLeft < 50 ? 'text-orange-400' : ''}`}>
                   {charactersLeft} characters left
