@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
+import { FaCalendarDay, FaClock, FaHourglass, FaMagic } from "react-icons/fa";
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
+import { generateImprovedTitle, generateTaskDescription, suggestScheduling } from '../../utils/aiAssistant';
 
 // Connection status initialization - ensures we only check once when component loads
 // This prevents unnecessary checks on every render
@@ -72,6 +73,13 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
+  // Add new state for AI processing
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+
+  // Add state for tracking which field is being processed by AI
+  const [currentAiField, setCurrentAiField] = useState(null);
+
   // Fast connection check that uses cache when possible
   const checkGoogleCalendarConnection = async () => {
     try {
@@ -106,6 +114,80 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       setIsCheckingConnection(false);
       return false;
     }
+  };
+
+  // AI enhancement functions
+  const enhanceWithAI = async (field) => {
+    setCurrentAiField(field);
+    setIsAiProcessing(true);
+    try {
+      switch (field) {
+        case 'title':
+          const improvedTitle = await generateImprovedTitle(title);
+          if (improvedTitle && !improvedTitle.toLowerCase().includes('here') && !improvedTitle.toLowerCase().includes('revised')) {
+            setAiSuggestions({ ...aiSuggestions, title: improvedTitle });
+          }
+          break;
+        
+        case 'description':
+          const enhancedDescription = await generateTaskDescription({ 
+            title, 
+            existingDescription: description 
+          });
+          if (enhancedDescription && !enhancedDescription.toLowerCase().includes('here')) {
+            setAiSuggestions({ ...aiSuggestions, description: enhancedDescription });
+          }
+          break;
+        
+        case 'scheduling':
+          const suggestions = await suggestScheduling({ 
+            title, 
+            description,
+            currentPriority: priority,
+            currentCategory: category
+          });
+          if (suggestions && Object.keys(suggestions).length > 0) {
+            setAiSuggestions({ 
+              ...aiSuggestions, 
+              scheduling: suggestions 
+            });
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('AI enhancement error:', error);
+    } finally {
+      setIsAiProcessing(false);
+      setCurrentAiField(null);
+    }
+  };
+
+  // Apply AI suggestions
+  const applyAiSuggestion = (field) => {
+    if (!aiSuggestions) return;
+
+    switch (field) {
+      case 'title':
+        if (aiSuggestions.title) setTitle(aiSuggestions.title);
+        break;
+      case 'description':
+        if (aiSuggestions.description) setDescription(aiSuggestions.description);
+        break;
+      case 'scheduling':
+        if (aiSuggestions.scheduling) {
+          const { suggestedDate, suggestedTime, suggestedDuration, suggestedPriority, suggestedCategory } = aiSuggestions.scheduling;
+          if (suggestedDate && suggestedTime) {
+            const newDate = new Date(`${suggestedDate}T${suggestedTime}`);
+            handleStartDateChange(newDate);
+          }
+          if (suggestedDuration) handleDurationChange(suggestedDuration.toString());
+          if (suggestedPriority) setPriority(suggestedPriority);
+          if (suggestedCategory) setCategory(suggestedCategory);
+        }
+        break;
+    }
+    // Clear suggestion after applying
+    setAiSuggestions({ ...aiSuggestions, [field]: null });
   };
 
   useEffect(() => {
@@ -574,14 +656,6 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
   };
 
-  // Apply AI suggestion
-  const applyAiSuggestion = () => {
-    // In a real app, this would parse the AI suggestion and set the date and time
-    // For now, using mock data
-    setDeadline("2023-10-12");
-    setTime("10:00");
-  };
-
   // Modify the Google Calendar Sync Toggle to show connection status
   const renderGoogleSyncToggle = () => (
     <div className="flex items-center h-full">
@@ -630,6 +704,123 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         )}
       </label>
     </div>
+  );
+
+  // Modify existing title field to include AI button
+  const renderTitleField = () => (
+    <div>
+      <label htmlFor="title" className="text-gray-300 text-xs font-medium block mb-0.5">
+        Title <span className="text-orange-500">*</span>
+      </label>
+      <div className="relative">
+        <input
+          id="title"
+          type="text"
+          placeholder="Enter task title"
+          className={`w-full p-2 pr-20 bg-gray-900/50 border rounded-md
+            text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
+            focus:ring-orange-500 focus:border-transparent
+            ${touched.title && errors.title ? 'border-red-500' : 'border-gray-700'}`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => handleBlur('title')}
+          required
+        />
+        <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-2">
+          {isAiProcessing && currentAiField === 'title' ? (
+            <div className="animate-spin text-orange-500">
+              <FaMagic className="w-4 h-4" />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => enhanceWithAI('title')}
+              className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+              title="Get AI suggestion"
+            >
+              <FaMagic className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      {aiSuggestions?.title && (
+        <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-orange-300">{aiSuggestions.title}</p>
+            <button
+              type="button"
+              onClick={() => applyAiSuggestion('title')}
+              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+      {touched.title && errors.title && (
+        <p className="text-red-500 text-xs mt-0.5">{errors.title}</p>
+      )}
+    </div>
+  );
+
+  // Add AI button to description field
+  const renderDescriptionField = () => (
+    <div className="relative">
+      <textarea
+        id="description"
+        placeholder="Add notes, details or instructions for this task... 
+• What needs to be done?
+• Any specific requirements?
+• References or resources needed?
+• Include URLs for related resources"
+        className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
+          text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
+          focus:ring-orange-500 focus:border-transparent transition-all
+          ${isNotesExpanded ? 'min-h-[120px]' : 'min-h-[60px]'}`}
+        value={description}
+        onChange={handleDescriptionChange}
+        maxLength={maxNoteLength}
+        style={{
+          resize: isNotesExpanded ? 'vertical' : 'none',
+        }}
+      />
+      <div className="absolute right-2 top-2">
+        <button
+          type="button"
+          onClick={() => enhanceWithAI('description')}
+          className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+          title="Get AI suggestions"
+        >
+          <FaMagic className="w-4 h-4" />
+        </button>
+      </div>
+      {aiSuggestions?.description && (
+        <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-orange-300">{aiSuggestions.description}</p>
+            <button
+              type="button"
+              onClick={() => applyAiSuggestion('description')}
+              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Add AI scheduling suggestions button
+  const renderSchedulingAiButton = () => (
+    <button
+      type="button"
+      onClick={() => enhanceWithAI('scheduling')}
+      className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+      title="Get AI scheduling suggestions"
+    >
+      <FaMagic className="w-4 h-4" />
+    </button>
   );
 
   if (!isOpen) return null;
@@ -713,83 +904,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         {/* More compact scrollable form with reduced spacing */}
         <div className="overflow-y-auto flex-grow px-2 sm:px-3 py-2 sm:py-3">
           <form id="taskForm" onSubmit={handleSubmit} className="space-y-3">
-            {/* Title Field - More compact */}
-            <div>
-              <label htmlFor="title" className="text-gray-300 text-xs font-medium block mb-0.5">
-                Title <span className="text-orange-500">*</span>
-              </label>
-              <input
-                id="title"
-                type="text"
-                placeholder="Enter task title"
-                className={`w-full p-2 bg-gray-900/50 border rounded-md
-                  text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-                  focus:ring-orange-500 focus:border-transparent
-                  ${touched.title && errors.title ? 'border-red-500' : 'border-gray-700'}`}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => handleBlur('title')}
-                required
-                autoComplete="off"
-              />
-              {touched.title && errors.title && (
-                <p className="text-red-500 text-xs mt-0.5">{errors.title}</p>
-              )}
-            </div>
+            {renderTitleField()}
 
             {/* Description Field - Enhanced as Notes Section */}
-            <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-2 transition-all">
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="description" className="text-gray-300 text-xs font-medium flex items-center gap-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>Notes</span>
-                </label>
-                <button 
-                  type="button"
-                  onClick={toggleNotesExpanded}
-                  className="text-xs text-gray-400 hover:text-orange-400 transition-colors"
-                >
-                  {isNotesExpanded ? 'Collapse' : 'Expand'}
-                </button>
-              </div>
-              
-              <textarea
-                id="description"
-                placeholder="Add notes, details or instructions for this task... 
-• What needs to be done?
-• Any specific requirements?
-• References or resources needed?
-• Include URLs for related resources"
-                className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
-                  text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-                  focus:ring-orange-500 focus:border-transparent transition-all
-                  ${isNotesExpanded ? 'min-h-[120px]' : 'min-h-[60px]'}`}
-                value={description}
-                onChange={handleDescriptionChange}
-                maxLength={maxNoteLength}
-                style={{
-                  resize: isNotesExpanded ? 'vertical' : 'none',
-                }}
-              />
-              
-              <div className="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
-                    <span>Include relevant context to help you later</span>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2.5">
-                    <span className="text-orange-400">💡</span>
-                    <span>URLs will automatically become clickable</span>
-                  </div>
-                </div>
-                <div className={`transition-colors ${charactersLeft < 50 ? 'text-orange-400' : ''}`}>
-                  {charactersLeft} characters left
-                </div>
-              </div>
-            </div>
+            {renderDescriptionField()}
 
             {/* Priority and Status + Category section in more compact 2-col grid */}
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -873,7 +991,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
             </div>
 
             {/* Enhanced Date and Time Pickers - More compact */}
-            <div className="bg-gray-900/40 rounded-lg border border-gray-700/50 p-2 sm:p-3 space-y-3">
+            <div className="bg-gray-900/40 rounded-lg border border-gray-700/50 p-2 sm:p-3 space-y-3 relative">
+              {renderSchedulingAiButton()}
               <div className="flex items-center gap-2 text-orange-400 mb-0.5">
                 <IoCalendarClearOutline className="text-sm" />
                 <h3 className="text-xs font-medium">Schedule</h3>
@@ -988,6 +1107,25 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   <span>Click a duration to set end time</span>
                 </div>
               </div>
+              {aiSuggestions?.scheduling && (
+                <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-orange-300">
+                      <p>Suggested: {aiSuggestions.scheduling.suggestedDate} at {aiSuggestions.scheduling.suggestedTime}</p>
+                      <p>Duration: {aiSuggestions.scheduling.suggestedDuration}min</p>
+                      <p>Priority: {aiSuggestions.scheduling.suggestedPriority}</p>
+                      <p>Category: {aiSuggestions.scheduling.suggestedCategory}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => applyAiSuggestion('scheduling')}
+                      className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* AI Suggestion - More compact */}
