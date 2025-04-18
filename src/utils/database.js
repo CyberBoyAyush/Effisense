@@ -257,3 +257,29 @@ export const updateUserName = async (userId, name) => {
     throw error;
   }
 };
+
+export const getHistoricalTasksForAI = async (userId) => {
+  try {
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTION_ID,
+      [
+        Query.equal('userId', userId),
+        Query.limit(100),  // Last 100 tasks
+        Query.orderDesc('$createdAt')
+      ]
+    );
+    
+    return response.documents.map(task => ({
+      category: task.category,
+      priority: task.priority,
+      deadline: task.deadline,
+      duration: task.duration,
+      status: task.status,
+      title: task.title // Include for pattern matching
+    }));
+  } catch (error) {
+    console.error('Error fetching historical tasks:', error);
+    return [];
+  }
+};
