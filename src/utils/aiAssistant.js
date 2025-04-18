@@ -145,38 +145,122 @@ export const generateTaskDescription = async ({ title, existingDescription = '' 
 };
 
 /**
+ * Analyze historical tasks to find patterns
+ */
+const analyzeHistoricalTasks = (tasks) => {
+  if (!tasks?.length) return null;
+
+  const patterns = {
+    categoryTiming: {},
+    successRates: {},
+    averageDurations: {}
+  };
+
+  tasks.forEach(task => {
+    const category = task.category;
+    const deadline = new Date(task.deadline);
+    const hour = deadline.getHours();
+    const isCompleted = task.status === 'completed';
+
+    // Track timing patterns
+    if (!patterns.categoryTiming[category]) {
+      patterns.categoryTiming[category] = [];
+    }
+    patterns.categoryTiming[category].push({
+      hour,
+      success: isCompleted,
+      duration: task.duration
+    });
+
+    // Track success rates by hour
+    const hourKey = `${hour}`;
+    if (!patterns.successRates[hourKey]) {
+      patterns.successRates[hourKey] = { total: 0, completed: 0 };
+    }
+    patterns.successRates[hourKey].total++;
+    if (isCompleted) patterns.successRates[hourKey].completed++;
+  });
+
+  // Calculate optimal times
+  const optimalTimes = {};
+  Object.entries(patterns.categoryTiming).forEach(([category, data]) => {
+    const successfulTasks = data.filter(t => t.success);
+    if (successfulTasks.length > 0) {
+      const avgHour = Math.round(
+        successfulTasks.reduce((sum, t) => sum + t.hour, 0) / successfulTasks.length
+      );
+      const avgDuration = Math.round(
+        successfulTasks.reduce((sum, t) => sum + t.duration, 0) / successfulTasks.length
+      );
+      optimalTimes[category] = { hour: avgHour, duration: avgDuration };
+    }
+  });
+
+  return { patterns, optimalTimes };
+};
+
+/**
  * Suggest optimal scheduling details
  */
-export const suggestScheduling = async ({ title, description = '', currentPriority = '', currentCategory = '' }) => {
+export const suggestScheduling = async ({
+  title,
+  description = '',
+  currentPriority = '',
+  currentCategory = '',
+  historicalTasks = []
+}) => {
+  const analysis = analyzeHistoricalTasks(historicalTasks);
+  const historicalContext = analysis ? `
+    Historical patterns:
+    ${Object.entries(analysis.optimalTimes).map(([category, data]) => 
+      `${category}: Most successful at ${data.hour}:00, avg duration ${data.duration}min`
+    ).join('\n')}
+  ` : `
+    No historical data available. Using default optimization rules:
+    - High priority tasks: Schedule between 9AM-12PM (peak productivity)
+    - Medium priority tasks: Schedule between 1PM-4PM (steady focus)
+    - Low priority tasks: Schedule between 4PM-6PM (wind-down time)
+    - Deep work tasks: Schedule between 10AM-2PM (maximum concentration)
+    
+    Duration guidelines:
+    - Quick tasks: 15-30 minutes
+    - Regular tasks: 30-60 minutes
+    - Complex tasks: 60-90 minutes
+    - Deep work: 90-120 minutes
+  `;
+
   const messages = [
     {
       role: 'system',
-      content: `You are a task scheduling optimizer.
+      content: `You are a task scheduling optimizer with advanced scheduling logic.
+      
+      ${historicalContext}
+      
+      Task type indicators:
+      - Meeting/call keywords: meet, sync, call, discuss, interview
+      - Deep work keywords: develop, write, design, analyze, research
+      - Quick task keywords: review, check, update, reply, send
+      - Administrative keywords: organize, plan, schedule, arrange
       
       Priority criteria:
       HIGH: Time-critical, revenue-impact, client-facing, blocking others
       MEDIUM: Regular meetings, standard work, internal tasks
       LOW: Administrative, nice-to-have, long-term planning
       
-      Duration guidelines:
-      - Quick tasks: 15-30 min
-      - Regular meetings: 30-60 min
-      - Deep work: 60-90 min
-      - Complex tasks: 90-120 min
-      
-      Optimal timing:
-      - High priority: 9AM-12PM
-      - Medium priority: 1PM-4PM
-      - Low priority: 4PM-6PM
-      - Deep work: 10AM-2PM
+      Instructions:
+      1. ${analysis ? 'Prefer historical patterns when available' : 'Analyze task type from title/description'}
+      2. Consider task complexity and priority
+      3. Optimize for typical workday patterns
+      4. Account for task dependencies if mentioned
+      5. Suggest practical duration based on task type
       
       Response format (exact JSON):
       {
-        "suggestedTime": "HH:MM",
-        "suggestedDuration": number, // 15/30/45/60/90/120
+        "suggestedTime": "HH:MM AM/PM",  // Must be in 12-hour format with AM/PM
+        "suggestedDuration": number,
         "suggestedPriority": "low/medium/high",
         "suggestedCategory": "work/personal/health",
-        "reasoning": "Brief explanation"
+        "reasoning": "Brief explanation including optimization logic"
       }`
     },
     {
@@ -196,6 +280,24 @@ export const suggestScheduling = async ({ title, description = '', currentPriori
         const jsonMatch = response.match(/(\{.*\})/s);
         if (jsonMatch && jsonMatch[0]) {
           const parsed = JSON.parse(jsonMatch[0]);
+          
+          // Convert time to 12-hour format if it's not already
+          if (parsed.suggestedTime) {
+            const timeMatch = parsed.suggestedTime.match(/(\d{1,2}):(\d{2})(?: ?(AM|PM))?/i);
+            if (timeMatch) {
+              let [_, hours, minutes, meridiem] = timeMatch;
+              hours = parseInt(hours);
+              
+              // Convert to 12-hour format if meridiem is missing
+              if (!meridiem) {
+                meridiem = hours >= 12 ? 'PM' : 'AM';
+                hours = hours > 12 ? hours - 12 : hours;
+                hours = hours === 0 ? 12 : hours;
+              }
+              
+              parsed.suggestedTime = `${hours}:${minutes.padStart(2, '0')} ${meridiem}`;
+            }
+          }
           
           // Normalize priority
           if (parsed.suggestedPriority) {

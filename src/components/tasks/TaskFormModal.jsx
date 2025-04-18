@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
+import { getCurrentUser } from '../../utils/appwrite'; // Add this import
 import "react-datepicker/dist/react-datepicker.css";
 import { FaCalendarDay, FaClock, FaHourglass, FaMagic } from "react-icons/fa";
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
 import { generateImprovedTitle, generateTaskDescription, suggestScheduling } from '../../utils/aiAssistant';
+import { getHistoricalTasksForAI } from '../../utils/database'; // Add this import
 
 // Connection status initialization - ensures we only check once when component loads
 // This prevents unnecessary checks on every render
@@ -13,6 +15,9 @@ let googleConnectionChecked = false;
 let cachedConnectionStatus = false;
 
 const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime }) => {
+  // Add user state
+  const [currentUser, setCurrentUser] = useState(null);
+
   // Form fields state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -116,8 +121,43 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
   };
 
+  // Add effect to get current user
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Error getting current user:', error);
+        setCurrentUser(null);
+      }
+    };
+    
+    if (isOpen) {
+      checkUser();
+    }
+  }, [isOpen]);
+
   // AI enhancement functions
   const enhanceWithAI = async (field) => {
+    if (!currentUser) {
+      setErrors(prev => ({
+        ...prev,
+        ai: "Please login to use AI features"
+      }));
+      
+      // Clear error after 3 seconds
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.ai;
+          return newErrors;
+        });
+      }, 3000);
+      
+      return;
+    }
+
     setCurrentAiField(field);
     setIsAiProcessing(true);
     try {
@@ -140,11 +180,13 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           break;
         
         case 'scheduling':
+          const historicalTasks = await getHistoricalTasksForAI(currentUser.$id);
           const suggestions = await suggestScheduling({ 
             title, 
             description,
             currentPriority: priority,
-            currentCategory: category
+            currentCategory: category,
+            historicalTasks
           });
           if (suggestions && Object.keys(suggestions).length > 0) {
             setAiSuggestions({ 
@@ -156,6 +198,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       }
     } catch (error) {
       console.error('AI enhancement error:', error);
+      setErrors(prev => ({
+        ...prev,
+        ai: "Failed to get AI suggestions"
+      }));
     } finally {
       setIsAiProcessing(false);
       setCurrentAiField(null);
@@ -175,11 +221,26 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         break;
       case 'scheduling':
         if (aiSuggestions.scheduling) {
-          const { suggestedDate, suggestedTime, suggestedDuration, suggestedPriority, suggestedCategory } = aiSuggestions.scheduling;
-          if (suggestedDate && suggestedTime) {
-            const newDate = new Date(`${suggestedDate}T${suggestedTime}`);
-            handleStartDateChange(newDate);
+          const { suggestedTime, suggestedDuration, suggestedPriority, suggestedCategory } = aiSuggestions.scheduling;
+          
+          // Convert 24-hour time to 12-hour format
+          if (suggestedTime) {
+            // Parse the time string
+            const timeMatch = suggestedTime.match(/(\d{1,2}):(\d{2})(?: ?(AM|PM))?/i);
+            if (timeMatch) {
+              let [_, hours, minutes] = timeMatch;
+              hours = parseInt(hours);
+              
+              // Create a new date object with the suggested time
+              const newDate = new Date(startDate);
+              newDate.setHours(hours);
+              newDate.setMinutes(parseInt(minutes));
+              
+              // Update the date picker with the new time
+              handleStartDateChange(newDate);
+            }
           }
+          
           if (suggestedDuration) handleDurationChange(suggestedDuration.toString());
           if (suggestedPriority) setPriority(suggestedPriority);
           if (suggestedCategory) setCategory(suggestedCategory);
