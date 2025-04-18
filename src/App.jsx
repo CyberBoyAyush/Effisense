@@ -7,7 +7,7 @@ import { ToastProvider } from './contexts/ToastContext';
 
 const App = () => {
   const location = useLocation();
-  const isPublicPage = ['/', '/login', '/signup', '/reset-password', '/verify-email', '/privacy'].includes(location.pathname);
+  const isPublicPage = ['/', '/login', '/signup', '/reset-password', '/verify-email', '/privacy', '/about-us'].includes(location.pathname);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (isPublicPage) {

@@ -14,6 +14,7 @@ import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
 import AuthCallback from "./pages/AuthCallback";
 import Privacy from "./pages/Privacy";
+import AboutUs from "./pages/AboutUs";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/auth-callback" element={<AuthCallback />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/about-us" element={<AboutUs />} />
           
           {/* Protected Dashboard Routes */}
           <Route path="/dashboard" element={
