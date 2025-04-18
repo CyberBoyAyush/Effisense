@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import { getCurrentUser } from '../../utils/appwrite'; // Add this import
 import "react-datepicker/dist/react-datepicker.css";
@@ -64,9 +64,6 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     "Calculating the perfect productivity-to-effort ratio..."
   ];
 
-  // AI suggestion for optimal time (mock data - in a real app, this would come from the backend)
-  const aiSuggestion = "Tomorrow at 10:00 AM";
-
   // Add state to track if task is a recurring instance that's being rescheduled
   const [isInstanceReschedule, setIsInstanceReschedule] = useState(false);
 
@@ -84,6 +81,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // Add state for tracking which field is being processed by AI
   const [currentAiField, setCurrentAiField] = useState(null);
+
+  // Add this right after state declarations
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   // Fast connection check that uses cache when possible
   const checkGoogleCalendarConnection = async () => {
@@ -824,45 +824,72 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </div>
   );
 
-  // Add AI button to description field
+  // Replace the renderDescriptionField function
   const renderDescriptionField = () => (
-    <div className="relative">
-      <textarea
-        id="description"
-        placeholder="Add notes, details or instructions for this task... 
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label htmlFor="description" className="text-gray-300 text-xs font-medium">
+          Description & Notes
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-400">
+            {charactersLeft} characters left
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+            className="text-[10px] text-orange-400 hover:text-orange-300"
+          >
+            {isDescriptionExpanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+      <div className="relative">
+        <textarea
+          id="description"
+          placeholder="Add notes, details or instructions for this task... 
 • What needs to be done?
 • Any specific requirements?
 • References or resources needed?
 • Include URLs for related resources"
-        className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
-          text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-          focus:ring-orange-500 focus:border-transparent transition-all
-          ${isNotesExpanded ? 'min-h-[120px]' : 'min-h-[60px]'}`}
-        value={description}
-        onChange={handleDescriptionChange}
-        maxLength={maxNoteLength}
-        style={{
-          resize: isNotesExpanded ? 'vertical' : 'none',
-        }}
-      />
-      <div className="absolute right-2 top-2">
-        <button
-          type="button"
-          onClick={() => enhanceWithAI('description')}
-          className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-          title="Get AI suggestions"
-        >
-          <FaMagic className="w-4 h-4" />
-        </button>
+          className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
+            text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
+            focus:ring-orange-500 focus:border-transparent transition-all duration-200
+            ${isDescriptionExpanded ? 'h-48' : 'h-24'}
+            ${description.length > 0 ? 'text-gray-200' : 'text-gray-500'}
+            resize-none`}
+          value={description}
+          onChange={handleDescriptionChange}
+          maxLength={maxNoteLength}
+        />
+        <div className="absolute right-2 top-2 flex items-center gap-2">
+          {isAiProcessing && currentAiField === 'description' ? (
+            <div className="animate-spin text-orange-500">
+              <FaMagic className="w-4 h-4" />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => enhanceWithAI('description')}
+              className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+              title="Get AI suggestions"
+            >
+              <FaMagic className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
       {aiSuggestions?.description && (
         <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-orange-300">{aiSuggestions.description}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-orange-300 whitespace-pre-wrap">
+              {aiSuggestions.description}
+            </p>
             <button
               type="button"
               onClick={() => applyAiSuggestion('description')}
-              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded 
+                hover:bg-orange-500/30 whitespace-nowrap"
             >
               Apply
             </button>
@@ -1187,22 +1214,6 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* AI Suggestion - More compact */}
-            <div className="bg-gray-900/40 p-2 rounded-md border border-orange-500/20 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-orange-400 text-xs">🤖</span>
-                <span className="text-xs text-gray-300">{aiSuggestion}</span>
-              </div>
-              <button
-                type="button"
-                onClick={applyAiSuggestion}
-                className="text-[10px] bg-orange-600/20 text-orange-400 px-1.5 py-0.5 rounded
-                  hover:bg-orange-600/30 transition-colors"
-              >
-                Apply
-              </button>
             </div>
 
             {/* Toggle Accordion for Advanced Settings */}
