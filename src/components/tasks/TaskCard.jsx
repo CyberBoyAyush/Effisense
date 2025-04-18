@@ -178,13 +178,12 @@ const TaskCard = ({ task, onEdit, onDelete, onToggleComplete, setOpenTaskDetails
                 {task.title}
               </h3>
               
-              {/* Description with enhanced completed styling */}
+              {/* Description with enhanced completed styling and clickable links */}
               {task.description && (
-                <p className={`text-gray-400 text-sm sm:text-base line-clamp-2
+                <p className={`text-gray-200 text-sm sm:text-base line-clamp-2 whitespace-pre-line
                   ${task.completed ? 'line-through decoration-gray-500 opacity-50' : ''}`}
-                >
-                  {task.description}
-                </p>
+                  dangerouslySetInnerHTML={{ __html: formatTextWithLinks(task.description) }}
+                />
               )}
               
               {/* Tags and metadata row */}
@@ -379,7 +378,9 @@ const TaskDetailsModal = ({ task, onClose, onEdit, onToggleComplete }) => {
               <h3 className="text-lg font-semibold text-gray-300">Description</h3>
               <div className="prose prose-invert prose-sm max-w-none bg-gray-900/30 p-4 rounded-xl">
                 {task.description ? (
-                  <p className="whitespace-pre-wrap">{task.description}</p>
+                  <p className="text-gray-100 whitespace-pre-wrap break-words"
+                     dangerouslySetInnerHTML={{ __html: formatTextWithLinks(task.description) }}
+                  />
                 ) : (
                   <p className="text-gray-500 italic">No description provided</p>
                 )}
@@ -547,6 +548,19 @@ const formatDate = (dateString) => {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
+  });
+};
+
+// Helper function to make URLs clickable
+const formatTextWithLinks = (text) => {
+  if (!text) return '';
+  
+  // URL regex pattern
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  // Replace URLs with clickable links, with proper event handling
+  return text.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-300 hover:underline" onclick="event.stopPropagation();">${url}</a>`;
   });
 };
 

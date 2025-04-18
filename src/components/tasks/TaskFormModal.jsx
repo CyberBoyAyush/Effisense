@@ -31,6 +31,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   // Form validation
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  // Add state for description/notes expanded state and character count
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const [charactersLeft, setCharactersLeft] = useState(500);
+  const maxNoteLength = 500;
 
   // Add loading state and animation message state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -493,6 +497,20 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
   };
 
+  // Handle description/notes change with character counting
+  const handleDescriptionChange = (e) => {
+    const input = e.target.value;
+    if (input.length <= maxNoteLength) {
+      setDescription(input);
+      setCharactersLeft(maxNoteLength - input.length);
+    }
+  };
+
+  // Toggle expanded notes view
+  const toggleNotesExpanded = () => {
+    setIsNotesExpanded(!isNotesExpanded);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -719,20 +737,58 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               )}
             </div>
 
-            {/* Description Field - More compact */}
-            <div>
-              <label htmlFor="description" className="text-gray-300 text-xs font-medium block mb-0.5">
-                Description
-              </label>
+            {/* Description Field - Enhanced as Notes Section */}
+            <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-2 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="description" className="text-gray-300 text-xs font-medium flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>Notes</span>
+                </label>
+                <button 
+                  type="button"
+                  onClick={toggleNotesExpanded}
+                  className="text-xs text-gray-400 hover:text-orange-400 transition-colors"
+                >
+                  {isNotesExpanded ? 'Collapse' : 'Expand'}
+                </button>
+              </div>
+              
               <textarea
                 id="description"
-                placeholder="Enter task details"
-                className="w-full p-2 bg-gray-900/50 border border-gray-700 rounded-md
+                placeholder="Add notes, details or instructions for this task... 
+• What needs to be done?
+• Any specific requirements?
+• References or resources needed?
+• Include URLs for related resources"
+                className={`w-full p-2 bg-gray-900/60 border border-gray-700/60 rounded-md
                   text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1
-                  focus:ring-orange-500 focus:border-transparent min-h-[60px]"
+                  focus:ring-orange-500 focus:border-transparent transition-all
+                  ${isNotesExpanded ? 'min-h-[120px]' : 'min-h-[60px]'}`}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={handleDescriptionChange}
+                maxLength={maxNoteLength}
+                style={{
+                  resize: isNotesExpanded ? 'vertical' : 'none',
+                }}
               />
+              
+              <div className="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full"></span>
+                    <span>Include relevant context to help you later</span>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2.5">
+                    <span className="text-orange-400">💡</span>
+                    <span>URLs will automatically become clickable</span>
+                  </div>
+                </div>
+                <div className={`transition-colors ${charactersLeft < 50 ? 'text-orange-400' : ''}`}>
+                  {charactersLeft} characters left
+                </div>
+              </div>
             </div>
 
             {/* Priority and Status + Category section in more compact 2-col grid */}
