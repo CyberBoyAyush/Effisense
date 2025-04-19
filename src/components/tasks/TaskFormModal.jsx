@@ -9,6 +9,8 @@ import { createTask, updateTask } from '../../utils/database';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
 import { generateImprovedTitle, generateTaskDescription, suggestScheduling } from '../../utils/aiAssistant';
 import { getHistoricalTasksForAI } from '../../utils/database'; // Add this import
+import { FcGoogle } from "react-icons/fc";
+import { MdOutlineInfo } from "react-icons/md";
 
 // Connection status initialization - ensures we only check once when component loads
 // This prevents unnecessary checks on every render
@@ -366,52 +368,48 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setAiSuggestions({ ...aiSuggestions, [field]: null });
   };
 
-  // Add resetForm function
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    const now = new Date();
-    setDeadline(now.toLocaleDateString('en-CA'));
-    setTime(now.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    setStartDate(now);
-    
-    const endDate = new Date(now);
-    endDate.setHours(endDate.getHours() + 1);
-    setEndTime(endDate.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    setEndDate(endDate);
-    
-    setPriority("medium");
-    setStatus("pending");
-    setCategory("work");
-    setSyncWithGoogle(false);
-    setIsRecurring(false);
-    setRecurringType("daily");
-    setEnableReminders(false);
-    setReminderTime("15");
-    setDuration("60");
-    setAiSuggestions(null);
-    setTouched({});
-    setErrors({});
-    setCharactersLeft(500);
-    setIsDescriptionExpanded(false);
-  };
-
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
       try {
-        // Reset form state when opening for a new task
+        // For new tasks, do initialization here directly instead of calling resetForm
         if (!taskToEdit && !defaultDateTime) {
-          resetForm();
-          return;
+          // Initialize with current values and default settings
+          setTitle("");
+          setDescription("");
+          const now = new Date();
+          setDeadline(now.toLocaleDateString('en-CA'));
+          setTime(now.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setStartDate(now);
+          
+          const endDate = new Date(now);
+          endDate.setHours(endDate.getHours() + 1);
+          setEndTime(endDate.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setEndDate(endDate);
+          
+          setPriority("medium");
+          setStatus("pending");
+          setCategory("work");
+          // Initialize Google sync based on connection status
+          setSyncWithGoogle(isGoogleConnected);
+          setIsRecurring(false);
+          setRecurringType("daily");
+          setEnableReminders(false);
+          setReminderTime("15");
+          setDuration("60");
+          setAiSuggestions(null);
+          setTouched({});
+          setErrors({});
+          setCharactersLeft(500);
+          setIsDescriptionExpanded(false);
         }
 
         // Reset touched state and errors
@@ -505,7 +503,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           setPriority("medium");
           setStatus("pending");
           setCategory("work");
-          setSyncWithGoogle(false);
+          // FIXED: Don't override syncWithGoogle with false - respect connection status
+          setSyncWithGoogle(isGoogleConnected);
           setIsRecurring(false);
           setRecurringType("daily");
           setEnableReminders(false);
@@ -536,7 +535,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           setPriority("medium");
           setStatus("pending");
           setCategory("work");
-          setSyncWithGoogle(false);
+          // FIXED: Don't override syncWithGoogle with false - respect connection status
+          setSyncWithGoogle(isGoogleConnected);
           setIsRecurring(false);
           setRecurringType("daily");
           setEnableReminders(false);
@@ -588,6 +588,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           } else if (taskToEdit?.syncWithGoogle && isConnected) {
             // If editing a task that has Google sync and Google is connected, keep sync enabled
             setSyncWithGoogle(true);
+          } else {
+            // For all other cases (new tasks or edit without sync), set based on connection status
+            setSyncWithGoogle(isConnected);
           }
         };
         
@@ -876,53 +879,102 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     }
   };
 
-  // Modify the Google Calendar Sync Toggle to show connection status
+  // Enhance the Google Calendar Sync Toggle with improved UI
   const renderGoogleSyncToggle = () => (
-    <div className="flex items-center h-full">
-      <label className={`inline-flex items-center ${isGoogleConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
-        <input 
-          type="checkbox" 
-          className="sr-only peer" 
-          checked={syncWithGoogle}
-          onChange={() => {
-            if (!isGoogleConnected) {
-              setErrors({
-                ...errors, 
-                googleCalendar: 'Please connect to Google Calendar in Settings first.'
-              });
-              
-              // Clear the error after 3 seconds
-              setTimeout(() => {
-                setErrors(prev => {
-                  const newErrors = {...prev};
-                  delete newErrors.googleCalendar;
-                  return newErrors;
-                });
-              }, 3000);
-              
-              // Don't allow enabling when not connected
-              setSyncWithGoogle(false);
-              return;
-            }
-            setSyncWithGoogle(!syncWithGoogle);
-          }}
-          disabled={!isGoogleConnected}
-        />
-        <div className={`relative w-8 h-4 ${isGoogleConnected ? 'bg-gray-700' : 'bg-gray-800'} rounded-full 
-          peer peer-checked:bg-orange-600 peer-focus:ring-1 peer-focus:ring-orange-500/30
-          after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
-          after:rounded-full after:h-3 after:w-3 after:transition-all 
-          peer-checked:after:translate-x-4`}></div>
-        <span className="ml-2 text-xs text-gray-300">
-          Google Sync
-        </span>
-        {!isGoogleConnected && (
-          <span className="ml-1 text-[10px] text-orange-400">(Setup in Settings)</span>
-        )}
-        {isCheckingConnection && (
-          <span className="ml-1 text-[10px] text-blue-400 animate-pulse">(Checking...)</span>
-        )}
+    <div className="relative">
+      <label htmlFor="category" className="text-gray-300 text-xs font-medium block mb-0.5 flex items-center gap-1">
+        <FcGoogle className="text-base" />
+        <span>Google Calendar</span>
+        {isGoogleConnected && <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-green-500"></span>}
       </label>
+      <div className={`flex items-center p-1.5 rounded-md border ${isGoogleConnected 
+        ? 'border-gray-700/50 hover:border-gray-600/70 bg-gray-900/50' 
+        : 'border-gray-800 bg-gray-900/30'}`}>
+        <div className="flex items-center flex-grow">
+          <label className={`inline-flex items-center gap-2.5 ${isGoogleConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}>
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                id="google-sync"
+                className="sr-only peer" 
+                checked={syncWithGoogle}
+                onChange={() => {
+                  if (!isGoogleConnected) {
+                    setErrors({
+                      ...errors, 
+                      googleCalendar: 'Please connect to Google Calendar in Settings first.'
+                    });
+                    
+                    // Clear the error after 3 seconds
+                    setTimeout(() => {
+                      setErrors(prev => {
+                        const newErrors = {...prev};
+                        delete newErrors.googleCalendar;
+                        return newErrors;
+                      });
+                    }, 3000);
+                    
+                    // Don't allow enabling when not connected
+                    setSyncWithGoogle(false);
+                    return;
+                  }
+                  setSyncWithGoogle(!syncWithGoogle);
+                }}
+                disabled={!isGoogleConnected}
+                aria-label="Sync with Google Calendar"
+              />
+              <div className={`relative w-9 h-5 ${isGoogleConnected ? 'bg-gray-700' : 'bg-gray-800'} rounded-full 
+                peer peer-checked:bg-orange-600/90 peer-focus:ring-1 peer-focus:ring-orange-500/30
+                after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white 
+                after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-200
+                peer-checked:after:translate-x-full peer-checked:after:-translate-x-full`}></div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-300">
+                {syncWithGoogle ? "Sync Enabled" : "Sync Disabled"}
+              </span>
+              {isGoogleConnected ? (
+                <span className="text-[10px] text-green-400/80">Account connected</span>
+              ) : (
+                <span className="text-[10px] text-orange-400/90">Connect in Settings</span>
+              )}
+            </div>
+          </label>
+        </div>
+        
+        {/* Status indicator and help icon */}
+        <div className="flex items-center">
+          {isCheckingConnection && (
+            <div className="mr-1">
+              <div className="animate-spin w-3 h-3 border-2 border-gray-500 border-t-orange-500 rounded-full"></div>
+            </div>
+          )}
+          <div className="group relative">
+            <button 
+              type="button" 
+              className="text-gray-400 hover:text-gray-300 transition-colors focus:outline-none"
+              aria-label="Google Calendar sync information"
+            >
+              <MdOutlineInfo className="w-4 h-4" />
+            </button>
+            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
+              <div className="bg-gray-900 border border-gray-700 p-2 rounded-md shadow-lg w-48 text-xs text-gray-300">
+                {isGoogleConnected ? (
+                  <>
+                    <p className="font-medium text-green-400 mb-1">Google Calendar is connected</p>
+                    <p>Toggle to automatically sync tasks with your Google Calendar.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-orange-400 mb-1">Google Calendar not connected</p>
+                    <p>Visit Settings to connect your Google account for calendar sync.</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
