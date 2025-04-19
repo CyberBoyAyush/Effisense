@@ -366,52 +366,48 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setAiSuggestions({ ...aiSuggestions, [field]: null });
   };
 
-  // Add resetForm function
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    const now = new Date();
-    setDeadline(now.toLocaleDateString('en-CA'));
-    setTime(now.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    setStartDate(now);
-    
-    const endDate = new Date(now);
-    endDate.setHours(endDate.getHours() + 1);
-    setEndTime(endDate.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    }));
-    setEndDate(endDate);
-    
-    setPriority("medium");
-    setStatus("pending");
-    setCategory("work");
-    setSyncWithGoogle(false);
-    setIsRecurring(false);
-    setRecurringType("daily");
-    setEnableReminders(false);
-    setReminderTime("15");
-    setDuration("60");
-    setAiSuggestions(null);
-    setTouched({});
-    setErrors({});
-    setCharactersLeft(500);
-    setIsDescriptionExpanded(false);
-  };
-
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
       try {
-        // Reset form state when opening for a new task
+        // For new tasks, do initialization here directly instead of calling resetForm
         if (!taskToEdit && !defaultDateTime) {
-          resetForm();
-          return;
+          // Initialize with current values and default settings
+          setTitle("");
+          setDescription("");
+          const now = new Date();
+          setDeadline(now.toLocaleDateString('en-CA'));
+          setTime(now.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setStartDate(now);
+          
+          const endDate = new Date(now);
+          endDate.setHours(endDate.getHours() + 1);
+          setEndTime(endDate.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+          setEndDate(endDate);
+          
+          setPriority("medium");
+          setStatus("pending");
+          setCategory("work");
+          // Initialize Google sync based on connection status
+          setSyncWithGoogle(isGoogleConnected);
+          setIsRecurring(false);
+          setRecurringType("daily");
+          setEnableReminders(false);
+          setReminderTime("15");
+          setDuration("60");
+          setAiSuggestions(null);
+          setTouched({});
+          setErrors({});
+          setCharactersLeft(500);
+          setIsDescriptionExpanded(false);
         }
 
         // Reset touched state and errors
@@ -505,7 +501,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           setPriority("medium");
           setStatus("pending");
           setCategory("work");
-          setSyncWithGoogle(false);
+          // FIXED: Don't override syncWithGoogle with false - respect connection status
+          setSyncWithGoogle(isGoogleConnected);
           setIsRecurring(false);
           setRecurringType("daily");
           setEnableReminders(false);
@@ -536,7 +533,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           setPriority("medium");
           setStatus("pending");
           setCategory("work");
-          setSyncWithGoogle(false);
+          // FIXED: Don't override syncWithGoogle with false - respect connection status
+          setSyncWithGoogle(isGoogleConnected);
           setIsRecurring(false);
           setRecurringType("daily");
           setEnableReminders(false);
@@ -588,6 +586,9 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
           } else if (taskToEdit?.syncWithGoogle && isConnected) {
             // If editing a task that has Google sync and Google is connected, keep sync enabled
             setSyncWithGoogle(true);
+          } else {
+            // For all other cases (new tasks or edit without sync), set based on connection status
+            setSyncWithGoogle(isConnected);
           }
         };
         
