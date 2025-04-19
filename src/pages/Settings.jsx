@@ -15,6 +15,8 @@ import {
   FaBullhorn,
   FaExclamationTriangle,
   FaSync,
+  FaInfoCircle,
+  FaGlobeAsia, // Added for time zone info
 } from "react-icons/fa";
 import { getUserTasks, updateUserName } from "../utils/database";
 import GoogleCalendarSync from "../components/calendar/GoogleCalendarSync";
@@ -313,6 +315,32 @@ const Settings = () => {
               </div>
             </div>
           )}
+
+          {/* Time Zone Notice */}
+          <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/30 mb-4">
+            <div className="flex items-start gap-3">
+              <div className="text-blue-400 p-2 bg-blue-500/10 rounded-full">
+                <FaGlobeAsia />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-300">
+                  Time Zone Setting Required
+                </p>
+                <p className="text-xs text-blue-300/80 mt-1">
+                  For proper synchronization with Google Calendar, please ensure your Google Calendar time zone is set to <span className="font-semibold text-blue-300">Asia/Kolkata (Indian Standard Time)</span>.
+                </p>
+                <a 
+                  href="https://calendar.google.com/calendar/u/0/r/settings" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="mt-2 text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                >
+                  <FaInfoCircle />
+                  Open Google Calendar Settings
+                </a>
+              </div>
+            </div>
+          </div>
 
           <GoogleCalendarSync
             key={`google-calendar-sync-${lastRefresh}`}
