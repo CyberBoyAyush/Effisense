@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { FcGoogle } from "react-icons/fc";
-
+import { FaGoogle, FaMicrosoft, FaShopify, FaAirbnb } from "react-icons/fa";
+import { SiFacebook } from "react-icons/si"; // Changed from SiNike to SiFacebook for Meta
 
 const Home = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -149,54 +150,108 @@ const Home = () => {
           </motion.div>
         </div>
 
-        {/* Hero Section - Enhanced with more modern layout */}
+        {/* Hero Section - Enhanced with more visual appeal */}
         <div className="relative">
           <motion.div 
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24"
+            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28"
             variants={containerVariants}
             initial="hidden"
             animate={isLoaded ? "visible" : "hidden"}
           >
+            {/* Decorative elements */}
+            <motion.div 
+              className="absolute top-10 md:top-20 right-10 md:right-20 w-20 h-20 md:w-32 md:h-32 rounded-full bg-gradient-to-r from-orange-500/20 to-amber-500/20 blur-2xl"
+              animate={{ 
+                scale: prefersReducedMotion ? 1 : [1, 1.2, 1],
+                opacity: prefersReducedMotion ? 0.5 : [0.3, 0.5, 0.3]
+              }}
+              transition={{ duration: 8, repeat: Infinity, repeatType: "reverse" }}
+            />
+            <motion.div 
+              className="absolute -top-10 -left-10 w-36 h-36 md:w-52 md:h-52 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 blur-3xl"
+              animate={{ 
+                scale: prefersReducedMotion ? 1 : [1, 1.15, 1],
+                opacity: prefersReducedMotion ? 0.4 : [0.2, 0.4, 0.2]
+              }}
+              transition={{ duration: 9, repeat: Infinity, repeatType: "reverse", delay: 1 }}
+            />
+            
+            {/* Floating graphic elements */}
+            <motion.div 
+              className="hidden md:block absolute top-14 right-32 w-16 h-16 bg-gradient-to-br from-orange-500/30 to-amber-500/30 rounded-xl transform -rotate-12 border border-orange-500/20 backdrop-blur-sm"
+              initial={{ y: 0, rotate: -12, opacity: 0 }}
+              animate={{ 
+                y: [0, -10, 0], 
+                rotate: [-12, -5, -12],
+                opacity: 0.7 
+              }}
+              transition={{ duration: 6, repeat: Infinity, delay: 1 }}
+            >
+              <div className="w-full h-full flex items-center justify-center text-white text-2xl">✨</div>
+            </motion.div>
+            
+            <motion.div
+              className="hidden md:block absolute bottom-20 left-32 w-20 h-20 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full border border-amber-500/20 backdrop-blur-sm"
+              initial={{ y: 0, opacity: 0 }}
+              animate={{ 
+                y: [0, 15, 0], 
+                opacity: 0.6
+              }}
+              transition={{ duration: 7, repeat: Infinity, delay: 0.5 }}
+            >
+              <div className="w-full h-full flex items-center justify-center text-white text-3xl">🚀</div>
+            </motion.div>
+
             <div className="flex flex-col items-center">
-              {/* Hero content - now full width */}
-              <div className="text-center space-y-6 max-w-3xl mx-auto">
-                {/* AI Badge - Enhanced design */}
+              {/* Hero content with enhanced animations */}
+              <div className="text-center space-y-8 max-w-4xl mx-auto relative z-10">
+                {/* Enhanced AI Badge */}
                 <motion.div
                   variants={itemVariants}
-                  className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r 
-                    from-orange-500/10 to-amber-500/10 border border-orange-500/20 text-orange-400 
-                    text-sm gap-2 backdrop-blur-sm"
+                  className="inline-flex items-center px-5 py-2.5 rounded-full bg-gradient-to-r 
+                    from-orange-500/15 to-amber-500/15 border border-orange-500/30 text-orange-400 
+                    text-sm font-medium gap-2.5 backdrop-blur-sm shadow-lg shadow-orange-500/10"
                   whileHover={{ 
-                    scale: 1.03,
-                    boxShadow: "0 0 15px rgba(251,146,60,0.25)",
-                    transition: { duration: 0.15, ease: "easeOut" }
+                    scale: 1.05,
+                    boxShadow: "0 0 20px rgba(251,146,60,0.3)",
+                    transition: { duration: 0.2, ease: "easeOut" }
                   }}
                 >
-                  <span className="relative flex h-2 w-2">
+                  <span className="relative flex h-3 w-3">
                     <motion.span 
                       className="absolute inline-flex h-full w-full rounded-full bg-orange-400"
                       animate={{ 
-                        scale: prefersReducedMotion ? 1 : [1, 1.3, 1],
-                        opacity: [0.7, 0.3, 0.7]
+                        scale: prefersReducedMotion ? 1 : [1, 1.5, 1],
+                        opacity: [0.8, 0.2, 0.8]
                       }}
                       transition={{
-                        duration: 1.5,
+                        duration: 1.8,
                         repeat: Infinity,
                         ease: "easeInOut"
                       }}
                     />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"/>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"/>
                   </span>
-                  <span className="font-medium">Powered by LLaMA 3.3</span>
+                  <span>Powered by LLaMA 3.3</span>
                 </motion.div>
 
-                {/* Heading - With enhanced gradients */}
+                {/* Enhanced Heading with better animations and text shadow */}
                 <motion.h1
-                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight"
-                  variants={itemVariants}
+                  className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight"
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { 
+                      opacity: 1, 
+                      y: 0, 
+                      transition: { 
+                        duration: 0.6,
+                        ease: [0.25, 0.1, 0.25, 1]
+                      } 
+                    }
+                  }}
                 >
                   <motion.span 
-                    className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500"
+                    className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 drop-shadow-sm"
                     animate={prefersReducedMotion ? {} : { 
                       backgroundPosition: ['0% 0%', '100% 0%', '0% 0%'],
                     }}
@@ -208,89 +263,111 @@ const Home = () => {
                     }}
                     style={{ 
                       backgroundSize: '200% 100%',
+                      textShadow: '0 4px 30px rgba(249, 115, 22, 0.2)'
                     }}
                   >
                     Smart Task Management
                   </motion.span>
-                  <span className="block text-white mt-2">
+                  <motion.span 
+                    className="block text-white mt-3 text-4xl sm:text-5xl md:text-6xl"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                  >
                     Enhanced by AI
-                  </span>
+                  </motion.span>
                 </motion.h1>
 
-                {/* Description - Improved wording */}
+                {/* Enhanced Description with better styling */}
                 <motion.p
                   variants={itemVariants}
-                  className="mt-4 text-lg md:text-xl text-gray-300 max-w-2xl mx-auto"
+                  className="mt-6 text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed font-light"
+                  style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
                 >
                   Experience the future of productivity with AI-powered task scheduling,
-                  smart prioritization, and intelligent workload balancing. Sync with Google Calendar for seamless integration.
+                  smart prioritization, and intelligent workload balancing.
                 </motion.p>
 
-                {/* CTA Buttons - With enhanced design */}
+                {/* Enhanced secondary tagline */}
+                <motion.p 
+                  className="text-lg text-orange-400/90 font-medium"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6, duration: 0.8 }}
+                >
+                  Sync with Google Calendar for seamless integration
+                </motion.p>
+
+                {/* Enhanced CTA Buttons with better design */}
                 <motion.div
                   variants={itemVariants}
-                  className="flex flex-wrap justify-center gap-4 mt-8"
+                  className="flex flex-wrap justify-center gap-5 mt-10"
                 >
-                  <SnappyButton
+                  <SuperSnappyButton
                     to={isLoggedIn ? "/dashboard" : "/signup"}
                     primary
                     large
                   >
                     {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
-                  </SnappyButton>
+                  </SuperSnappyButton>
 
-                  <SnappyButton
+                  <SuperSnappyButton
                     to="/privacy"
                     secondary
                     large
                   >
                     Privacy Policy
-                  </SnappyButton>
+                  </SuperSnappyButton>
                 </motion.div>
                 
-                {/* Trust badges */}
+                {/* Enhanced Trust badges */}
                 <motion.div 
                   variants={itemVariants}
-                  className="mt-10 hidden md:block"
+                  className="mt-14 pt-4 border-t border-gray-800/50"
                 >
-                  <p className="text-sm text-gray-400 mb-3">Trusted Technology:</p>
-                  <div className="flex items-center justify-center gap-5">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/60 rounded-md backdrop-blur-sm">
-                      <FcGoogle className="w-4 h-4" />
-                      <span className="text-xs text-gray-300">Verified by Google</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/60 rounded-md backdrop-blur-sm">
-                      <AiIcon className="w-4 h-4 text-orange-400" />
-                      <span className="text-xs text-gray-300">LLaMA 3.3 Powered</span>
-                    </div>
-                  </div>
+                  <motion.p 
+                    className="text-sm text-gray-400 mb-4 uppercase tracking-wider font-medium"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    Trusted Technology
+                  </motion.p>
+                  <motion.div 
+                    className="flex items-center justify-center gap-6"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8 }}
+                  >
+                    <motion.div 
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-800/80 to-gray-800/60 rounded-lg backdrop-blur-md border border-gray-700/50 shadow-lg"
+                      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                    >
+                      <FcGoogle className="w-5 h-5" />
+                      <span className="text-sm text-gray-300 font-medium">Verified by Google</span>
+                    </motion.div>
+                    <motion.div 
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-800/80 to-gray-800/60 rounded-lg backdrop-blur-md border border-gray-700/50 shadow-lg"
+                      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                    >
+                      <MetaIcon className="w-5 h-5 text-blue-500" />
+                      <span className="text-sm text-gray-300 font-medium">LLaMA 3.3 Powered</span>
+                    </motion.div>
+                  </motion.div>
                 </motion.div>
+                
+                {/* Scroll indicator removed */}
               </div>
             </div>
             
-            {/* Mobile trust badges */}
-            <motion.div 
-              variants={itemVariants}
-              className="mt-8 md:hidden text-center"
-            >
-              <p className="text-sm text-gray-400 mb-3">Trusted Technology:</p>
-              <div className="flex justify-center items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/60 rounded-md backdrop-blur-sm">
-                  <GoogleIcon className="w-4 h-4" />
-                  <span className="text-xs text-gray-300">Verified by Google</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/60 rounded-md backdrop-blur-sm">
-                  <AiIcon className="w-4 h-4 text-orange-400" />
-                  <span className="text-xs text-gray-300">LLaMA 3.3 Powered</span>
-                </div>
-              </div>
-            </motion.div>
+            {/* Mobile trust badges - replaced by the enhanced version above */}
+            {/* This section can be removed as it's now combined in the main section */}
           </motion.div>
         </div>
         
         {/* Trusted By Section */}
         <motion.div 
-          className="relative z-10 py-8 bg-gradient-to-r from-gray-900 via-black to-gray-900"
+          className="relative z-10 py-12 bg-gradient-to-r from-gray-900 via-black to-gray-900 mt-10"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -301,9 +378,16 @@ const Home = () => {
               <p className="text-sm text-gray-500">Trusted by teams from</p>
             </div>
             <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6">
-              {['Google', 'Microsoft', 'Shopify', 'Airbnb', 'Nike'].map((company) => (
-                <div key={company} className="opacity-50 hover:opacity-80 transition-opacity flex items-center">
-                  <span className="text-xl font-semibold text-gray-400">{company}</span>
+              {[
+                { name: 'Google', icon: <FaGoogle className="text-red-500" /> }, 
+                { name: 'Microsoft', icon: <FaMicrosoft className="text-blue-500" /> }, 
+                { name: 'Shopify', icon: <FaShopify className="text-green-500" /> }, 
+                { name: 'Airbnb', icon: <FaAirbnb className="text-red-400" /> }, 
+                { name: 'Meta', icon: <SiFacebook className="text-blue-600" /> } // Replaced Nike with Meta
+              ].map((company) => (
+                <div key={company.name} className="opacity-50 hover:opacity-80 transition-opacity flex items-center gap-3">
+                  <span className="text-xl">{company.icon}</span>
+                  <span className="text-xl font-semibold text-gray-400">{company.name}</span>
                 </div>
               ))}
             </div>
@@ -545,8 +629,8 @@ const Home = () => {
                 whileHover={{ y: -5 }}
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 bg-orange-500/10 rounded-xl flex items-center justify-center text-3xl p-3">
-                    <AiIcon className="w-full h-full text-orange-400" />
+                  <div className="w-14 h-14 bg-blue-500/10 rounded-xl flex items-center justify-center text-3xl p-3">
+                    <MetaIcon className="w-full h-full text-blue-500" />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-white mb-2">LLaMA 3.3 Powered</h3>
@@ -1168,10 +1252,10 @@ const GoogleIcon = ({ className }) => (
   </svg>
 );
 
-const AiIcon = ({ className }) => (
+// Meta icon for LLaMA 3.3
+const MetaIcon = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36c-0.98,1.37-2.58,2.26-4.4,2.26 c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z" />
-    <path d="M17.9,8.18C17.96,8.45,18,8.72,18,9c0,2.21-1.79,4-4,4c-2.21,0-4-1.79-4-4c0-2.21,1.79-4,4-4c0.28,0,0.55,0.04,0.81,0.09 C15.63,5.25,16.25,5.5,16.75,6C17.26,6.5,17.75,7.22,17.9,8.18z" />
+    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM9.5 16.5L16.5 12L9.5 7.5V16.5Z" />
   </svg>
 );
 
