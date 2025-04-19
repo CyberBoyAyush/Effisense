@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import { getCurrentUser } from '../../utils/appwrite'; // Add this import
 import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarDay, FaClock, FaHourglass, FaMagic } from "react-icons/fa";
+import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
+import { FaRobot, FaWandMagicSparkles } from "react-icons/fa6"; // Use FaRobot and FaWandMagicSparkles from FA6
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
@@ -84,6 +85,120 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // Add this right after state declarations
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Add refs for the time dropdown menus
+  const startTimeDropdownRef = useRef(null);
+  const endTimeDropdownRef = useRef(null);
+  
+  // Add state for time dropdown visibility
+  const [showStartTimeDropdown, setShowStartTimeDropdown] = useState(false);
+  const [showEndTimeDropdown, setShowEndTimeDropdown] = useState(false);
+  
+  // Add state for custom time inputs
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
+  
+  // Add state for AM/PM selection in custom time inputs
+  const [customStartTimePeriod, setCustomStartTimePeriod] = useState('AM');
+  const [customEndTimePeriod, setCustomEndTimePeriod] = useState('AM');
+  
+  // Generate time options in 15-minute intervals
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const hour = h.toString().padStart(2, '0');
+        const minute = m.toString().padStart(2, '0');
+        const timeValue = `${hour}:${minute}`;
+        
+        // For display format - convert to 12h format with AM/PM
+        let displayHour = h % 12;
+        if (displayHour === 0) displayHour = 12;
+        const ampm = h < 12 ? 'AM' : 'PM';
+        const displayTime = `${displayHour}:${minute.padStart(2, '0')} ${ampm}`;
+        
+        options.push({ value: timeValue, display: displayTime });
+      }
+    }
+    return options;
+  };
+  
+  const timeOptions = generateTimeOptions();
+  
+  // Format a 24h time string (HH:MM) to 12h format for display
+  const formatTimeTo12h = (time24h) => {
+    if (!time24h) return "";
+    const [hours, minutes] = time24h.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+  
+  // Convert 12h time format to Date object
+  const timeStringToDate = (timeStr, baseDate) => {
+    if (!timeStr || !baseDate) return new Date();
+    
+    const date = new Date(baseDate);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    date.setHours(hours);
+    date.setMinutes(minutes);
+    return date;
+  };
+  
+  // Handle time selection from dropdown
+  const handleTimeSelection = (timeValue, isStartTime) => {
+    if (isStartTime) {
+      const newStartDate = timeStringToDate(timeValue, startDate);
+      setStartDate(newStartDate);
+      setTime(timeValue);
+      setShowStartTimeDropdown(false);
+      
+      // Update end time based on duration
+      if (duration) {
+        const durationMs = parseInt(duration) * 60 * 1000;
+        const newEndDate = new Date(newStartDate.getTime() + durationMs);
+        setEndDate(newEndDate);
+        setEndTime(newEndDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      }
+    } else {
+      const newEndDate = timeStringToDate(timeValue, endDate);
+      setEndDate(newEndDate);
+      setEndTime(timeValue);
+      setShowEndTimeDropdown(false);
+      
+      // Update duration if start time exists
+      if (startDate) {
+        const durationMs = newEndDate.getTime() - startDate.getTime();
+        const durationMinutes = Math.max(Math.round(durationMs / (60 * 1000)), 15);
+        setDuration(durationMinutes.toString());
+      }
+    }
+  };
+  
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (startTimeDropdownRef.current && !startTimeDropdownRef.current.contains(event.target)) {
+        setShowStartTimeDropdown(false);
+      }
+      if (endTimeDropdownRef.current && !endTimeDropdownRef.current.contains(event.target)) {
+        setShowEndTimeDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Add these refs to store references to the currently selected time options
+  const selectedStartTimeRef = useRef(null);
+  const selectedEndTimeRef = useRef(null);
 
   // Fast connection check that uses cache when possible
   const checkGoogleCalendarConnection = async () => {
@@ -251,11 +366,55 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setAiSuggestions({ ...aiSuggestions, [field]: null });
   };
 
+  // Add resetForm function
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    const now = new Date();
+    setDeadline(now.toLocaleDateString('en-CA'));
+    setTime(now.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    setStartDate(now);
+    
+    const endDate = new Date(now);
+    endDate.setHours(endDate.getHours() + 1);
+    setEndTime(endDate.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    setEndDate(endDate);
+    
+    setPriority("medium");
+    setStatus("pending");
+    setCategory("work");
+    setSyncWithGoogle(false);
+    setIsRecurring(false);
+    setRecurringType("daily");
+    setEnableReminders(false);
+    setReminderTime("15");
+    setDuration("60");
+    setAiSuggestions(null);
+    setTouched({});
+    setErrors({});
+    setCharactersLeft(500);
+    setIsDescriptionExpanded(false);
+  };
+
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
       try {
-        // Reset touched state
+        // Reset form state when opening for a new task
+        if (!taskToEdit && !defaultDateTime) {
+          resetForm();
+          return;
+        }
+
+        // Reset touched state and errors
         setTouched({});
         setErrors({});
         
@@ -767,7 +926,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </div>
   );
 
-  // Modify existing title field to include AI button
+  // Modify existing title field to include AI button with improved icon
   const renderTitleField = () => (
     <div>
       <label htmlFor="title" className="text-gray-300 text-xs font-medium block mb-0.5">
@@ -790,16 +949,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-2">
           {isAiProcessing && currentAiField === 'title' ? (
             <div className="animate-spin text-orange-500">
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </div>
           ) : (
             <button
               type="button"
               onClick={() => enhanceWithAI('title')}
               className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-              title="Get AI suggestion"
+              title="Get AI suggestion powered by Llama 3.3 70B"
             >
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -807,14 +966,20 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       {aiSuggestions?.title && (
         <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-orange-300">{aiSuggestions.title}</p>
-            <button
-              type="button"
-              onClick={() => applyAiSuggestion('title')}
-              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
-            >
-              Apply
-            </button>
+            <div className="flex items-center gap-1">
+              <FaRobot className="text-xs text-orange-300" />
+              <p className="text-xs text-orange-300">{aiSuggestions.title}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[8px] text-orange-300/70 mr-1">Llama 3.3 70B</span>
+              <button
+                type="button"
+                onClick={() => applyAiSuggestion('title')}
+                className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -824,7 +989,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </div>
   );
 
-  // Replace the renderDescriptionField function
+  // Update the renderDescriptionField function with improved AI icon
   const renderDescriptionField = () => (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
@@ -865,16 +1030,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         <div className="absolute right-2 top-2 flex items-center gap-2">
           {isAiProcessing && currentAiField === 'description' ? (
             <div className="animate-spin text-orange-500">
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </div>
           ) : (
             <button
               type="button"
               onClick={() => enhanceWithAI('description')}
               className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-              title="Get AI suggestions"
+              title="Get AI suggestions powered by Llama 3.3 70B"
             >
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -882,34 +1047,430 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       {aiSuggestions?.description && (
         <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs text-orange-300 whitespace-pre-wrap">
-              {aiSuggestions.description}
-            </p>
-            <button
-              type="button"
-              onClick={() => applyAiSuggestion('description')}
-              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded 
-                hover:bg-orange-500/30 whitespace-nowrap"
-            >
-              Apply
-            </button>
+            <div className="flex gap-1">
+              <FaRobot className="text-xs text-orange-300 mt-0.5 shrink-0" />
+              <p className="text-xs text-orange-300 whitespace-pre-wrap">
+                {aiSuggestions.description}
+              </p>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-[8px] text-orange-300/70">Llama 3.3 70B</span>
+              <button
+                type="button"
+                onClick={() => applyAiSuggestion('description')}
+                className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30 whitespace-nowrap"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 
-  // Add AI scheduling suggestions button
+  // Update AI scheduling suggestions button with improved icon
   const renderSchedulingAiButton = () => (
     <button
       type="button"
       onClick={() => enhanceWithAI('scheduling')}
       className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-      title="Get AI scheduling suggestions"
+      title="Get AI scheduling suggestions powered by Llama 3.3 70B"
     >
-      <FaMagic className="w-4 h-4" />
+      <FaWandMagicSparkles className="w-4 h-4" />
     </button>
   );
+
+  // Parse a 12h time format to 24h format
+  const convert12hTo24h = (timeStr, period) => {
+    if (!timeStr) return '';
+    
+    // Check if time already has AM/PM marker
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+      // Extract just the time part
+      timeStr = timeStr.replace(/\s?(am|pm)/i, '').trim();
+    }
+
+    // Split hours and minutes
+    let [hours, minutes] = timeStr.split(':').map(num => parseInt(num, 10));
+    if (isNaN(hours) || isNaN(minutes)) return '';
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    // Ensure proper formatting with leading zeros
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Improved validation for both 12h and 24h formats
+  const validateTimeInput = (timeStr) => {
+    // Check for 24h format (HH:MM)
+    const time24hRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    
+    // Check for 12h format (h:MM AM/PM)
+    const time12hRegex = /^(1[0-2]|0?[1-9]):([0-5][0-9])(\s?(AM|PM|am|pm))?$/;
+    
+    return time24hRegex.test(timeStr) || time12hRegex.test(timeStr);
+  };
+
+  // Handle custom time input validation and submission
+  const handleCustomTimeSubmit = (isStartTime, customTimeValue, period) => {
+    let timeValue = customTimeValue;
+    
+    // Check if valid time format (accept both 12h and 24h formats)
+    if (validateTimeInput(timeValue)) {
+      // If it's in 12h format or doesn't specify AM/PM, apply the selected period
+      if (!timeValue.toLowerCase().includes('am') && !timeValue.toLowerCase().includes('pm')) {
+        // Convert to 24h format using the selected period
+        timeValue = convert12hTo24h(timeValue, period);
+      } else {
+        // Extract the AM/PM from the string and convert
+        const isPM = timeValue.toLowerCase().includes('pm');
+        timeValue = convert12hTo24h(
+          timeValue.replace(/\s?(am|pm)/i, '').trim(),
+          isPM ? 'PM' : 'AM'
+        );
+      }
+      
+      // Process the time (now in 24h format)
+      handleTimeSelection(timeValue, isStartTime);
+      
+      // Reset the custom time input
+      if (isStartTime) {
+        setCustomStartTime('');
+        setShowStartTimeDropdown(false);
+      } else {
+        setCustomEndTime('');
+        setShowEndTimeDropdown(false);
+      }
+    } else {
+      // Invalid time format
+      setErrors({
+        ...errors,
+        customTime: `Invalid time format. Please use h:mm AM/PM or HH:MM format`
+      });
+      
+      // Clear the error after 3 seconds
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.customTime;
+          return newErrors;
+        });
+      }, 3000);
+    }
+  };
+
+  // Handle custom time input change
+  const handleCustomTimeChange = (e, isStartTime) => {
+    const value = e.target.value;
+    if (isStartTime) {
+      setCustomStartTime(value);
+    } else {
+      setCustomEndTime(value);
+    }
+  };
+
+  // Handle key press in custom time input (submit on Enter)
+  const handleCustomTimeKeyPress = (e, isStartTime) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCustomTimeSubmit(isStartTime, isStartTime ? customStartTime : customEndTime, isStartTime ? customStartTimePeriod : customEndTimePeriod);
+    }
+  };
+
+  // Custom time picker renderer for Start Time
+  const renderCustomStartTimePicker = () => (
+    <div className="relative" ref={startTimeDropdownRef}>
+      <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
+        <IoTimeOutline className="text-orange-400 text-xs" />
+        <span>Start Time</span>
+      </label>
+      <button
+        type="button"
+        className="w-full p-1.5 sm:p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-md
+          text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+          hover:border-gray-600 transition-colors text-sm sm:text-base flex justify-between items-center"
+        onClick={() => setShowStartTimeDropdown(!showStartTimeDropdown)}
+      >
+        <span>{formatTimeTo12h(time)}</span>
+        <svg className={`w-4 h-4 text-orange-500 transition-transform ${showStartTimeDropdown ? 'rotate-180' : ''}`} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* Time Dropdown */}
+      {showStartTimeDropdown && (
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 shadow-lg border border-gray-700 rounded-md overflow-hidden" 
+          style={{
+            maxHeight: '300px',
+            overflowY: 'auto',
+          }}>
+          {/* Standard time options header */}
+          <div className="py-1 bg-gray-800 sticky top-0 z-10 border-b border-gray-700">
+            <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">Standard times</div>
+          </div>
+          
+          {/* Standard time options */}
+          <div>
+            {timeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
+                  ${time === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
+                onClick={() => handleTimeSelection(option.value, true)}
+                // Add ref to the currently selected option for auto-scrolling
+                ref={time === option.value ? selectedStartTimeRef : null}
+              >
+                {option.display}
+              </button>
+            ))}
+          </div>
+          
+          {/* Custom time input section - now part of the normal flow */}
+          <div className="p-2 bg-gray-800 border-t border-gray-700">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="custom-start-time" className="text-xs text-orange-400 font-medium">
+                  Custom time
+                </label>
+                <span className="text-[10px] text-gray-400">(12 or 24h format)</span>
+              </div>
+              
+              {/* Time input field - always full width */}
+              <div className="relative w-full">
+                <input
+                  id="custom-start-time"
+                  type="text"
+                  placeholder="1:30"
+                  value={customStartTime}
+                  onChange={(e) => handleCustomTimeChange(e, true)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCustomTimeSubmit(true, customStartTime, customStartTimePeriod);
+                    }
+                  }}
+                  className="w-full h-9 px-2.5 py-1.5 bg-gray-900/80 border border-gray-700 rounded-md
+                    text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 
+                    focus:ring-orange-500 focus:border-transparent pl-7"
+                />
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <IoTimeOutline className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              
+              {/* Control buttons - flex row on mobile, but grid on desktop */}
+              <div className="flex flex-row gap-1.5 sm:grid sm:grid-cols-2 sm:gap-2 sm:mt-2">
+                {/* AM/PM toggle - full width on desktop */}
+                <div className="flex h-9 rounded-md overflow-hidden border border-gray-700 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomStartTimePeriod('AM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customStartTimePeriod === 'AM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">AM</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomStartTimePeriod('PM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customStartTimePeriod === 'PM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">PM</span>
+                  </button>
+                </div>
+                
+                {/* Apply button - full width on desktop */}
+                <button
+                  type="button"
+                  onClick={() => handleCustomTimeSubmit(true, customStartTime, customStartTimePeriod)}
+                  className="h-9 px-3 bg-orange-600 text-white rounded-md hover:bg-orange-500 
+                    transition-colors text-xs font-medium flex-1 flex items-center justify-center"
+                >
+                  Apply
+                </button>
+              </div>
+              
+              {errors.customTime && (
+                <p className="text-red-500 text-xs mt-1">{errors.customTime}</p>
+              )}
+              
+              <p className="text-[10px] text-gray-400">
+                Examples: <span className="text-gray-300">1:30</span>, <span className="text-gray-300">1:30 PM</span>, <span className="text-gray-300">13:30</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Custom time picker renderer for End Time
+  const renderCustomEndTimePicker = () => (
+    <div className="relative" ref={endTimeDropdownRef}>
+      <label className="text-gray-300 text-xs font-medium block mb-1">
+        End Time
+      </label>
+      <button
+        type="button"
+        className={`w-full p-1.5 sm:p-2.5 bg-gray-900/50 border rounded-md
+          text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+          ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700/60'}
+          hover:border-gray-600 transition-colors text-sm sm:text-base flex justify-between items-center`}
+        onClick={() => setShowEndTimeDropdown(!showEndTimeDropdown)}
+      >
+        <span>{formatTimeTo12h(endTime)}</span>
+        <svg className={`w-4 h-4 text-orange-500 transition-transform ${showEndTimeDropdown ? 'rotate-180' : ''}`} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* End Time Dropdown */}
+      {showEndTimeDropdown && (
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 shadow-lg border border-gray-700 rounded-md overflow-hidden" 
+          style={{
+            maxHeight: '300px',
+            overflowY: 'auto',
+          }}>
+          {/* Standard time options header */}
+          <div className="py-1 bg-gray-800 sticky top-0 z-10 border-b border-gray-700">
+            <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">Standard times</div>
+          </div>
+          
+          {/* Standard time options */}
+          <div>
+            {timeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
+                  ${endTime === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
+                onClick={() => handleTimeSelection(option.value, false)}
+                // Add ref to the currently selected option for auto-scrolling
+                ref={endTime === option.value ? selectedEndTimeRef : null}
+              >
+                {option.display}
+              </button>
+            ))}
+          </div>
+          
+          {/* Custom time input section - now part of the normal flow */}
+          <div className="p-2 bg-gray-800 border-t border-gray-700">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="custom-end-time" className="text-xs text-orange-400 font-medium">
+                  Custom time
+                </label>
+                <span className="text-[10px] text-gray-400">(12 or 24h format)</span>
+              </div>
+              
+              {/* Time input field - always full width */}
+              <div className="relative w-full">
+                <input
+                  id="custom-end-time"
+                  type="text"
+                  placeholder="2:30"
+                  value={customEndTime}
+                  onChange={(e) => handleCustomTimeChange(e, false)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCustomTimeSubmit(false, customEndTime, customEndTimePeriod);
+                    }
+                  }}
+                  className="w-full h-9 px-2.5 py-1.5 bg-gray-900/80 border border-gray-700 rounded-md
+                    text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 
+                    focus:ring-orange-500 focus:border-transparent pl-7"
+                />
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <IoTimeOutline className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              
+              {/* Control buttons - flex row on mobile, but grid on desktop */}
+              <div className="flex flex-row gap-1.5 sm:grid sm:grid-cols-2 sm:gap-2 sm:mt-2">
+                {/* AM/PM toggle - full width on desktop */}
+                <div className="flex h-9 rounded-md overflow-hidden border border-gray-700 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomEndTimePeriod('AM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customEndTimePeriod === 'AM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">AM</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomEndTimePeriod('PM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customEndTimePeriod === 'PM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">PM</span>
+                  </button>
+                </div>
+                
+                {/* Apply button - full width on desktop */}
+                <button
+                  type="button"
+                  onClick={() => handleCustomTimeSubmit(false, customEndTime, customEndTimePeriod)}
+                  className="h-9 px-3 bg-orange-600 text-white rounded-md hover:bg-orange-500 
+                    transition-colors text-xs font-medium flex-1 flex items-center justify-center"
+                >
+                  Apply
+                </button>
+              </div>
+              
+              {errors.customTime && (
+                <p className="text-red-500 text-xs mt-1">{errors.customTime}</p>
+              )}
+              
+              <p className="text-[10px] text-gray-400">
+                Examples: <span className="text-gray-300">2:30</span>, <span className="text-gray-300">2:30 PM</span>, <span className="text-gray-300">14:30</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  useEffect(() => {
+    // Auto-scroll to the selected time when dropdown opens
+    if (showStartTimeDropdown && selectedStartTimeRef.current) {
+      setTimeout(() => {
+        selectedStartTimeRef.current.scrollIntoView({
+          behavior: 'auto',
+          block: 'center'
+        });
+      }, 10);
+    }
+    
+    if (showEndTimeDropdown && selectedEndTimeRef.current) {
+      setTimeout(() => {
+        selectedEndTimeRef.current.scrollIntoView({
+          behavior: 'auto',
+          block: 'center'
+        });
+      }, 10);
+    }
+  }, [showStartTimeDropdown, showEndTimeDropdown]);
 
   if (!isOpen) return null;
   
@@ -1106,27 +1667,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   />
                 </div>
                 
-                {/* Start Time inline with Date */}
-                <div>
-                  <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
-                    <IoTimeOutline className="text-orange-400 text-xs" />
-                    <span>Start Time</span>
-                  </label>
-                  <DatePicker
-                    selected={startDate}
-                    onChange={handleStartDateChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="h:mm aa"
-                    className="w-full p-1.5 sm:p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-md
-                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
-                      hover:border-gray-600 transition-colors text-sm sm:text-base"
-                    calendarClassName="dark-calendar"
-                    wrapperClassName="w-full"
-                  />
-                </div>
+                {/* Start Time - Replace DatePicker with custom component */}
+                {renderCustomStartTimePicker()}
               </div>
               
               {/* Compact Duration and End Time Row */}
@@ -1162,30 +1704,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   </div>
                 </div>
                 
-                {/* End Time */}
-                <div>
-                  <label className="text-gray-300 text-xs font-medium block mb-1">
-                    End Time
-                  </label>
-                  <DatePicker
-                    selected={endDate}
-                    onChange={handleEndDateChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="h:mm aa"
-                    className={`w-full p-1.5 sm:p-2.5 bg-gray-900/50 border rounded-md
-                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
-                      ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700/60'}
-                      hover:border-gray-600 transition-colors text-sm sm:text-base`}
-                    calendarClassName="dark-calendar"
-                    wrapperClassName="w-full"
-                  />
-                  {touched.endTime && errors.endTime && (
-                    <p className="text-red-500 text-xs mt-0.5">{errors.endTime}</p>
-                  )}
-                </div>
+                {/* End Time - Replace DatePicker with custom component */}
+                {renderCustomEndTimePicker()}
               </div>
               
               {/* Compact Tips - Combined with AI suggestion */}
@@ -1198,16 +1718,23 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               {aiSuggestions?.scheduling && (
                 <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-orange-300">
-                      <p>Suggested: {aiSuggestions.scheduling.suggestedDate} at {aiSuggestions.scheduling.suggestedTime}</p>
-                      <p>Duration: {aiSuggestions.scheduling.suggestedDuration}min</p>
-                      <p>Priority: {aiSuggestions.scheduling.suggestedPriority}</p>
-                      <p>Category: {aiSuggestions.scheduling.suggestedCategory}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        <FaRobot className="text-xs text-orange-300" />
+                        <span className="text-xs text-orange-300 font-medium">AI Suggestion</span>
+                        <span className="text-[8px] text-orange-300/70 ml-1">Llama 3.3 70B</span>
+                      </div>
+                      <div className="text-xs text-orange-300">
+                        <p>Suggested: {aiSuggestions.scheduling.suggestedTime}</p>
+                        <p>Duration: {aiSuggestions.scheduling.suggestedDuration}min</p>
+                        <p>Priority: {aiSuggestions.scheduling.suggestedPriority}</p>
+                        <p>Category: {aiSuggestions.scheduling.suggestedCategory}</p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => applyAiSuggestion('scheduling')}
-                      className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+                      className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30 h-fit"
                     >
                       Apply
                     </button>
