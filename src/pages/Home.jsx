@@ -610,7 +610,7 @@ const Home = () => {
                       ))}
                     </ul>
                     <SnappyButton
-                      to="/connect-calendar"
+                      to="/settings#google-calendar"
                       className="!bg-blue-500/20 hover:!bg-blue-500/30 border-blue-500/30 text-blue-400"
                     >
                       Connect Calendar
@@ -645,7 +645,7 @@ const Home = () => {
                       ))}
                     </ul>
                     <SnappyButton
-                      to="/ai-features"
+                      to="/dashboard"
                       className="!bg-orange-500/20 hover:!bg-orange-500/30 border-orange-500/30"
                     >
                       Explore AI Features
