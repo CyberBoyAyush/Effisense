@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import { getCurrentUser } from '../../utils/appwrite'; // Add this import
 import "react-datepicker/dist/react-datepicker.css";
-import { FaCalendarDay, FaClock, FaHourglass, FaMagic } from "react-icons/fa";
+import { FaCalendarDay, FaClock, FaHourglass } from "react-icons/fa";
+import { FaRobot, FaWandMagicSparkles } from "react-icons/fa6"; // Use FaRobot and FaWandMagicSparkles from FA6
 import { IoTimeOutline, IoCalendarClearOutline } from "react-icons/io5";
 import { createTask, updateTask } from '../../utils/database';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, checkSignedInStatus } from '../../utils/googleCalendar';
@@ -811,7 +812,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </div>
   );
 
-  // Modify existing title field to include AI button
+  // Modify existing title field to include AI button with improved icon
   const renderTitleField = () => (
     <div>
       <label htmlFor="title" className="text-gray-300 text-xs font-medium block mb-0.5">
@@ -834,16 +835,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-2">
           {isAiProcessing && currentAiField === 'title' ? (
             <div className="animate-spin text-orange-500">
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </div>
           ) : (
             <button
               type="button"
               onClick={() => enhanceWithAI('title')}
               className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-              title="Get AI suggestion"
+              title="Get AI suggestion powered by Llama 3.3 70B"
             >
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -851,14 +852,20 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       {aiSuggestions?.title && (
         <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-orange-300">{aiSuggestions.title}</p>
-            <button
-              type="button"
-              onClick={() => applyAiSuggestion('title')}
-              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
-            >
-              Apply
-            </button>
+            <div className="flex items-center gap-1">
+              <FaRobot className="text-xs text-orange-300" />
+              <p className="text-xs text-orange-300">{aiSuggestions.title}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[8px] text-orange-300/70 mr-1">Llama 3.3 70B</span>
+              <button
+                type="button"
+                onClick={() => applyAiSuggestion('title')}
+                className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -868,7 +875,7 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </div>
   );
 
-  // Replace the renderDescriptionField function
+  // Update the renderDescriptionField function with improved AI icon
   const renderDescriptionField = () => (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
@@ -909,16 +916,16 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
         <div className="absolute right-2 top-2 flex items-center gap-2">
           {isAiProcessing && currentAiField === 'description' ? (
             <div className="animate-spin text-orange-500">
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </div>
           ) : (
             <button
               type="button"
               onClick={() => enhanceWithAI('description')}
               className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-              title="Get AI suggestions"
+              title="Get AI suggestions powered by Llama 3.3 70B"
             >
-              <FaMagic className="w-4 h-4" />
+              <FaWandMagicSparkles className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -926,32 +933,37 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       {aiSuggestions?.description && (
         <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs text-orange-300 whitespace-pre-wrap">
-              {aiSuggestions.description}
-            </p>
-            <button
-              type="button"
-              onClick={() => applyAiSuggestion('description')}
-              className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded 
-                hover:bg-orange-500/30 whitespace-nowrap"
-            >
-              Apply
-            </button>
+            <div className="flex gap-1">
+              <FaRobot className="text-xs text-orange-300 mt-0.5 shrink-0" />
+              <p className="text-xs text-orange-300 whitespace-pre-wrap">
+                {aiSuggestions.description}
+              </p>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-[8px] text-orange-300/70">Llama 3.3 70B</span>
+              <button
+                type="button"
+                onClick={() => applyAiSuggestion('description')}
+                className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30 whitespace-nowrap"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 
-  // Add AI scheduling suggestions button
+  // Update AI scheduling suggestions button with improved icon
   const renderSchedulingAiButton = () => (
     <button
       type="button"
       onClick={() => enhanceWithAI('scheduling')}
       className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
-      title="Get AI scheduling suggestions"
+      title="Get AI scheduling suggestions powered by Llama 3.3 70B"
     >
-      <FaMagic className="w-4 h-4" />
+      <FaWandMagicSparkles className="w-4 h-4" />
     </button>
   );
 
@@ -1242,16 +1254,23 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
               {aiSuggestions?.scheduling && (
                 <div className="mt-1 p-2 bg-orange-500/10 rounded-md border border-orange-500/20">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-orange-300">
-                      <p>Suggested: {aiSuggestions.scheduling.suggestedDate} at {aiSuggestions.scheduling.suggestedTime}</p>
-                      <p>Duration: {aiSuggestions.scheduling.suggestedDuration}min</p>
-                      <p>Priority: {aiSuggestions.scheduling.suggestedPriority}</p>
-                      <p>Category: {aiSuggestions.scheduling.suggestedCategory}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        <FaRobot className="text-xs text-orange-300" />
+                        <span className="text-xs text-orange-300 font-medium">AI Suggestion</span>
+                        <span className="text-[8px] text-orange-300/70 ml-1">Llama 3.3 70B</span>
+                      </div>
+                      <div className="text-xs text-orange-300">
+                        <p>Suggested: {aiSuggestions.scheduling.suggestedTime}</p>
+                        <p>Duration: {aiSuggestions.scheduling.suggestedDuration}min</p>
+                        <p>Priority: {aiSuggestions.scheduling.suggestedPriority}</p>
+                        <p>Category: {aiSuggestions.scheduling.suggestedCategory}</p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => applyAiSuggestion('scheduling')}
-                      className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30"
+                      className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded hover:bg-orange-500/30 h-fit"
                     >
                       Apply
                     </button>
