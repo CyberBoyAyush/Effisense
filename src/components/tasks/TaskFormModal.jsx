@@ -251,11 +251,55 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     setAiSuggestions({ ...aiSuggestions, [field]: null });
   };
 
+  // Add resetForm function
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    const now = new Date();
+    setDeadline(now.toLocaleDateString('en-CA'));
+    setTime(now.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    setStartDate(now);
+    
+    const endDate = new Date(now);
+    endDate.setHours(endDate.getHours() + 1);
+    setEndTime(endDate.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }));
+    setEndDate(endDate);
+    
+    setPriority("medium");
+    setStatus("pending");
+    setCategory("work");
+    setSyncWithGoogle(false);
+    setIsRecurring(false);
+    setRecurringType("daily");
+    setEnableReminders(false);
+    setReminderTime("15");
+    setDuration("60");
+    setAiSuggestions(null);
+    setTouched({});
+    setErrors({});
+    setCharactersLeft(500);
+    setIsDescriptionExpanded(false);
+  };
+
   useEffect(() => {
     // Reset form when modal opens
     if (isOpen) {
       try {
-        // Reset touched state
+        // Reset form state when opening for a new task
+        if (!taskToEdit && !defaultDateTime) {
+          resetForm();
+          return;
+        }
+
+        // Reset touched state and errors
         setTouched({});
         setErrors({});
         
