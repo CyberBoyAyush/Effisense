@@ -94,6 +94,14 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
   const [showStartTimeDropdown, setShowStartTimeDropdown] = useState(false);
   const [showEndTimeDropdown, setShowEndTimeDropdown] = useState(false);
   
+  // Add state for custom time inputs
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
+  
+  // Add state for AM/PM selection in custom time inputs
+  const [customStartTimePeriod, setCustomStartTimePeriod] = useState('AM');
+  const [customEndTimePeriod, setCustomEndTimePeriod] = useState('AM');
+  
   // Generate time options in 15-minute intervals
   const generateTimeOptions = () => {
     const options = [];
@@ -187,6 +195,10 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Add these refs to store references to the currently selected time options
+  const selectedStartTimeRef = useRef(null);
+  const selectedEndTimeRef = useRef(null);
 
   // Fast connection check that uses cache when possible
   const checkGoogleCalendarConnection = async () => {
@@ -1069,6 +1081,108 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </button>
   );
 
+  // Parse a 12h time format to 24h format
+  const convert12hTo24h = (timeStr, period) => {
+    if (!timeStr) return '';
+    
+    // Check if time already has AM/PM marker
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+      // Extract just the time part
+      timeStr = timeStr.replace(/\s?(am|pm)/i, '').trim();
+    }
+
+    // Split hours and minutes
+    let [hours, minutes] = timeStr.split(':').map(num => parseInt(num, 10));
+    if (isNaN(hours) || isNaN(minutes)) return '';
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    // Ensure proper formatting with leading zeros
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Improved validation for both 12h and 24h formats
+  const validateTimeInput = (timeStr) => {
+    // Check for 24h format (HH:MM)
+    const time24hRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    
+    // Check for 12h format (h:MM AM/PM)
+    const time12hRegex = /^(1[0-2]|0?[1-9]):([0-5][0-9])(\s?(AM|PM|am|pm))?$/;
+    
+    return time24hRegex.test(timeStr) || time12hRegex.test(timeStr);
+  };
+
+  // Handle custom time input validation and submission
+  const handleCustomTimeSubmit = (isStartTime, customTimeValue, period) => {
+    let timeValue = customTimeValue;
+    
+    // Check if valid time format (accept both 12h and 24h formats)
+    if (validateTimeInput(timeValue)) {
+      // If it's in 12h format or doesn't specify AM/PM, apply the selected period
+      if (!timeValue.toLowerCase().includes('am') && !timeValue.toLowerCase().includes('pm')) {
+        // Convert to 24h format using the selected period
+        timeValue = convert12hTo24h(timeValue, period);
+      } else {
+        // Extract the AM/PM from the string and convert
+        const isPM = timeValue.toLowerCase().includes('pm');
+        timeValue = convert12hTo24h(
+          timeValue.replace(/\s?(am|pm)/i, '').trim(),
+          isPM ? 'PM' : 'AM'
+        );
+      }
+      
+      // Process the time (now in 24h format)
+      handleTimeSelection(timeValue, isStartTime);
+      
+      // Reset the custom time input
+      if (isStartTime) {
+        setCustomStartTime('');
+        setShowStartTimeDropdown(false);
+      } else {
+        setCustomEndTime('');
+        setShowEndTimeDropdown(false);
+      }
+    } else {
+      // Invalid time format
+      setErrors({
+        ...errors,
+        customTime: `Invalid time format. Please use h:mm AM/PM or HH:MM format`
+      });
+      
+      // Clear the error after 3 seconds
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.customTime;
+          return newErrors;
+        });
+      }, 3000);
+    }
+  };
+
+  // Handle custom time input change
+  const handleCustomTimeChange = (e, isStartTime) => {
+    const value = e.target.value;
+    if (isStartTime) {
+      setCustomStartTime(value);
+    } else {
+      setCustomEndTime(value);
+    }
+  };
+
+  // Handle key press in custom time input (submit on Enter)
+  const handleCustomTimeKeyPress = (e, isStartTime) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCustomTimeSubmit(isStartTime, isStartTime ? customStartTime : customEndTime, isStartTime ? customStartTimePeriod : customEndTimePeriod);
+    }
+  };
+
   // Custom time picker renderer for Start Time
   const renderCustomStartTimePicker = () => (
     <div className="relative" ref={startTimeDropdownRef}>
@@ -1092,8 +1206,18 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       
       {/* Time Dropdown */}
       {showStartTimeDropdown && (
-        <div className="absolute z-10 mt-1 w-full rounded-md bg-gray-800 shadow-lg border border-gray-700 max-h-60 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-          <div className="py-1">
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 shadow-lg border border-gray-700 rounded-md overflow-hidden" 
+          style={{
+            maxHeight: '300px',
+            overflowY: 'auto',
+          }}>
+          {/* Standard time options header */}
+          <div className="py-1 bg-gray-800 sticky top-0 z-10 border-b border-gray-700">
+            <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">Standard times</div>
+          </div>
+          
+          {/* Standard time options */}
+          <div>
             {timeOptions.map((option) => (
               <button
                 key={option.value}
@@ -1101,16 +1225,98 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
                   ${time === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
                 onClick={() => handleTimeSelection(option.value, true)}
+                // Add ref to the currently selected option for auto-scrolling
+                ref={time === option.value ? selectedStartTimeRef : null}
               >
                 {option.display}
               </button>
             ))}
           </div>
+          
+          {/* Custom time input section - now part of the normal flow */}
+          <div className="p-2 bg-gray-800 border-t border-gray-700">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="custom-start-time" className="text-xs text-orange-400 font-medium">
+                  Custom time
+                </label>
+                <span className="text-[10px] text-gray-400">(12 or 24h format)</span>
+              </div>
+              
+              {/* Time input field - always full width */}
+              <div className="relative w-full">
+                <input
+                  id="custom-start-time"
+                  type="text"
+                  placeholder="1:30"
+                  value={customStartTime}
+                  onChange={(e) => handleCustomTimeChange(e, true)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCustomTimeSubmit(true, customStartTime, customStartTimePeriod);
+                    }
+                  }}
+                  className="w-full h-9 px-2.5 py-1.5 bg-gray-900/80 border border-gray-700 rounded-md
+                    text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 
+                    focus:ring-orange-500 focus:border-transparent pl-7"
+                />
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <IoTimeOutline className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              
+              {/* Control buttons - flex row on mobile, but grid on desktop */}
+              <div className="flex flex-row gap-1.5 sm:grid sm:grid-cols-2 sm:gap-2 sm:mt-2">
+                {/* AM/PM toggle - full width on desktop */}
+                <div className="flex h-9 rounded-md overflow-hidden border border-gray-700 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomStartTimePeriod('AM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customStartTimePeriod === 'AM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">AM</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomStartTimePeriod('PM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customStartTimePeriod === 'PM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">PM</span>
+                  </button>
+                </div>
+                
+                {/* Apply button - full width on desktop */}
+                <button
+                  type="button"
+                  onClick={() => handleCustomTimeSubmit(true, customStartTime, customStartTimePeriod)}
+                  className="h-9 px-3 bg-orange-600 text-white rounded-md hover:bg-orange-500 
+                    transition-colors text-xs font-medium flex-1 flex items-center justify-center"
+                >
+                  Apply
+                </button>
+              </div>
+              
+              {errors.customTime && (
+                <p className="text-red-500 text-xs mt-1">{errors.customTime}</p>
+              )}
+              
+              <p className="text-[10px] text-gray-400">
+                Examples: <span className="text-gray-300">1:30</span>, <span className="text-gray-300">1:30 PM</span>, <span className="text-gray-300">13:30</span>
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
-  
+
   // Custom time picker renderer for End Time
   const renderCustomEndTimePicker = () => (
     <div className="relative" ref={endTimeDropdownRef}>
@@ -1134,8 +1340,18 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
       
       {/* End Time Dropdown */}
       {showEndTimeDropdown && (
-        <div className="absolute z-10 mt-1 w-full rounded-md bg-gray-800 shadow-lg border border-gray-700 max-h-60 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-          <div className="py-1">
+        <div className="absolute z-50 mt-1 w-full bg-gray-800 shadow-lg border border-gray-700 rounded-md overflow-hidden" 
+          style={{
+            maxHeight: '300px',
+            overflowY: 'auto',
+          }}>
+          {/* Standard time options header */}
+          <div className="py-1 bg-gray-800 sticky top-0 z-10 border-b border-gray-700">
+            <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">Standard times</div>
+          </div>
+          
+          {/* Standard time options */}
+          <div>
             {timeOptions.map((option) => (
               <button
                 key={option.value}
@@ -1143,18 +1359,118 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                 className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
                   ${endTime === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
                 onClick={() => handleTimeSelection(option.value, false)}
+                // Add ref to the currently selected option for auto-scrolling
+                ref={endTime === option.value ? selectedEndTimeRef : null}
               >
                 {option.display}
               </button>
             ))}
           </div>
+          
+          {/* Custom time input section - now part of the normal flow */}
+          <div className="p-2 bg-gray-800 border-t border-gray-700">
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="custom-end-time" className="text-xs text-orange-400 font-medium">
+                  Custom time
+                </label>
+                <span className="text-[10px] text-gray-400">(12 or 24h format)</span>
+              </div>
+              
+              {/* Time input field - always full width */}
+              <div className="relative w-full">
+                <input
+                  id="custom-end-time"
+                  type="text"
+                  placeholder="2:30"
+                  value={customEndTime}
+                  onChange={(e) => handleCustomTimeChange(e, false)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCustomTimeSubmit(false, customEndTime, customEndTimePeriod);
+                    }
+                  }}
+                  className="w-full h-9 px-2.5 py-1.5 bg-gray-900/80 border border-gray-700 rounded-md
+                    text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 
+                    focus:ring-orange-500 focus:border-transparent pl-7"
+                />
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <IoTimeOutline className="h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              
+              {/* Control buttons - flex row on mobile, but grid on desktop */}
+              <div className="flex flex-row gap-1.5 sm:grid sm:grid-cols-2 sm:gap-2 sm:mt-2">
+                {/* AM/PM toggle - full width on desktop */}
+                <div className="flex h-9 rounded-md overflow-hidden border border-gray-700 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomEndTimePeriod('AM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customEndTimePeriod === 'AM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">AM</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomEndTimePeriod('PM')}
+                    className={`text-center flex-1 transition-colors flex items-center justify-center
+                      ${customEndTimePeriod === 'PM' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                  >
+                    <span className="text-xs font-medium">PM</span>
+                  </button>
+                </div>
+                
+                {/* Apply button - full width on desktop */}
+                <button
+                  type="button"
+                  onClick={() => handleCustomTimeSubmit(false, customEndTime, customEndTimePeriod)}
+                  className="h-9 px-3 bg-orange-600 text-white rounded-md hover:bg-orange-500 
+                    transition-colors text-xs font-medium flex-1 flex items-center justify-center"
+                >
+                  Apply
+                </button>
+              </div>
+              
+              {errors.customTime && (
+                <p className="text-red-500 text-xs mt-1">{errors.customTime}</p>
+              )}
+              
+              <p className="text-[10px] text-gray-400">
+                Examples: <span className="text-gray-300">2:30</span>, <span className="text-gray-300">2:30 PM</span>, <span className="text-gray-300">14:30</span>
+              </p>
+            </div>
+          </div>
         </div>
-      )}
-      {touched.endTime && errors.endTime && (
-        <p className="text-red-500 text-xs mt-0.5">{errors.endTime}</p>
       )}
     </div>
   );
+
+  useEffect(() => {
+    // Auto-scroll to the selected time when dropdown opens
+    if (showStartTimeDropdown && selectedStartTimeRef.current) {
+      setTimeout(() => {
+        selectedStartTimeRef.current.scrollIntoView({
+          behavior: 'auto',
+          block: 'center'
+        });
+      }, 10);
+    }
+    
+    if (showEndTimeDropdown && selectedEndTimeRef.current) {
+      setTimeout(() => {
+        selectedEndTimeRef.current.scrollIntoView({
+          behavior: 'auto',
+          block: 'center'
+        });
+      }, 10);
+    }
+  }, [showStartTimeDropdown, showEndTimeDropdown]);
 
   if (!isOpen) return null;
   
