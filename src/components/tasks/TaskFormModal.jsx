@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import { getCurrentUser } from '../../utils/appwrite'; // Add this import
 import "react-datepicker/dist/react-datepicker.css";
@@ -85,6 +85,108 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
 
   // Add this right after state declarations
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Add refs for the time dropdown menus
+  const startTimeDropdownRef = useRef(null);
+  const endTimeDropdownRef = useRef(null);
+  
+  // Add state for time dropdown visibility
+  const [showStartTimeDropdown, setShowStartTimeDropdown] = useState(false);
+  const [showEndTimeDropdown, setShowEndTimeDropdown] = useState(false);
+  
+  // Generate time options in 15-minute intervals
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const hour = h.toString().padStart(2, '0');
+        const minute = m.toString().padStart(2, '0');
+        const timeValue = `${hour}:${minute}`;
+        
+        // For display format - convert to 12h format with AM/PM
+        let displayHour = h % 12;
+        if (displayHour === 0) displayHour = 12;
+        const ampm = h < 12 ? 'AM' : 'PM';
+        const displayTime = `${displayHour}:${minute.padStart(2, '0')} ${ampm}`;
+        
+        options.push({ value: timeValue, display: displayTime });
+      }
+    }
+    return options;
+  };
+  
+  const timeOptions = generateTimeOptions();
+  
+  // Format a 24h time string (HH:MM) to 12h format for display
+  const formatTimeTo12h = (time24h) => {
+    if (!time24h) return "";
+    const [hours, minutes] = time24h.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+  
+  // Convert 12h time format to Date object
+  const timeStringToDate = (timeStr, baseDate) => {
+    if (!timeStr || !baseDate) return new Date();
+    
+    const date = new Date(baseDate);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    date.setHours(hours);
+    date.setMinutes(minutes);
+    return date;
+  };
+  
+  // Handle time selection from dropdown
+  const handleTimeSelection = (timeValue, isStartTime) => {
+    if (isStartTime) {
+      const newStartDate = timeStringToDate(timeValue, startDate);
+      setStartDate(newStartDate);
+      setTime(timeValue);
+      setShowStartTimeDropdown(false);
+      
+      // Update end time based on duration
+      if (duration) {
+        const durationMs = parseInt(duration) * 60 * 1000;
+        const newEndDate = new Date(newStartDate.getTime() + durationMs);
+        setEndDate(newEndDate);
+        setEndTime(newEndDate.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      }
+    } else {
+      const newEndDate = timeStringToDate(timeValue, endDate);
+      setEndDate(newEndDate);
+      setEndTime(timeValue);
+      setShowEndTimeDropdown(false);
+      
+      // Update duration if start time exists
+      if (startDate) {
+        const durationMs = newEndDate.getTime() - startDate.getTime();
+        const durationMinutes = Math.max(Math.round(durationMs / (60 * 1000)), 15);
+        setDuration(durationMinutes.toString());
+      }
+    }
+  };
+  
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (startTimeDropdownRef.current && !startTimeDropdownRef.current.contains(event.target)) {
+        setShowStartTimeDropdown(false);
+      }
+      if (endTimeDropdownRef.current && !endTimeDropdownRef.current.contains(event.target)) {
+        setShowEndTimeDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fast connection check that uses cache when possible
   const checkGoogleCalendarConnection = async () => {
@@ -967,6 +1069,93 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
     </button>
   );
 
+  // Custom time picker renderer for Start Time
+  const renderCustomStartTimePicker = () => (
+    <div className="relative" ref={startTimeDropdownRef}>
+      <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
+        <IoTimeOutline className="text-orange-400 text-xs" />
+        <span>Start Time</span>
+      </label>
+      <button
+        type="button"
+        className="w-full p-1.5 sm:p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-md
+          text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+          hover:border-gray-600 transition-colors text-sm sm:text-base flex justify-between items-center"
+        onClick={() => setShowStartTimeDropdown(!showStartTimeDropdown)}
+      >
+        <span>{formatTimeTo12h(time)}</span>
+        <svg className={`w-4 h-4 text-orange-500 transition-transform ${showStartTimeDropdown ? 'rotate-180' : ''}`} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* Time Dropdown */}
+      {showStartTimeDropdown && (
+        <div className="absolute z-10 mt-1 w-full rounded-md bg-gray-800 shadow-lg border border-gray-700 max-h-60 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+          <div className="py-1">
+            {timeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
+                  ${time === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
+                onClick={() => handleTimeSelection(option.value, true)}
+              >
+                {option.display}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  
+  // Custom time picker renderer for End Time
+  const renderCustomEndTimePicker = () => (
+    <div className="relative" ref={endTimeDropdownRef}>
+      <label className="text-gray-300 text-xs font-medium block mb-1">
+        End Time
+      </label>
+      <button
+        type="button"
+        className={`w-full p-1.5 sm:p-2.5 bg-gray-900/50 border rounded-md
+          text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
+          ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700/60'}
+          hover:border-gray-600 transition-colors text-sm sm:text-base flex justify-between items-center`}
+        onClick={() => setShowEndTimeDropdown(!showEndTimeDropdown)}
+      >
+        <span>{formatTimeTo12h(endTime)}</span>
+        <svg className={`w-4 h-4 text-orange-500 transition-transform ${showEndTimeDropdown ? 'rotate-180' : ''}`} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* End Time Dropdown */}
+      {showEndTimeDropdown && (
+        <div className="absolute z-10 mt-1 w-full rounded-md bg-gray-800 shadow-lg border border-gray-700 max-h-60 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+          <div className="py-1">
+            {timeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors
+                  ${endTime === option.value ? 'bg-orange-600/20 text-orange-400' : 'text-gray-200'}`}
+                onClick={() => handleTimeSelection(option.value, false)}
+              >
+                {option.display}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {touched.endTime && errors.endTime && (
+        <p className="text-red-500 text-xs mt-0.5">{errors.endTime}</p>
+      )}
+    </div>
+  );
+
   if (!isOpen) return null;
   
   return (
@@ -1162,27 +1351,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   />
                 </div>
                 
-                {/* Start Time inline with Date */}
-                <div>
-                  <label className="text-gray-300 text-xs font-medium flex items-center gap-1 mb-1">
-                    <IoTimeOutline className="text-orange-400 text-xs" />
-                    <span>Start Time</span>
-                  </label>
-                  <DatePicker
-                    selected={startDate}
-                    onChange={handleStartDateChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="h:mm aa"
-                    className="w-full p-1.5 sm:p-2.5 bg-gray-900/50 border border-gray-700/60 rounded-md
-                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
-                      hover:border-gray-600 transition-colors text-sm sm:text-base"
-                    calendarClassName="dark-calendar"
-                    wrapperClassName="w-full"
-                  />
-                </div>
+                {/* Start Time - Replace DatePicker with custom component */}
+                {renderCustomStartTimePicker()}
               </div>
               
               {/* Compact Duration and End Time Row */}
@@ -1218,30 +1388,8 @@ const TaskFormModal = ({ isOpen, onClose, onSave, taskToEdit, defaultDateTime })
                   </div>
                 </div>
                 
-                {/* End Time */}
-                <div>
-                  <label className="text-gray-300 text-xs font-medium block mb-1">
-                    End Time
-                  </label>
-                  <DatePicker
-                    selected={endDate}
-                    onChange={handleEndDateChange}
-                    showTimeSelect
-                    showTimeSelectOnly
-                    timeIntervals={15}
-                    timeCaption="Time"
-                    dateFormat="h:mm aa"
-                    className={`w-full p-1.5 sm:p-2.5 bg-gray-900/50 border rounded-md
-                      text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500
-                      ${touched.endTime && errors.endTime ? 'border-red-500' : 'border-gray-700/60'}
-                      hover:border-gray-600 transition-colors text-sm sm:text-base`}
-                    calendarClassName="dark-calendar"
-                    wrapperClassName="w-full"
-                  />
-                  {touched.endTime && errors.endTime && (
-                    <p className="text-red-500 text-xs mt-0.5">{errors.endTime}</p>
-                  )}
-                </div>
+                {/* End Time - Replace DatePicker with custom component */}
+                {renderCustomEndTimePicker()}
               </div>
               
               {/* Compact Tips - Combined with AI suggestion */}
