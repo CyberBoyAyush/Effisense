@@ -70,11 +70,17 @@ const Analytics = () => {
             ? Math.round((todayCompletionRate - yesterdayCompletionRate) / yesterdayCompletionRate * 100) 
             : 0;
           
+          // First calculate streak data
+          const streakData = calculateStreakData(userTasks);
+          
+          // Then calculate current streak consistently from the streak data
+          const currentStreak = calculateCurrentStreak(streakData);
+          
           setActiveMetrics({
             completed,
             total,
             completion: completionRate,
-            streak: getStreak(userTasks),
+            streak: currentStreak, // Use the consistently calculated streak value
             trend
           });
           
@@ -98,39 +104,62 @@ const Analytics = () => {
     fetchTasks();
   }, []);
   
-  // Calculate streak
-  const getStreak = (taskData) => {
+  // Helper function to calculate streak data - moved from getTaskStreak
+  const calculateStreakData = (taskData) => {
     const today = new Date();
-    const dates = [];
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(today.getDate() - 13);
     
-    // Get dates with completed tasks
+    // Initialize streak data
+    const streakData = [];
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(twoWeeksAgo);
+      date.setDate(date.getDate() + i);
+      const dateString = date.toISOString().split('T')[0];
+      
+      streakData.push({
+        date: dateString,
+        displayDate: date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
+        hasCompletedTask: false
+      });
+    }
+    
+    // Mark days with completed tasks
     taskData.forEach(task => {
-      if (task.status === 'completed' && task.completedAt) {
-        const completedDate = new Date(task.completedAt).toDateString();
-        if (!dates.includes(completedDate)) {
-          dates.push(completedDate);
+      if (task.completedAt && task.status === 'completed') {
+        const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
+        const streakDay = streakData.find(day => day.date === completedDate);
+        if (streakDay) {
+          streakDay.hasCompletedTask = true;
         }
       }
     });
     
-    // Sort dates in descending order (most recent first)
-    dates.sort((a, b) => new Date(b) - new Date(a));
+    return streakData;
+  };
+  
+  // Helper function to calculate current streak consistently
+  const calculateCurrentStreak = (streakData) => {
+    let streak = 0;
+    const reversedStreak = [...streakData].reverse();
     
-    let currentStreak = 0;
-    let currentDate = new Date();
-    
-    // Calculate streak by checking consecutive days
-    while (true) {
-      const dateString = currentDate.toDateString();
-      if (dates.includes(dateString)) {
-        currentStreak++;
-        currentDate.setDate(currentDate.getDate() - 1);
+    for (const day of reversedStreak) {
+      if (day.hasCompletedTask) {
+        streak++;
       } else {
         break;
       }
     }
     
-    return currentStreak;
+    return streak;
+  };
+  
+  // This function is no longer needed as we're using the consistent streak calculation
+  // but we'll keep it for backward compatibility
+  const getStreak = (taskData) => {
+    // Create streak data using the consistent method
+    const streakData = calculateStreakData(taskData);
+    return calculateCurrentStreak(streakData);
   };
   
   // Regenerate AI insights on demand
@@ -627,37 +656,9 @@ const Analytics = () => {
     return hourCounts.filter(hour => hour.hour >= 6 && hour.hour <= 23);
   };
   
+  // Get task streak data using the consistent method
   const getTaskStreak = () => {
-    const today = new Date();
-    const twoWeeksAgo = new Date(today);
-    twoWeeksAgo.setDate(today.getDate() - 13);
-    
-    // Initialize streak data
-    const streakData = [];
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(twoWeeksAgo);
-      date.setDate(date.getDate() + i);
-      const dateString = date.toISOString().split('T')[0];
-      
-      streakData.push({
-        date: dateString,
-        displayDate: date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
-        hasCompletedTask: false
-      });
-    }
-    
-    // Mark days with completed tasks
-    tasks.forEach(task => {
-      if (task.completedAt && task.status === 'completed') {
-        const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
-        const streakDay = streakData.find(day => day.date === completedDate);
-        if (streakDay) {
-          streakDay.hasCompletedTask = true;
-        }
-      }
-    });
-    
-    return streakData;
+    return calculateStreakData(tasks);
   };
   
   // Helper function for category colors
@@ -677,23 +678,12 @@ const Analytics = () => {
   const taskStatusData = getTaskStatusBreakdown();
   const categoryDistribution = getCategoryDistribution();
   const productivityHours = getProductivityByHour();
+  
+  // Prepare streak data once and reuse
   const streakData = getTaskStreak();
   
-  // Calculate streak count (consecutive days with completed tasks)
-  const currentStreak = (() => {
-    let streak = 0;
-    const reversedStreak = [...streakData].reverse();
-    
-    for (const day of reversedStreak) {
-      if (day.hasCompletedTask) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    
-    return streak;
-  })();
+  // Calculate streak count using the consistent method
+  const currentStreak = calculateCurrentStreak(streakData);
   
   // Color constants for charts - Updated to match orangish theme
   const COLORS = ['#f97316', '#fb923c', '#f59e0b', '#fdba74', '#ea580c'];
