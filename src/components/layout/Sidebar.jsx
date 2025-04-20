@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -13,12 +13,41 @@ import {
   FaPalette,
   FaShieldAlt,
   FaQuestionCircle,
-  FaChartPie
+  FaChartPie,
+  FaGoogle,
+  FaCheck,
+  FaSpinner
 } from "react-icons/fa";
 import { IoSettingsSharp } from "react-icons/io5";
+import { checkSignedInStatus } from '../../utils/googleCalendar';
 
 const Sidebar = ({ hidelogo = false, onClose }) => {
   const location = useLocation();
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+
+  // Check if user is authenticated
+  const user = JSON.parse(localStorage.getItem("loggedInUser"));
+  
+  // Check Google Calendar connection status when component mounts
+  useEffect(() => {
+    if (user) {
+      const checkGoogleConnection = async () => {
+        try {
+          setIsCheckingConnection(true);
+          const connected = await checkSignedInStatus();
+          setGoogleConnected(connected);
+        } catch (error) {
+          console.error("Error checking Google Calendar connection:", error);
+          setGoogleConnected(false);
+        } finally {
+          setIsCheckingConnection(false);
+        }
+      };
+      
+      checkGoogleConnection();
+    }
+  }, [user]);
 
   // Add container animation variants
   const containerVariants = {
@@ -139,6 +168,54 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
         transition={{ delay: 0.5 }}
         className="p-4 border-t border-orange-800/20 space-y-2"
       >
+        {/* Google Calendar Sync Status */}
+        <motion.div
+          whileHover={{ 
+            scale: 1.02,
+            transition: { type: "spring", stiffness: 400 }
+          }}
+          className="mb-3"
+        >
+          <Link 
+            to="/settings#google-calendar"
+            className="flex items-center justify-between py-2 px-4 bg-gradient-to-r from-gray-800/60 to-gray-900/60 
+              border border-gray-700/30 text-gray-300 rounded-lg hover:border-orange-500/20 transition-all duration-200"
+          >
+            <div className="flex items-center gap-3">
+              <motion.div
+                animate={{ 
+                  rotate: isCheckingConnection ? 360 : 0,
+                  transition: { 
+                    repeat: isCheckingConnection ? Infinity : 0,
+                    duration: 1.5
+                  }
+                }}
+                className={`${googleConnected ? 'text-[#4285F4]' : 'text-gray-500'}`}
+              >
+                <FaGoogle />
+              </motion.div>
+              <span>Calendar Sync</span>
+            </div>
+            
+            {/* Status Indicator */}
+            {isCheckingConnection ? (
+              <div className="bg-gray-700/50 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                <FaSpinner className="animate-spin text-blue-400" size={10} />
+                <span>Checking</span>
+              </div>
+            ) : googleConnected ? (
+              <div className="bg-green-500/10 text-xs px-2 py-1 rounded-full text-green-400 flex items-center gap-1 border border-green-500/20">
+                <FaCheck size={10} />
+                <span>Connected</span>
+              </div>
+            ) : (
+              <div className="bg-orange-500/10 text-xs px-2 py-1 rounded-full text-orange-400 border border-orange-500/20">
+                Connect
+              </div>
+            )}
+          </Link>
+        </motion.div>
+        
         <motion.div
           whileHover={{ 
             scale: 1.02,
