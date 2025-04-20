@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { 
   FaCalendarAlt, FaSignOutAlt, FaUserCircle, FaChevronDown,
   FaTachometerAlt, FaListUl, FaCalendarCheck, FaUserCog,
-  FaBell, FaCog, FaQuestionCircle, FaGoogle, FaCheck, FaTimes
+  FaBell, FaCog, FaQuestionCircle, FaGoogle, FaCheck, FaTimes,
+  FaChartLine // Add import for analytics icon
 } from "react-icons/fa";
 import { checkSignedInStatus } from '../../utils/googleCalendar';
 
@@ -19,7 +20,7 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   
   // Check if current path is a protected route
-  const isProtectedRoute = ['/dashboard', '/tasks', '/calendar'].some(
+  const isProtectedRoute = ['/dashboard', '/tasks', '/calendar', '/analytics'].some(
     path => location.pathname.startsWith(path)
   );
 
@@ -175,6 +176,7 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
                         <NavLink to="/dashboard" icon={<FaTachometerAlt />} label="Dashboard" />
                         <NavLink to="/tasks" icon={<FaListUl />} label="Tasks" />
                         <NavLink to="/calendar" icon={<FaCalendarCheck />} label="Calendar" />
+                        <NavLink to="/analytics" icon={<FaChartLine />} label="Analytics" />
                       </div>
                       
                       {/* Integrations Section - With dynamic connection status */}

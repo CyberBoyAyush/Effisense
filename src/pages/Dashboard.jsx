@@ -428,19 +428,81 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Calendar Preview - Updated with icon */}
+      {/* Upcoming Updates Section - Replaces Calendar Preview */}
       <div className="mt-4 sm:mt-6 md:mt-8 p-3 sm:p-4 md:p-6 bg-gradient-to-r from-gray-800/30 to-orange-900/10 rounded-2xl backdrop-blur-sm border border-orange-700/20">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-semibold text-white flex items-center gap-3">
             <FaCalendarAlt className="text-orange-400" />
-            <span>Upcoming Events</span>
+            <span>Upcoming Effisense Updates</span>
           </h2>
-          <Link to="/calendar" className="text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-2">
-            <span>View Calendar</span>
-            <span className="text-xs">→</span>
-          </Link>
+          <a 
+            href="mailto:connect@ayush-sharma.in?subject=Effisense%20Feature%20Suggestion" 
+            className="px-3 py-1.5 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg 
+              hover:from-orange-500 hover:to-amber-500 transition-all duration-200 text-sm font-medium 
+              flex items-center gap-2 shadow-lg shadow-orange-600/10"
+          >
+            <span>Mail us suggestions</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+            </svg>
+          </a>
         </div>
-        <p className="text-gray-400 mt-4">Calendar integration coming soon!</p>
+        
+        <div className="mt-6 space-y-4">
+          {/* Feature timeline */}
+          <div className="relative pl-8 border-l-2 border-orange-500/30">
+            <div className="absolute -left-2 top-0">
+              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-amber-500"></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-orange-400">Email Reports</h3>
+              <p className="text-gray-300 text-sm mt-1">Weekly email reports summarizing your productivity and tasks progress.</p>
+              <div className="text-gray-400 text-xs mt-1.5 flex items-center gap-1.5">
+                <FaRegClock className="text-orange-400/70" />
+                <span>Coming in Q2 2025</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative pl-8 border-l-2 border-orange-500/30">
+            <div className="absolute -left-2 top-0">
+              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-amber-500"></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-orange-400">Push Notifications</h3>
+              <p className="text-gray-300 text-sm mt-1">Real-time task reminders delivered to your browser.</p>
+              <div className="text-gray-400 text-xs mt-1.5 flex items-center gap-1.5">
+                <FaRegClock className="text-orange-400/70" />
+                <span>Coming in Q3 2025</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative pl-8 border-l-2 border-orange-500/30">
+            <div className="absolute -left-2 top-0">
+              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-amber-500"></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-orange-400">Progressive Web App</h3>
+              <p className="text-gray-300 text-sm mt-1">Install Effisense as an app on your mobile devices with offline support.</p>
+              <div className="text-gray-400 text-xs mt-1.5 flex items-center gap-1.5">
+                <FaRegClock className="text-orange-400/70" />
+                <span>Coming in Q4 2025</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative pl-8">
+            <div className="absolute -left-2 top-0">
+              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 border-2 border-gray-800"></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-400">Have a feature request?</h3>
+              <p className="text-gray-300 text-sm mt-1">We're constantly improving! Email us your suggestions and help shape the future of Effisense.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <TaskFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} />
