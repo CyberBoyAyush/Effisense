@@ -20,13 +20,6 @@ const Signup = () => {
   const [step, setStep] = useState(1);
   const [verificationSent, setVerificationSent] = useState(false);
 
-  // Redirect if user is already logged in
-  useEffect(() => {
-    const loggedInUser = localStorage.getItem("loggedInUser");
-    if (loggedInUser) {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
 
   // Password strength validation
   const validatePassword = (value) => {
