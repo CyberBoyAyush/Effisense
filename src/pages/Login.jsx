@@ -20,14 +20,6 @@ const Login = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Redirect if user is already logged in
-  useEffect(() => {
-    const loggedInUser = localStorage.getItem("loggedInUser");
-    if (loggedInUser) {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
-
   // Check for success message from reset password page
   useEffect(() => {
     if (location.state?.successMessage) {

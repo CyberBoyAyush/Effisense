@@ -7,8 +7,10 @@ import {
 import { 
   FaChartLine, FaChartPie, FaChartBar, FaClock, FaLightbulb, 
   FaBrain, FaSpinner, FaSyncAlt, FaFire, FaCalendarAlt,
-  FaFilter, FaDownload, FaArrowUp, FaArrowDown
+  FaFilter, FaDownload, FaArrowUp, FaArrowDown, FaFilePdf
 } from "react-icons/fa";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 import { getUserTasks } from "../utils/database";
 import { generateFreeTimeSuggestions, generateBehaviorInsights } from "../utils/aiAssistant";
@@ -157,27 +159,298 @@ const Analytics = () => {
     }
   };
 
-  // Export analytics data to CSV
-  const handleExportData = () => {
+  // Generate and export analytics data as PDF
+  const handleExportData = async () => {
     try {
-      // Prepare CSV data from tasks
-      const headers = "Task Name,Status,Category,Created Date,Completed Date\n";
-      const csvData = tasks.map(task => {
-        return `"${task.title || ''}","${task.status || ''}","${task.category || ''}","${task.createdAt || ''}","${task.completedAt || ''}"`;
-      }).join('\n');
+      setIsLoading(true);
       
-      // Create and download the file
-      const blob = new Blob([headers + csvData], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'effisense_analytics.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Create a new PDF document
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      let yPos = margin;
+      
+      // Add header/logo
+      doc.setFillColor(33, 35, 41); // Dark background
+      doc.rect(0, 0, pageWidth, 80, 'F');
+      
+      // Add title
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(249, 115, 22); // Orange
+      doc.setFontSize(24);
+      doc.text('Effisense Analytics Report', pageWidth / 2, yPos, {align: 'center'});
+      
+      // Add date
+      yPos += 20;
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long', 
+        day: 'numeric'
+      })}`, pageWidth / 2, yPos, {align: 'center'});
+      
+      // Add summary section
+      yPos += 60;
+      doc.setTextColor(249, 115, 22); // Orange
+      doc.setFontSize(16);
+      doc.text('Summary Metrics', margin, yPos);
+      
+      // Add metrics
+      yPos += 30;
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(12);
+      doc.setDrawColor(249, 115, 22, 0.5); // Light orange border
+      
+      // Create metrics table
+      const metricsData = [
+        ['Total Tasks', activeMetrics.total.toString()],
+        ['Completed Tasks', activeMetrics.completed.toString()],
+        ['Completion Rate', `${activeMetrics.completion}%`],
+        ['Current Streak', `${activeMetrics.streak} day${activeMetrics.streak !== 1 ? 's' : ''}`],
+        ['Trend', `${activeMetrics.trend > 0 ? '+' : ''}${activeMetrics.trend}%`]
+      ];
+      
+      const cellWidth = (pageWidth - (margin * 2)) / 2;
+      
+      // Draw metrics table
+      metricsData.forEach((row, index) => {
+        const rowY = yPos + (index * 30);
+        
+        // Background color alternating rows
+        if (index % 2 === 0) {
+          doc.setFillColor(245, 245, 245);
+        } else {
+          doc.setFillColor(255, 255, 255);
+        }
+        doc.rect(margin, rowY - 15, cellWidth * 2, 30, 'F');
+        
+        // Draw border
+        doc.rect(margin, rowY - 15, cellWidth * 2, 30, 'S');
+        doc.line(margin + cellWidth, rowY - 15, margin + cellWidth, rowY + 15);
+        
+        // Add text
+        doc.setFont('helvetica', 'bold');
+        doc.text(row[0], margin + 10, rowY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(row[1], margin + cellWidth + 10, rowY);
+      });
+      
+      yPos += (metricsData.length * 30) + 20;
+      
+      // Generate Task Trend Chart image
+      try {
+        const chartContainer = document.querySelector('.weekly-trend-chart');
+        if (chartContainer) {
+          const canvas = await html2canvas(chartContainer, {
+            scale: 2,
+            backgroundColor: '#1f2937',
+          });
+          const chartImage = canvas.toDataURL('image/png');
+          
+          // Add chart heading
+          doc.setTextColor(249, 115, 22); // Orange
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Task Trend Analysis', margin, yPos);
+          
+          // Add chart image
+          yPos += 20;
+          const chartWidth = pageWidth - (margin * 2);
+          const chartHeight = (chartWidth * canvas.height) / canvas.width;
+          doc.addImage(chartImage, 'PNG', margin, yPos, chartWidth, chartHeight);
+          
+          yPos += chartHeight + 30;
+        }
+      } catch (err) {
+        console.error("Error generating chart image:", err);
+      }
+      
+      // Add task category distribution
+      doc.setTextColor(249, 115, 22); // Orange
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Task Category Distribution', margin, yPos);
+      
+      yPos += 20;
+      const categoryData = getCategoryDistribution();
+      
+      // Create a category table
+      const catTableY = yPos;
+      
+      categoryData.forEach((category, index) => {
+        const rowY = yPos + (index * 25);
+        
+        // Color for category
+        const catColor = category.fill;
+        
+        // Draw color indicator
+        doc.setFillColor(catColor.replace('#', ''));
+        doc.circle(margin + 10, rowY, 6, 'F');
+        
+        // Draw category name and count
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(50, 50, 50);
+        doc.text(category.name, margin + 25, rowY + 5);
+        doc.text(category.count.toString(), margin + 150, rowY + 5);
+      });
+      
+      yPos += (categoryData.length * 25) + 30;
+      
+      // Add behavior insights if available
+      if (behaviorInsights && behaviorInsights.length > 0) {
+        doc.setTextColor(249, 115, 22); // Orange
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AI-Generated Insights', margin, yPos);
+        
+        yPos += 20;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(12);
+        
+        behaviorInsights.forEach((insight, index) => {
+          // Check if adding this text would exceed the page height
+          if (yPos > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            yPos = margin;
+          }
+          
+          // Add insight bullet point
+          doc.text(`• ${insight}`, margin, yPos);
+          yPos += 20;
+        });
+      }
+      
+      // Add task data table
+      yPos += 20;
+      
+      // Check if we need a new page for the table
+      if (yPos > doc.internal.pageSize.getHeight() - 100) {
+        doc.addPage();
+        yPos = margin;
+      }
+      
+      doc.setTextColor(249, 115, 22); // Orange
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Task Details', margin, yPos);
+      
+      yPos += 20;
+      
+      // Table headers
+      const headers = ['Task Name', 'Status', 'Category', 'Created Date'];
+      const colWidths = [(pageWidth - (margin * 2)) * 0.4, (pageWidth - (margin * 2)) * 0.2, (pageWidth - (margin * 2)) * 0.2, (pageWidth - (margin * 2)) * 0.2];
+      
+      // Draw table header
+      doc.setFillColor(249, 115, 22);
+      doc.rect(margin, yPos - 15, pageWidth - (margin * 2), 25, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      
+      let xPos = margin + 10;
+      headers.forEach((header, i) => {
+        doc.text(header, xPos, yPos);
+        xPos += colWidths[i];
+      });
+      
+      yPos += 15;
+      
+      // Draw table rows (limited to first 10 tasks to avoid very large documents)
+      const taskLimit = Math.min(tasks.length, 10);
+      const taskSample = tasks.slice(0, taskLimit);
+      
+      taskSample.forEach((task, index) => {
+        // Check if we need a new page
+        if (yPos > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          yPos = margin;
+          
+          // Redraw header on new page
+          doc.setFillColor(249, 115, 22);
+          doc.rect(margin, yPos - 15, pageWidth - (margin * 2), 25, 'F');
+          
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(12);
+          
+          let headerXPos = margin + 10;
+          headers.forEach((header, i) => {
+            doc.text(header, headerXPos, yPos);
+            headerXPos += colWidths[i];
+          });
+          
+          yPos += 15;
+        }
+        
+        // Alternating row colors
+        if (index % 2 === 0) {
+          doc.setFillColor(245, 245, 245);
+        } else {
+          doc.setFillColor(255, 255, 255);
+        }
+        doc.rect(margin, yPos - 15, pageWidth - (margin * 2), 25, 'F');
+        
+        // Add row data
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        
+        let cellX = margin + 10;
+        
+        // Task name (truncated if too long)
+        const title = (task.title || 'Untitled').length > 30 
+          ? (task.title || 'Untitled').substring(0, 27) + '...' 
+          : (task.title || 'Untitled');
+        doc.text(title, cellX, yPos);
+        cellX += colWidths[0];
+        
+        // Status
+        doc.text(task.status || 'pending', cellX, yPos);
+        cellX += colWidths[1];
+        
+        // Category
+        doc.text(task.category || 'uncategorized', cellX, yPos);
+        cellX += colWidths[2];
+        
+        // Created Date
+        const createdDate = task.createdAt 
+          ? new Date(task.createdAt).toLocaleDateString() 
+          : 'N/A';
+        doc.text(createdDate, cellX, yPos);
+        
+        yPos += 25;
+      });
+      
+      // Add note if we limited the tasks
+      if (tasks.length > taskLimit) {
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`* Showing ${taskLimit} of ${tasks.length} total tasks`, margin, yPos);
+      }
+      
+      // Add footer with page numbers
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(10);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 20);
+        
+        // Add branding footer
+        doc.setTextColor(249, 115, 22);
+        doc.setFontSize(10);
+        doc.text('Powered by Effisense', margin, doc.internal.pageSize.getHeight() - 20);
+      }
+      
+      // Save the PDF
+      doc.save('effisense_analytics_report.pdf');
+      
     } catch (err) {
-      console.error("Error exporting data:", err);
+      console.error("Error exporting PDF:", err);
+      setError("Failed to export PDF. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -605,7 +878,7 @@ const Analytics = () => {
             onClick={handleExportData}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-800/80 text-orange-300 rounded-lg border border-orange-500/20 hover:bg-orange-500/10 transition-colors"
           >
-            <FaDownload className="text-xs" /> Export
+            <FaFilePdf className="text-xs" /> Export PDF
           </button>
         </div>
       </motion.div>
@@ -689,12 +962,12 @@ const Analytics = () => {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Weekly Task Trend Chart (Line Chart) */}
+        {/* Weekly Task Trend Chart (Line Chart) - Adding a class name for PDF export */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-gradient-to-br from-gray-800/30 to-gray-900/30 backdrop-blur-md border border-orange-500/20 rounded-xl p-5 lg:col-span-2 transition-all duration-300 shadow-lg"
+          className="bg-gradient-to-br from-gray-800/30 to-gray-900/30 backdrop-blur-md border border-orange-500/20 rounded-xl p-5 lg:col-span-2 transition-all duration-300 shadow-lg weekly-trend-chart"
           whileHover={{ boxShadow: "0 8px 30px rgba(249, 115, 22, 0.07)", y: -2 }}
         >
           <div className="flex items-center justify-between mb-5">
