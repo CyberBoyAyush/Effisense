@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaEnvelope, FaLock, FaRegEye, FaRegEyeSlash, FaGoogle, FaUser, FaCheckCircle } from "react-icons/fa";
@@ -19,6 +19,14 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [verificationSent, setVerificationSent] = useState(false);
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    const loggedInUser = localStorage.getItem("loggedInUser");
+    if (loggedInUser) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
 
   // Password strength validation
   const validatePassword = (value) => {
