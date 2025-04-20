@@ -995,7 +995,7 @@ const Analytics = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                 <XAxis 
                   dataKey="date" 
-                  tick={{ fill: '#d1d5db', fontSize: 12 }}
+                  // Removing duplicate tick attribute
                   tickLine={{ stroke: '#4B5563' }}
                   axisLine={{ stroke: '#4B5563' }}
                   tick={props => {
