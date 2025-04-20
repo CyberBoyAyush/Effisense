@@ -12,7 +12,8 @@ import {
   FaBell,
   FaPalette,
   FaShieldAlt,
-  FaQuestionCircle
+  FaQuestionCircle,
+  FaChartPie
 } from "react-icons/fa";
 import { IoSettingsSharp } from "react-icons/io5";
 
@@ -117,6 +118,9 @@ const Sidebar = ({ hidelogo = false, onClose }) => {
           </NavLink>
           <NavLink to="/calendar" icon={<FaCalendarAlt />} gradient="from-purple-600/20 to-pink-600/20">
             Calendar
+          </NavLink>
+          <NavLink to="/analytics" icon={<FaChartPie />} gradient="from-green-600/20 to-emerald-600/20">
+            Analytics
           </NavLink>
         </motion.div>
 

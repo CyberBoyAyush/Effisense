@@ -327,3 +327,173 @@ export const suggestScheduling = async ({
     return {};
   }
 };
+
+/**
+ * Generate AI-powered suggestions for optimal free time slots
+ * @param {array} tasks - User's tasks
+ * @returns {Promise<Object>} - Free time suggestions with reasoning
+ */
+export const generateFreeTimeSuggestions = async (tasks) => {
+  if (!tasks?.length) return { 
+    slots: [], 
+    focusWindow: null, 
+    reasoning: "Not enough task data to generate suggestions."
+  };
+
+  // Analyze the tasks to find patterns and open slots
+  const busyHours = {};
+  const daysOfWeek = {};
+  const today = new Date();
+  
+  // Track busy times from existing tasks
+  tasks.forEach(task => {
+    if (!task.endTime) return;
+    
+    try {
+      // Extract hour from endTime
+      const endTime = new Date(task.endTime);
+      const hour = endTime.getHours();
+      
+      // Count occurrences by hour
+      busyHours[hour] = (busyHours[hour] || 0) + 1;
+      
+      // Track day of week patterns
+      const day = endTime.getDay();
+      daysOfWeek[day] = (daysOfWeek[day] || 0) + 1;
+    } catch (err) {
+      // Skip invalid dates
+    }
+  });
+  
+  // Prepare data for AI analysis
+  const workHours = [9, 10, 11, 12, 13, 14, 15, 16, 17];
+  const hoursData = workHours.map(hour => ({
+    hour,
+    busy: busyHours[hour] || 0,
+    timeString: `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`
+  })).sort((a, b) => a.busy - b.busy);
+
+  // Find least busy hours for suggestions
+  const freeSlots = hoursData
+    .filter(h => h.busy < Math.max(...Object.values(busyHours)) / 2)
+    .slice(0, 3)
+    .map(h => h.timeString);
+  
+  // Find best deep focus window (2 consecutive hours with low activity)
+  let bestWindow = null;
+  let lowestBusy = Infinity;
+  
+  for (let i = 0; i < workHours.length - 1; i++) {
+    const hour1 = workHours[i];
+    const hour2 = workHours[i + 1];
+    const totalBusy = (busyHours[hour1] || 0) + (busyHours[hour2] || 0);
+    
+    if (totalBusy < lowestBusy) {
+      lowestBusy = totalBusy;
+      bestWindow = {
+        start: `${hour1 > 12 ? hour1 - 12 : hour1}${hour1 >= 12 ? 'PM' : 'AM'}`,
+        end: `${hour2 > 12 ? hour2 - 12 : hour2}${hour2 >= 12 ? 'PM' : 'AM'}`
+      };
+    }
+  }
+
+  // Generate reason based on patterns
+  let reasoning = '';
+  if (Math.max(...Object.values(busyHours)) === 0) {
+    reasoning = "You don't have many scheduled tasks yet. These time slots are standard productivity periods.";
+  } else {
+    const timeOfDay = freeSlots.length > 0 && freeSlots[0].includes('AM') ? 'mornings' : 'afternoons';
+    reasoning = `Your ${timeOfDay} tend to be less busy, making them ideal for focused work.`;
+  }
+
+  return {
+    slots: freeSlots,
+    focusWindow: bestWindow ? `${bestWindow.start} - ${bestWindow.end}` : null,
+    reasoning
+  };
+};
+
+/**
+ * Generate personalized behavior insights for the user based on task history
+ * @param {array} tasks - User's tasks
+ * @returns {Promise<Array>} - Personalized behavior insights
+ */
+export const generateBehaviorInsights = async (tasks) => {
+  if (!tasks?.length || tasks.length < 5) {
+    return [
+      "Start adding more tasks to get personalized productivity insights.",
+      "Complete a few more tasks to see AI-driven behavior analysis."
+    ];
+  }
+
+  try {
+    const messages = [
+      {
+        role: 'system',
+        content: `You are an AI productivity analyst specialized in identifying behavioral patterns.
+        
+        Analyze task data to provide practical, actionable insights about the user's productivity habits.
+        
+        Guidelines:
+        - Focus on patterns like time of day, day of week, completion rates, and category distribution
+        - Provide exactly 2-3 short, specific, actionable insights (max 140 chars each)
+        - Be positive but honest, highlighting both strengths and areas for improvement
+        - Include exact percentages and specific times when relevant
+        - Phrase as direct statements, not questions
+        - Do not mention holidays, weekends, or specific calendar dates
+        - Do not speculate on the user's personal life
+        
+        Insights should follow this format:
+        - "You complete 75% more tasks in the morning hours (8-11AM). Schedule high-priority work then."
+        - "Try reducing your meeting tasks by 30% on Tuesdays—your busiest day—to gain 2 hours of focus time."
+        - "Health tasks have the highest completion rate (87%). Consider using similar approaches for work tasks."
+        
+        Return response as a JSON array containing 2-3 strings, with no other text:
+        ["Insight one", "Insight two", "Insight three"]`
+      },
+      {
+        role: 'user',
+        content: `Here's my task data: ${JSON.stringify(
+          tasks.map(task => ({
+            category: task.category || 'uncategorized',
+            status: task.status || 'pending',
+            created: task.createdAt || null,
+            completed: task.completedAt || null,
+            deadline: task.deadline || null,
+            endTime: task.endTime || null,
+            priority: task.priority || 'medium'
+          }))
+        )}`
+      }
+    ];
+
+    const response = await makeGroqRequest(messages, 0.7);
+    
+    if (typeof response === 'string') {
+      try {
+        // Try to parse as JSON array
+        const jsonMatch = response.match(/(\[.*\])/s);
+        if (jsonMatch && jsonMatch[0]) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.slice(0, 3); // Ensure max 3 insights
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing behavior insights:', error);
+      }
+    }
+    
+    // Fallback insights if parsing fails
+    return [
+      "You tend to be more productive with tasks scheduled in the morning.",
+      "Consider breaking large tasks into smaller subtasks for better completion rates."
+    ];
+  } catch (error) {
+    console.error('Error generating behavior insights:', error);
+    return [
+      "Error generating insights. Try refreshing the page.",
+      "Continue building your task history for better analysis."
+    ];
+  }
+};

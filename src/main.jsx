@@ -11,6 +11,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Calendar from "./pages/Calendar";
+import Analytics from "./pages/Analytics"; // Import the Analytics component
 import Settings from "./pages/Settings";
 import AuthCallback from "./pages/AuthCallback";
 import Privacy from "./pages/Privacy";
@@ -46,6 +47,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/calendar" element={
             <ProtectedRoute>
               <Calendar />
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <Analytics />
             </ProtectedRoute>
           } />
           <Route path="/settings" element={
