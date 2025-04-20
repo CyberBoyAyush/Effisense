@@ -20,7 +20,7 @@ const Navbar = ({ onMenuClick, showMenuButton }) => {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   
   // Check if current path is a protected route
-  const isProtectedRoute = ['/dashboard', '/tasks', '/calendar'].some(
+  const isProtectedRoute = ['/dashboard', '/tasks', '/calendar', '/analytics'].some(
     path => location.pathname.startsWith(path)
   );
 
