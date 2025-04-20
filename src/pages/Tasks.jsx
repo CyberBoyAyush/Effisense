@@ -15,9 +15,15 @@ const Tasks = () => {
   const { addToast } = useToast();
   const [filter, setFilter] = useState('all');
   const [tasks, setTasks] = useState([]);
+  const [allTasks, setAllTasks] = useState([]); // New state to store all tasks regardless of filter
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [operationLoading, setOperationLoading] = useState({
+    saving: false,
+    deleting: false,
+    toggling: null, // Will store the task ID being toggled
+  });
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
   // Check Google Calendar connection status
@@ -33,25 +39,37 @@ const Tasks = () => {
   // Define fetchTasks as a useCallback function so it can be used in other functions
   const fetchTasks = useCallback(async () => {
     try {
-      setIsLoading(true);
+      // Only show loading on initial data fetch
+      if (tasks.length === 0) {
+        setIsInitialLoading(true);
+      }
+      
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
       
       if (user) {
-        let fetchedTasks;
+        // Always fetch all tasks for accurate counts
+        const fetchedAllTasks = await getUserTasks(user.$id);
+        setAllTasks(fetchedAllTasks);
+        
+        // Apply filter to determine which tasks to display
+        let filteredTasks;
         if (filter === 'completed') {
-          fetchedTasks = await getCompletedTasks(user.$id);
+          filteredTasks = await getCompletedTasks(user.$id);
         } else if (filter === 'active') {
-          fetchedTasks = await getActiveTasks(user.$id);
+          filteredTasks = await getActiveTasks(user.$id);
+        } else if (filter === 'all') {
+          filteredTasks = fetchedAllTasks;
         } else {
-          fetchedTasks = await getUserTasks(user.$id);
+          // For date-based filters, filter the all tasks locally
+          filteredTasks = fetchedAllTasks.filter(task => shouldShowTaskInCurrentFilter(task, filter));
         }
-        setTasks(fetchedTasks);
+        setTasks(filteredTasks);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
       addToast('Error fetching tasks', 'error');
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   }, [filter, addToast]);
 
@@ -66,10 +84,10 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
-  // Updated handleSaveTask function that handles Google Calendar sync directly
+  // Updated handleSaveTask function with optimized state management
   const handleSaveTask = async (taskData) => {
     try {
-      setIsLoading(true);
+      setOperationLoading(prev => ({ ...prev, saving: true }));
       
       // Get current user from localStorage
       const user = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -80,10 +98,26 @@ const Tasks = () => {
         // Update existing task
         savedTask = await updateTask(taskData.$id, taskData);
         console.log("Task updated successfully:", savedTask);
+        
+        // Update both task states
+        setTasks(prevTasks => prevTasks.map(task => 
+          task.$id === savedTask.$id ? savedTask : task
+        ));
+        setAllTasks(prevAllTasks => prevAllTasks.map(task => 
+          task.$id === savedTask.$id ? savedTask : task
+        ));
       } else {
         // Create new task
         savedTask = await createTask(taskData, user.$id);
         console.log("Task created successfully:", savedTask);
+        
+        // Always update allTasks
+        setAllTasks(prevAllTasks => [...prevAllTasks, savedTask]);
+        
+        // Only update visible tasks if it should be shown in current filter
+        if (shouldShowTaskInCurrentFilter(savedTask, filter)) {
+          setTasks(prevTasks => [...prevTasks, savedTask]);
+        }
       }
       
       // Handle Google Calendar sync if enabled
@@ -105,20 +139,70 @@ const Tasks = () => {
         }
       }
       
-      // Refresh tasks after save
-      await fetchTasks();
-      
       // Show success toast
       addToast('Task saved successfully!', 'success');
-      
-      setIsLoading(false);
       return savedTask;
       
     } catch (error) {
       console.error('Error saving task:', error);
-      setIsLoading(false);
       addToast('Error saving task. Please try again.', 'error');
       throw error;
+    } finally {
+      setOperationLoading(prev => ({ ...prev, saving: false }));
+    }
+  };
+
+  // Helper function to determine if a task should be shown in the current filter
+  const shouldShowTaskInCurrentFilter = (task, currentFilter) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Calculate weekend dates
+    const getWeekendDates = () => {
+      const saturday = new Date(today);
+      const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
+      saturday.setDate(today.getDate() + daysUntilSaturday);
+      
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+      
+      return [saturday, sunday];
+    };
+    
+    const [weekendStart, weekendEnd] = getWeekendDates();
+    
+    const isDateEqual = (dateStr, targetDate) => {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      return date.getDate() === targetDate.getDate() && 
+             date.getMonth() === targetDate.getMonth() && 
+             date.getFullYear() === targetDate.getFullYear();
+    };
+    
+    const isWeekend = (dateStr) => {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      return isDateEqual(dateStr, weekendStart) || isDateEqual(dateStr, weekendEnd);
+    };
+
+    switch (currentFilter) {
+      case 'all': 
+        return true;
+      case 'completed': 
+        return task.status === 'completed';
+      case 'active': 
+        return task.status !== 'completed';
+      case 'today': 
+        return isDateEqual(task.deadline, today);
+      case 'tomorrow': 
+        return isDateEqual(task.deadline, tomorrow);
+      case 'weekend': 
+        return isWeekend(task.deadline);
+      default: 
+        return true;
     }
   };
 
@@ -131,6 +215,7 @@ const Tasks = () => {
     setIsModalOpen(true);
   };
 
+  // Optimized delete with immediate UI update
   const handleDeleteTask = async (taskToDelete) => {
     try {
       // Check if we have a task object or just an ID
@@ -143,20 +228,30 @@ const Tasks = () => {
         return;
       }
       
+      // Immediately update both UI states optimistically
+      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
+      setAllTasks(prevAllTasks => prevAllTasks.filter(task => task.$id !== taskId));
+      
+      // Update loading state for specific task
+      setOperationLoading(prev => ({ ...prev, deleting: taskId }));
+      
       // Clean the task ID to ensure it meets Appwrite's requirements
       const validTaskId = taskId.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 36);
       console.log('Deleting task with cleaned ID:', validTaskId);
       
       await deleteTask(validTaskId);
-      setTasks(prevTasks => prevTasks.filter(task => task.$id !== taskId));
       addToast('Task deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting task:', error);
       addToast('Failed to delete task. Please try again.', 'error');
+      // Restore the task in case of error - fetch all tasks again
+      fetchTasks();
+    } finally {
+      setOperationLoading(prev => ({ ...prev, deleting: null }));
     }
   };
 
-  // Enhanced toggle with local state management
+  // Enhanced toggle with optimistic update
   const handleToggleComplete = async (task) => {
     try {
       if (!task || !task.$id) {
@@ -168,10 +263,19 @@ const Tasks = () => {
       const isCurrentlyCompleted = task.status === 'completed';
       const newStatus = isCurrentlyCompleted ? 'pending' : 'completed';
       
+      // Set loading state for this specific task
+      setOperationLoading(prev => ({ ...prev, toggling: task.$id }));
+      
+      // Optimistically update the UI
+      const updatedTask = { ...task, status: newStatus };
+      
+      // Update allTasks always
+      setAllTasks(prevAllTasks => prevAllTasks.map(t => 
+        t.$id === task.$id ? updatedTask : t
+      ));
+      
       // Check if task should be removed from current view based on filter
-      const shouldRemoveFromView = 
-        (filter === 'completed' && !isCurrentlyCompleted) || 
-        (filter === 'active' && isCurrentlyCompleted);
+      const shouldRemoveFromView = !shouldShowTaskInCurrentFilter(updatedTask, filter);
       
       if (shouldRemoveFromView) {
         // Remove task from view immediately
@@ -179,7 +283,7 @@ const Tasks = () => {
       } else {
         // Update task status in the current view
         setTasks(prevTasks => prevTasks.map(t => 
-          t.$id === task.$id ? { ...t, status: newStatus } : t
+          t.$id === task.$id ? updatedTask : t
         ));
       }
       
@@ -192,23 +296,14 @@ const Tasks = () => {
     } catch (error) {
       console.error('Error toggling task completion:', error);
       addToast('Failed to update task status. Please try again.', 'error');
-      // Refresh tasks to ensure consistency
-      const user = JSON.parse(localStorage.getItem('loggedInUser'));
-      if (user) {
-        let fetchedTasks;
-        if (filter === 'completed') {
-          fetchedTasks = await getCompletedTasks(user.$id);
-        } else if (filter === 'active') {
-          fetchedTasks = await getActiveTasks(user.$id);
-        } else {
-          fetchedTasks = await getUserTasks(user.$id);
-        }
-        setTasks(fetchedTasks);
-      }
+      // Restore original state by fetching all tasks
+      fetchTasks();
+    } finally {
+      setOperationLoading(prev => ({ ...prev, toggling: null }));
     }
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="p-4 flex items-center justify-center min-h-[200px]">
         <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
@@ -274,7 +369,7 @@ const Tasks = () => {
 
   return (
     <div className="p-2 sm:p-4 md:p-6 text-gray-200">
-      {/* Header section - Updated with orange theme and better icons */}
+      {/* Header section */}
       <div className="bg-gradient-to-r from-gray-800/50 to-orange-900/30 p-4 sm:p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-orange-800/30">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -289,15 +384,26 @@ const Tasks = () => {
           </div>
           <button
             onClick={handleAddTask}
-            className="w-full sm:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-500 
-              transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
+            disabled={operationLoading.saving}
+            className={`w-full sm:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-500 
+              transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2
+              ${operationLoading.saving ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            <span>Add Task</span>
-            <FaPlus />
+            {operationLoading.saving ? (
+              <>
+                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <span>Add Task</span>
+                <FaPlus />
+              </>
+            )}
           </button>
         </div>
         
-        {/* Filter tabs - Updated with icons */}
+        {/* Filter tabs - Updated to use allTasks for counts */}
         <div className="mt-4 sm:mt-6">
           {/* Status filters */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -306,33 +412,33 @@ const Tasks = () => {
               Status:
             </span>
             <FilterButton current={filter} value="all" onClick={setFilter}>
-              All ({tasks.length})
+              All ({allTasks.length})
             </FilterButton>
             <FilterButton current={filter} value="active" onClick={setFilter}>
-              Active ({tasks.filter(t => t.status !== 'completed').length})
+              Active ({allTasks.filter(t => t.status !== 'completed').length})
             </FilterButton>
             <FilterButton current={filter} value="completed" onClick={setFilter}>
-              Completed ({tasks.filter(t => t.status === 'completed').length})
+              Completed ({allTasks.filter(t => t.status === 'completed').length})
             </FilterButton>
           </div>
           
-          {/* Date filters with icons */}
+          {/* Date filters with icons - Updated to use allTasks for counts */}
           <div className="flex flex-wrap items-center gap-2 overflow-x-auto py-1 -mx-1 px-1">
             <span className="text-sm text-gray-400 flex items-center gap-1">
               <FaCalendarDay className="text-orange-400/70" />
               Date:
             </span>
             <FilterButton current={filter} value="today" onClick={setFilter} special IconComponent={FaCalendarDay}>
-              Today ({tasks.filter(t => isDateEqual(t.deadline, today)).length})
+              Today ({allTasks.filter(t => isDateEqual(t.deadline, today)).length})
             </FilterButton>
             <FilterButton current={filter} value="tomorrow" onClick={setFilter} IconComponent={FaCalendarPlus}>
-              Tomorrow ({tasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
+              Tomorrow ({allTasks.filter(t => isDateEqual(t.deadline, tomorrow)).length})
             </FilterButton>
             <FilterButton current={filter} value="weekend" onClick={setFilter} IconComponent={FaUmbrellaBeach}>
-              Weekend ({tasks.filter(t => isWeekend(t.deadline)).length})
+              Weekend ({allTasks.filter(t => isWeekend(t.deadline)).length})
             </FilterButton>
             <FilterButton current={filter} value="yesterday" onClick={setFilter} IconComponent={FaHistory}>
-              Yesterday ({tasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
+              Yesterday ({allTasks.filter(t => isDateEqual(t.deadline, yesterday)).length})
             </FilterButton>
           </div>
         </div>
@@ -341,13 +447,21 @@ const Tasks = () => {
       <div className="mt-8">
         {/* If today, tomorrow, or weekend is selected, show relevant sections */}
         {filter === 'all' && (
-          <TaskSections tasks={tasks} today={today} tomorrow={tomorrow} 
-            weekend={[weekendStart, weekendEnd]} isDateEqual={isDateEqual} isWeekend={isWeekend} 
-            handleEditTask={handleEditTask} handleDeleteTask={handleDeleteTask}
-            handleToggleComplete={handleToggleComplete} />
+          <TaskSections 
+            tasks={tasks} 
+            today={today} 
+            tomorrow={tomorrow} 
+            weekend={[weekendStart, weekendEnd]} 
+            isDateEqual={isDateEqual} 
+            isWeekend={isWeekend} 
+            handleEditTask={handleEditTask} 
+            handleDeleteTask={handleDeleteTask}
+            handleToggleComplete={handleToggleComplete}
+            operationLoading={operationLoading}
+          />
         )}
         
-        {/* For filtered views - Updated with orange theme */}
+        {/* For filtered views */}
         {filter !== 'all' && (
           <>
             {filteredTasks.length === 0 ? (
@@ -365,6 +479,7 @@ const Tasks = () => {
                   onEdit={handleEditTask} 
                   onDelete={handleDeleteTask}
                   onToggleComplete={handleToggleComplete}
+                  operationLoading={operationLoading}
                 />
               </div>
             )}
@@ -372,13 +487,14 @@ const Tasks = () => {
         )}
       </div>
 
-      {/* Use React portal to render modals outside of parent containers */}
+      {/* Task form modal */}
       {isModalOpen && createPortal(
         <TaskFormModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
           onSave={handleSaveTask} 
-          taskToEdit={taskToEdit} 
+          taskToEdit={taskToEdit}
+          isLoading={operationLoading.saving}
         />,
         document.body
       )}
@@ -404,7 +520,7 @@ const FilterButton = ({ current, value, onClick, children, special, IconComponen
   </button>
 );
 
-// New component for empty state - Updated with orange theme border
+// EmptyTasksMessage component
 const EmptyTasksMessage = ({ filter }) => {
   let message, emoji;
   
@@ -443,7 +559,7 @@ const EmptyTasksMessage = ({ filter }) => {
   );
 };
 
-// New component to display section icon
+// TasksIcon component
 const TasksIcon = ({ filter }) => {
   switch(filter) {
     case 'today': return <FaCalendarDay className="text-orange-400" />;
@@ -455,8 +571,8 @@ const TasksIcon = ({ filter }) => {
   }
 };
 
-// Updated TaskSections component with orange theme
-const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend, handleEditTask, handleDeleteTask, handleToggleComplete }) => {
+// Updated TaskSections component with loading state
+const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend, handleEditTask, handleDeleteTask, handleToggleComplete, operationLoading }) => {
   const todayTasks = tasks.filter(t => isDateEqual(t.deadline, today) && t.status !== 'completed');
   const tomorrowTasks = tasks.filter(t => isDateEqual(t.deadline, tomorrow) && t.status !== 'completed');
   const weekendTasks = tasks.filter(t => isWeekend(t.deadline) && t.status !== 'completed');
@@ -480,6 +596,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
+          operationLoading={operationLoading}
         />
       )}
       
@@ -493,6 +610,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
+          operationLoading={operationLoading}
         />
       )}
       
@@ -506,6 +624,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
+          operationLoading={operationLoading}
         />
       )}
       
@@ -519,6 +638,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
+          operationLoading={operationLoading}
         />
       )}
       
@@ -532,6 +652,7 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleComplete={handleToggleComplete}
+          operationLoading={operationLoading}
           completed
           collapsible
         />
@@ -540,8 +661,8 @@ const TaskSections = ({ tasks, today, tomorrow, weekend, isDateEqual, isWeekend,
   );
 };
 
-// Updated TaskSection component with orange theme
-const TaskSection = ({ title, tasks, icon, accentColor = "orange", onEdit, onDelete, onToggleComplete, completed = false, collapsible = false }) => {
+// Updated TaskSection component to include loading state
+const TaskSection = ({ title, tasks, icon, accentColor = "orange", onEdit, onDelete, onToggleComplete, operationLoading, completed = false, collapsible = false }) => {
   const [collapsed, setCollapsed] = useState(collapsible);
   
   // Set border and accent colors based on the provided color - Updated with orange
@@ -582,6 +703,7 @@ const TaskSection = ({ title, tasks, icon, accentColor = "orange", onEdit, onDel
             onEdit={onEdit} 
             onDelete={onDelete}
             onToggleComplete={onToggleComplete}
+            operationLoading={operationLoading}
           />
         </div>
       </div>
