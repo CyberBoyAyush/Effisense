@@ -116,6 +116,11 @@ Drop your email in the comments of this [LinkedIn post](https://www.linkedin.com
 
 ---
 
-## 📄 License
+📄 License
 
-MIT License © 2025 Ayush Sharma
+Effisense is licensed under the GNU General Public License v3.0.
+
+This means:
+	•	You can use, modify, and share the code freely.
+	•	You must credit the original author (Ayush Sharma) with original repository link.
+	•	If you distribute modified versions, they must also be open source under GPL v3.0.
